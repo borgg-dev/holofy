@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Holofy · Scan frame</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://api.fontshare.com/v2/css?f[]=clash-display@600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./demo.css" />
+  <style>
+    .scan { position: absolute; inset: 0; }
+
+    /* Stand-in camera preview: a dim photographed surface with a card on it. */
+    .preview {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(140% 90% at 50% 0%, #161422 0%, #0b0a12 55%, #07060c 100%);
+    }
+    .preview::after { /* the card the user is pointing at */
+      content: ""; position: absolute; left: 50%; top: 44%;
+      width: 58%; aspect-ratio: 0.714; transform: translate(-50%, -50%) rotate(-1.5deg);
+      border-radius: var(--radius-card);
+      background:
+        linear-gradient(160deg, #2a2740 0%, #1d1b2e 60%),
+        var(--color-neutral-150);
+      box-shadow: 0 14px 40px rgba(0,0,0,0.6);
+      opacity: 0.96;
+    }
+
+    /* Top bar */
+    .topbar {
+      position: absolute; top: 0; left: 0; right: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: var(--space-7) var(--space-5) var(--space-5);
+      z-index: 3;
+    }
+    .icbtn {
+      width: 44px; height: 44px; border-radius: var(--radius-pill);
+      display: grid; place-items: center; border: none; cursor: pointer;
+      background: rgba(17,17,27,0.55); color: var(--color-semantic-dark-text-primary);
+      backdrop-filter: blur(8px);
+    }
+    .icbtn:focus-visible { outline:none; box-shadow: 0 0 0 3px var(--color-semantic-dark-focus-ring); }
+    .modeseg {
+      display: inline-flex; background: rgba(17,17,27,0.55); backdrop-filter: blur(8px);
+      border-radius: var(--radius-pill); padding: 3px;
+    }
+    .modeseg button {
+      border: none; cursor: pointer; background: transparent; color: var(--color-semantic-dark-text-tertiary);
+      font-size: var(--typography-scale-overline-size); font-weight: 600; letter-spacing: 1px;
+      text-transform: uppercase; padding: 6px 14px; border-radius: var(--radius-pill);
+      min-height: 32px;
+    }
+    .modeseg button[aria-pressed="true"] { background: var(--color-semantic-dark-bg-raised); color: var(--color-semantic-dark-text-primary); }
+
+    /* Capture frame: corner brackets only. */
+    .frame {
+      position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%);
+      width: 62%; aspect-ratio: 0.714; z-index: 2;
+    }
+    .glow {
+      position: absolute; inset: -14%; border-radius: 40%;
+      background: var(--gradient-lock-glow); opacity: 0;
+      transition: opacity var(--motion-duration-base) var(--motion-easing-standard);
+    }
+    .scan[data-locked="true"] .glow { opacity: 1; }
+    .corner {
+      position: absolute; width: 30px; height: 30px;
+      border: 2px solid var(--color-neutral-700);
+      transition: border-color var(--motion-duration-base) var(--motion-easing-spring),
+                  width var(--motion-duration-base) var(--motion-easing-spring);
+    }
+    .scan[data-locked="true"] .corner { border-color: var(--color-semantic-dark-lock); width: 34px; height: 34px; }
+    .corner.tl { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: var(--radius-sm); }
+    .corner.tr { top: 0; right: 0; border-left: 0; border-bottom: 0; border-top-right-radius: var(--radius-sm); }
+    .corner.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; border-bottom-left-radius: var(--radius-sm); }
+    .corner.br { bottom: 0; right: 0; border-left: 0; border-top: 0; border-bottom-right-radius: var(--radius-sm); }
+    /* searching: dashed + breathe */
+    .scan[data-locked="false"] .corner { border-style: dashed; }
+    .scan[data-locked="false"] .frame { animation: breathe 1600ms var(--motion-easing-standard) infinite alternate; }
+    @keyframes breathe { to { transform: translate(-50%, -50%) scale(1.015); } }
+
+    /* Coaching */
+    .coach {
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
+      padding: var(--space-6) var(--space-5) var(--space-8);
+      display: flex; flex-direction: column; align-items: center; gap: var(--space-6);
+      background: linear-gradient(to top, rgba(7,6,12,0.85) 30%, transparent);
+    }
+    .chips { display: flex; gap: var(--space-3); flex-wrap: wrap; justify-content: center; }
+    .chip {
+      display: inline-flex; align-items: center; gap: var(--space-3);
+      background: rgba(17,17,27,0.72); backdrop-filter: blur(8px);
+      border-radius: var(--radius-pill); padding: 7px 12px 7px 10px;
+      font-size: var(--typography-scale-body-sm-size); font-weight: 600;
+      color: var(--color-neutral-900);
+    }
+    .chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--color-support-amber); flex: none; transition: background var(--motion-duration-fast); }
+    .chip[data-ok="true"] i { background: var(--color-teal-400); }
+
+    .shutter {
+      width: 78%; min-height: 56px; border-radius: var(--radius-pill);
+      border: 1.5px solid var(--color-teal-400); background: transparent;
+      color: var(--color-neutral-900); font-weight: 600; font-size: var(--typography-scale-label-size);
+      letter-spacing: var(--typography-scale-label-tracking); cursor: pointer;
+      transition: background var(--motion-duration-base) var(--motion-easing-standard),
+                  color var(--motion-duration-base) var(--motion-easing-standard);
+    }
+    .scan[data-locked="true"] .shutter { background: var(--color-teal-400); color: var(--color-neutral-0); border-color: transparent; }
+    .shutter:focus-visible { outline:none; box-shadow: 0 0 0 3px var(--color-semantic-dark-focus-ring); }
+    .shutter.shake { animation: shake 90ms var(--motion-easing-spring) 2; }
+    @keyframes shake { 25% { transform: translateX(-4px) } 75% { transform: translateX(4px) } }
+
+    .toast {
+      position: absolute; left: var(--space-5); right: var(--space-5); bottom: 140px; z-index: 4;
+      background: var(--color-support-amber-soft); color: #FBE9C6;
+      border-left: 3px solid var(--color-support-amber);
+      border-radius: var(--radius-sm); padding: var(--space-4) var(--space-5);
+      font-size: var(--typography-scale-body-sm-size);
+      opacity: 0; transform: translateY(6px); pointer-events: none;
+      transition: opacity var(--motion-duration-base), transform var(--motion-duration-base);
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* demo control row, outside the device aesthetic */
+    .controls { display:flex; gap: var(--space-4); }
+    .controls .btn--secondary { font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <div class="stage__head">
+      <h1>Scan frame</h1>
+      <a class="index" href="./index.html">← all screens</a>
+    </div>
+
+    <div class="device">
+      <section class="scan" id="scan" data-locked="false" aria-label="Card scanner">
+        <div class="preview" aria-hidden="true"></div>
+
+        <div class="topbar">
+          <button class="icbtn" aria-label="Back">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12 4l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="modeseg" role="group" aria-label="Capture mode">
+            <button aria-pressed="true">Scan</button>
+            <button aria-pressed="false">Stack</button>
+          </div>
+          <button class="icbtn" aria-label="Flash off">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M11 2L4 11h5l-1 7 7-9h-5l1-7z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+
+        <div class="frame" aria-hidden="true">
+          <span class="glow"></span>
+          <span class="corner tl"></span><span class="corner tr"></span>
+          <span class="corner bl"></span><span class="corner br"></span>
+        </div>
+
+        <div class="toast" id="toast" role="status">Let's get a cleaner shot — tilt away from the light.</div>
+
+        <div class="coach">
+          <div class="chips" id="chips" aria-live="polite">
+            <span class="chip" data-ok="false" data-key="focus"><i></i><span>Focusing…</span></span>
+            <span class="chip" data-ok="false" data-key="glare"><i></i><span>Tilt from light</span></span>
+            <span class="chip" data-ok="false" data-key="frame"><i></i><span>Show full card</span></span>
+          </div>
+          <button class="shutter" id="shutter" aria-disabled="true">Hold steady</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn--secondary" id="toggleLock">Toggle capture-lock</button>
+      <button class="btn btn--text" id="tryEarly">Tap shutter early</button>
+    </div>
+  </main>
+
+  <script>
+    const scan = document.getElementById('scan');
+    const shutter = document.getElementById('shutter');
+    const toast = document.getElementById('toast');
+    const chips = [...document.querySelectorAll('.chip')];
+    const lockedCopy = {
+      focus: 'Sharp', glare: 'No glare', frame: 'All 4 corners'
+    };
+    const searchCopy = {
+      focus: 'Focusing…', glare: 'Tilt from light', frame: 'Show full card'
+    };
+    function setLocked(on) {
+      scan.dataset.locked = String(on);
+      chips.forEach(c => {
+        const k = c.dataset.key;
+        c.dataset.ok = String(on);
+        c.querySelector('span').textContent = on ? lockedCopy[k] : searchCopy[k];
+        c.setAttribute('aria-label', `${k}: ${c.querySelector('span').textContent}`);
+      });
+      shutter.textContent = on ? 'Capture' : 'Hold steady';
+      shutter.setAttribute('aria-disabled', String(!on));
+      if (on && navigator.vibrate) navigator.vibrate(12);
+    }
+    document.getElementById('toggleLock').onclick =
+      () => setLocked(scan.dataset.locked !== 'true');
+
+    function refuse() {
+      shutter.classList.add('shake');
+      toast.classList.add('show');
+      setTimeout(() => shutter.classList.remove('shake'), 220);
+      setTimeout(() => toast.classList.remove('show'), 2600);
+    }
+    document.getElementById('tryEarly').onclick = refuse;
+    shutter.onclick = () => {
+      if (scan.dataset.locked === 'true') {
+        scan.animate([{filter:'brightness(1)'},{filter:'brightness(1.6)'},{filter:'brightness(1)'}], {duration:180});
+      } else refuse();
+    };
+  </script>
+</body>
+</html>

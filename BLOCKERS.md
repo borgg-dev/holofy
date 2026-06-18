@@ -13,7 +13,7 @@ Per the charter's autonomy contract, I build everything that doesn't need these.
 
 ### Legal (hard launch gates)
 - [ ] **Brand-name + IP review** — confirm "Holofy" is clear (EUIPO classes 9/42) and the tool-not-reseller posture + disclaimers are sound.
-- [ ] **Price-data redistribution terms** — written confirmation we can display aggregator-sourced Cardmarket/TCGPlayer prices commercially.
+- [ ] **Price-data redistribution terms (sharpened by Spike A)** — the technical € path is proven, but no aggregator's *public* terms explicitly grant commercial redistribution of Cardmarket prices. Needed: **written confirmation from Scrydex that its commercial tier permits displaying Cardmarket-sourced prices in a paid app**, or a legal opinion that aggregator-sourced display is defensible. This is the hard launch gate for the valuation feature.
 
 ## Resolved
 - (none yet)

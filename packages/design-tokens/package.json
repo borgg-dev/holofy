@@ -1,0 +1,17 @@
+{
+  "name": "@holofy/design-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Holofy Foil Vault design tokens — single source of truth (color, type, space, motion, the foil sweep).",
+  "type": "module",
+  "main": "./tokens.ts",
+  "exports": {
+    ".": "./tokens.ts",
+    "./css": "./tokens.css",
+    "./json": "./tokens.json"
+  },
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "files": ["tokens.json", "tokens.ts", "tokens.css", "build.mjs", "screens", "README.md"]
+}

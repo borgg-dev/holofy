@@ -1,0 +1,124 @@
+/* Shared demo shell. Consumes the real tokens — see ../../packages/design-tokens/tokens.css
+   (copied here by the token build so the demos are self-contained). Fonts are linked from
+   each HTML head: Manrope + Clash Display via Fontshare/Google. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    var(--gradient-vault-depth),
+    var(--color-semantic-dark-bg);
+  color: var(--color-semantic-dark-text-primary);
+  font-family: var(--typography-family-text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a { color: inherit; }
+
+.tnum { font-feature-settings: var(--typography-feature-tabular); }
+
+.overline {
+  font-size: var(--typography-scale-overline-size);
+  line-height: var(--typography-scale-overline-line-height);
+  font-weight: var(--typography-scale-overline-weight);
+  letter-spacing: var(--typography-scale-overline-tracking);
+  text-transform: uppercase;
+  color: var(--color-semantic-dark-text-tertiary);
+}
+
+/* The page chrome that frames each demo so it reads like a device, not a webpage. */
+.stage {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr;
+  place-items: center;
+  padding: var(--space-9) var(--space-6);
+  gap: var(--space-8);
+}
+
+.stage__head {
+  width: min(380px, 92vw);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.stage__head h1 {
+  font-family: var(--typography-family-display);
+  font-weight: 600;
+  font-size: var(--typography-scale-title-lg-size);
+  letter-spacing: var(--typography-scale-title-lg-tracking);
+  margin: 0;
+}
+.stage__head .index {
+  text-decoration: none;
+  font-size: var(--typography-scale-caption-size);
+  color: var(--color-semantic-dark-text-tertiary);
+}
+
+/* A phone-sized device frame so the mobile-first design reads honestly. */
+.device {
+  width: min(380px, 92vw);
+  aspect-ratio: 380 / 800;
+  border-radius: var(--radius-xl);
+  background: var(--color-semantic-dark-bg);
+  box-shadow: var(--elevation-3), 0 0 0 1px var(--color-semantic-dark-border) inset;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Reduced-motion: the demos honor it. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Buttons — the house style, used across demos. */
+.btn {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--typography-family-text);
+  font-size: var(--typography-scale-label-size);
+  letter-spacing: var(--typography-scale-label-tracking);
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+  min-height: 44px;
+  padding: 0 var(--space-7);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  transition: background var(--motion-duration-fast) var(--motion-easing-standard),
+              transform var(--motion-duration-fast) var(--motion-easing-standard),
+              border-color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+.btn:active { transform: translateY(1px) scale(0.99); }
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-semantic-dark-focus-ring);
+}
+.btn--primary {
+  background: var(--color-semantic-dark-accent);
+  color: var(--color-semantic-dark-text-on-accent);
+  height: 52px;
+}
+.btn--primary:hover { background: var(--color-semantic-dark-accent-hover); }
+.btn--secondary {
+  background: transparent;
+  color: var(--color-semantic-dark-text-primary);
+  box-shadow: 0 0 0 1.5px var(--color-semantic-dark-accent) inset;
+}
+.btn--secondary:hover { background: rgba(108,60,224,0.12); }
+.btn--text {
+  background: transparent;
+  color: var(--color-semantic-dark-text-secondary);
+  min-height: 36px;
+  padding: 0 var(--space-4);
+}
+.btn--text:hover { color: var(--color-semantic-dark-text-primary); }

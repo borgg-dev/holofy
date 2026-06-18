@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Holofy · Foil reveal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://api.fontshare.com/v2/css?f[]=clash-display@600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./demo.css" />
+  <style>
+    .reveal { position: absolute; inset: 0; padding: var(--space-8) var(--space-6) var(--space-7);
+      display: flex; flex-direction: column; }
+
+    .ident { text-align: left; }
+    .ident .name {
+      font-family: var(--typography-family-display); font-weight: 600;
+      font-size: var(--typography-scale-title-lg-size);
+      letter-spacing: var(--typography-scale-title-lg-tracking); margin: 4px 0 2px;
+    }
+    .ident .meta { font-size: var(--typography-scale-caption-size); color: var(--color-semantic-dark-text-tertiary); }
+
+    /* The card hero */
+    .cardwrap { perspective: 1100px; flex: 1; display: grid; place-items: center; }
+    .card3d {
+      width: 64%; aspect-ratio: 0.714; position: relative;
+      border-radius: var(--radius-card); transform-style: preserve-3d;
+      transform: rotateX(6deg) rotateY(-8deg);
+      box-shadow: var(--elevation-foil);
+      transition: transform 220ms var(--motion-easing-standard);
+    }
+    .card3d__art {
+      position: absolute; inset: 0; border-radius: inherit; overflow: hidden;
+      background:
+        linear-gradient(150deg, #211d36, #14111f 70%);
+    }
+    /* a stand-in card illustration built from gradients — no IP */
+    .card3d__art::before {
+      content:""; position:absolute; left:8%; right:8%; top:9%; height:46%;
+      border-radius: 10px;
+      background: radial-gradient(120% 100% at 30% 20%, #3a3458, #1a1730);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+    }
+    .card3d__art::after {
+      content:""; position:absolute; left:8%; right:8%; bottom:8%; top:60%;
+      border-radius: 8px; background: rgba(255,255,255,0.03);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+    }
+    /* foil overlay — the signature sweep, blended */
+    .card3d__foil {
+      position: absolute; inset: 0; border-radius: inherit;
+      background: var(--gradient-foil-sweep);
+      --foil-angle: 210deg;
+      mix-blend-mode: screen; opacity: 0; pointer-events: none;
+    }
+    /* traveling specular sheen */
+    .card3d__sheen {
+      position: absolute; inset: 0; border-radius: inherit; overflow: hidden;
+      pointer-events: none;
+    }
+    .card3d__sheen::before {
+      content:""; position:absolute; top:-20%; bottom:-20%; width:60%; left:-70%;
+      background: var(--gradient-foil-sheen); transform: skewX(-12deg);
+    }
+    /* reveal sequence */
+    .reveal[data-played="true"] .card3d { animation: cardIn 600ms var(--motion-easing-entrance) both; }
+    .reveal[data-played="true"] .card3d__foil { animation: foilSweep 900ms var(--motion-easing-entrance) both; }
+    .reveal[data-played="true"] .card3d__sheen::before { animation: sheen 700ms 160ms var(--motion-easing-standard) both; }
+    @keyframes cardIn { from { transform: rotateX(6deg) rotateY(-8deg) scale(0.92) translateY(16px); opacity: 0; } }
+    @keyframes foilSweep {
+      0% { --foil-angle: 210deg; opacity: 0; }
+      30% { opacity: 0.55; }
+      100% { --foil-angle: 570deg; opacity: 0.18; }
+    }
+    @keyframes sheen { to { left: 130%; } }
+    @property --foil-angle { syntax: '<angle>'; inherits: true; initial-value: 210deg; }
+
+    /* Value block */
+    .valblock { text-align: left; margin-top: var(--space-6); }
+    .valrow { display: flex; align-items: baseline; gap: var(--space-4); }
+    .value {
+      font-family: var(--typography-family-display);
+      font-size: var(--typography-scale-display-xl-size);
+      line-height: var(--typography-scale-display-xl-line-height);
+      letter-spacing: var(--typography-scale-display-xl-tracking);
+      font-feature-settings: var(--typography-feature-tabular);
+    }
+    .value .cur { color: var(--color-semantic-dark-reward); }
+    .curtoggle { margin-left: auto; display: inline-flex; background: var(--color-semantic-dark-bg-inset);
+      border-radius: var(--radius-pill); padding: 3px; }
+    .curtoggle button { border:none; cursor:pointer; background:transparent; color: var(--color-semantic-dark-text-tertiary);
+      font-weight:600; font-size: var(--typography-scale-caption-size); padding: 5px 12px; border-radius: var(--radius-pill); min-height: 32px; }
+    .curtoggle button[aria-pressed="true"] { background: var(--color-semantic-dark-bg-raised); color: var(--color-semantic-dark-text-primary); }
+    .trend { font-size: var(--typography-scale-body-sm-size); color: var(--color-semantic-dark-text-tertiary); margin-top: 6px; }
+    .trend .up { color: var(--color-teal-400); font-weight: 600; }
+
+    .actions { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-7); }
+    .actions[data-ready="false"] .btn { opacity: 0.5; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <div class="stage__head">
+      <h1>Foil reveal</h1>
+      <a class="index" href="./index.html">← all screens</a>
+    </div>
+
+    <div class="device">
+      <section class="reveal" id="reveal" data-played="false" aria-label="Card value reveal">
+        <header class="ident">
+          <span class="overline">Recognized</span>
+          <div class="name">Gengar</div>
+          <div class="meta tnum">Fossil · 5/62 · German · Holo</div>
+        </header>
+
+        <div class="cardwrap">
+          <div class="card3d" id="card3d" role="img"
+               aria-label="Your scanned card: Gengar, Fossil set, number 5 of 62, German, holo">
+            <div class="card3d__art" aria-hidden="true"></div>
+            <div class="card3d__foil" aria-hidden="true"></div>
+            <div class="card3d__sheen" aria-hidden="true"></div>
+          </div>
+        </div>
+
+        <div class="valblock">
+          <span class="overline">Market value · Cardmarket</span>
+          <div class="valrow">
+            <div class="value tnum"><span class="cur">€</span><span id="val">0</span></div>
+            <div class="curtoggle" role="radiogroup" aria-label="Display currency">
+              <button aria-pressed="true">€</button>
+              <button aria-pressed="false">$</button>
+            </div>
+          </div>
+          <div class="trend tnum">30-day trend <span class="up">↑ 4.2%</span> · 312 listings</div>
+        </div>
+
+        <div class="actions" id="actions" data-ready="false">
+          <button class="btn btn--primary">Add to collection</button>
+          <button class="btn btn--secondary">Pre-grade this card · 1 credit</button>
+          <button class="btn btn--text">Check authenticity</button>
+        </div>
+      </section>
+    </div>
+
+    <div style="display:flex;gap:var(--space-4)">
+      <button class="btn btn--secondary" id="replay">Replay reveal</button>
+    </div>
+  </main>
+
+  <script>
+    const reveal = document.getElementById('reveal');
+    const valEl = document.getElementById('val');
+    const actions = document.getElementById('actions');
+    const card = document.getElementById('card3d');
+    const FINAL = 42.50;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function countUp() {
+      if (reduce) { valEl.textContent = FINAL.toFixed(2).replace('.', ','); return; }
+      const start = performance.now(), dur = 1100;
+      (function tick(now) {
+        const t = Math.min(1, (now - start) / dur);
+        const eased = 1 - Math.pow(1 - t, 3);
+        valEl.textContent = (FINAL * eased).toFixed(2).replace('.', ',');
+        if (t < 1) requestAnimationFrame(tick);
+        else valEl.textContent = FINAL.toFixed(2).replace('.', ',');
+      })(start);
+    }
+    function play() {
+      reveal.dataset.played = 'false';
+      actions.dataset.ready = 'false';
+      valEl.textContent = reduce ? FINAL.toFixed(2).replace('.', ',') : '0';
+      void reveal.offsetWidth; // restart animations
+      reveal.dataset.played = 'true';
+      setTimeout(countUp, reduce ? 0 : 200);
+      setTimeout(() => actions.dataset.ready = 'true', reduce ? 0 : 900);
+    }
+    document.getElementById('replay').onclick = play;
+    play();
+
+    // Tilt-reactive holo at rest (pointer stand-in for gyroscope).
+    if (!reduce) {
+      const wrap = card.parentElement;
+      wrap.addEventListener('pointermove', (e) => {
+        const r = wrap.getBoundingClientRect();
+        const px = (e.clientX - r.left) / r.width - 0.5;
+        const py = (e.clientY - r.top) / r.height - 0.5;
+        card.style.transform = `rotateX(${6 - py*10}deg) rotateY(${-8 + px*16}deg)`;
+        card.querySelector('.card3d__foil').style.setProperty('--foil-angle', `${210 + px*80}deg`);
+      });
+      wrap.addEventListener('pointerleave', () => {
+        card.style.transform = 'rotateX(6deg) rotateY(-8deg)';
+      });
+    }
+  </script>
+</body>
+</html>

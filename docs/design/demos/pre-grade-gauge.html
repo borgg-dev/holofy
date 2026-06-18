@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Holofy · Pre-grade gauge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://api.fontshare.com/v2/css?f[]=clash-display@600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./demo.css" />
+  <style>
+    .grade { position: absolute; inset: 0; padding: var(--space-8) var(--space-6);
+      display: flex; flex-direction: column; gap: var(--space-6); overflow-y: auto; }
+
+    .verdict .line {
+      font-family: var(--typography-family-display); font-weight: 600;
+      font-size: var(--typography-scale-display-md-size);
+      line-height: var(--typography-scale-display-md-line-height);
+      letter-spacing: var(--typography-scale-display-md-tracking); margin-top: 4px;
+    }
+    .verdict .line .ok { color: var(--color-teal-400); }
+
+    .gauge { align-self: center; width: 84%; }
+    .gauge svg { width: 100%; height: auto; display: block; }
+    .gauge .conf { text-align: center; font-size: var(--typography-scale-caption-size);
+      color: var(--color-semantic-dark-text-tertiary); margin-top: -6px; }
+    .gauge .conf b { color: var(--color-semantic-dark-text-secondary); font-weight: 600; }
+
+    .subs { display: flex; flex-direction: column; gap: var(--space-5); }
+    .sub { display: grid; grid-template-columns: 1fr auto; gap: var(--space-3) var(--space-4);
+      align-items: center; }
+    .sub .top { display: flex; align-items: center; gap: var(--space-3); grid-column: 1 / -1; }
+    .sub .label { font-size: var(--typography-scale-body-sm-size); font-weight: 600; }
+    .sub .prov { font-size: 11px; padding: 2px 7px; border-radius: var(--radius-pill);
+      letter-spacing: 0.4px; text-transform: uppercase; }
+    .sub .prov.measured { color: var(--color-teal-400); background: var(--color-teal-900); }
+    .sub .prov.estimated { color: var(--color-neutral-600); background: var(--color-neutral-150); }
+    .sub .prov.limited { color: var(--color-support-amber); background: var(--color-support-amber-soft); }
+    .sub .meter { grid-column: 1; height: 8px; border-radius: var(--radius-pill);
+      background: var(--color-neutral-200); overflow: hidden; }
+    .sub .meter i { display: block; height: 100%; border-radius: inherit; width: 0;
+      background: var(--color-semantic-dark-accent);
+      transition: width var(--motion-duration-base) var(--motion-easing-standard); }
+    .sub .meter i.warn { background: var(--color-support-amber); }
+    .sub .val { grid-column: 2; font-size: var(--typography-scale-body-sm-size); font-weight: 600;
+      font-feature-settings: var(--typography-feature-tabular);
+      color: var(--color-semantic-dark-text-secondary); min-width: 56px; text-align: right; }
+
+    .caveat { display: flex; gap: var(--space-3); align-items: flex-start;
+      background: var(--color-support-amber-soft); color: #F4DBA8;
+      border-radius: var(--radius-sm); padding: var(--space-4) var(--space-5);
+      font-size: var(--typography-scale-body-sm-size); }
+    .caveat svg { flex: none; margin-top: 1px; }
+
+    .disclaimer { font-size: var(--typography-scale-caption-size);
+      line-height: 16px; color: var(--color-semantic-dark-text-tertiary);
+      border-top: 1px solid var(--color-semantic-dark-border); padding-top: var(--space-5); }
+
+    .gactions { display:flex; flex-direction:column; gap: var(--space-3); }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <div class="stage__head">
+      <h1>Pre-grade gauge</h1>
+      <a class="index" href="./index.html">← all screens</a>
+    </div>
+
+    <div class="device">
+      <section class="grade" id="grade" aria-label="Pre-grade estimate">
+        <header class="verdict">
+          <span class="overline">Pre-grade estimate</span>
+          <div class="line tnum">Likely 8–9 · <span class="ok">Worth grading</span></div>
+        </header>
+
+        <div class="gauge">
+          <svg viewBox="0 0 240 140" role="img"
+               aria-label="Predicted grade band, 8 to 9 out of 10, modal grade near 8.5">
+            <defs>
+              <linearGradient id="band" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#6C3CE0"/>
+                <stop offset="100%" stop-color="#23D5C7"/>
+              </linearGradient>
+              <filter id="soft"><feGaussianBlur stdDeviation="2.2"/></filter>
+            </defs>
+            <!-- track 1..10 over 200deg -->
+            <path id="track" d="M 26 120 A 94 94 0 1 1 214 120"
+                  fill="none" stroke="#2E2E3C" stroke-width="10" stroke-linecap="round"/>
+            <!-- predicted band 8..9 -->
+            <path id="bandpath" d="M 26 120 A 94 94 0 1 1 214 120"
+                  fill="none" stroke="url(#band)" stroke-width="11" stroke-linecap="round"
+                  filter="url(#soft)" opacity="0"/>
+            <!-- integer ticks -->
+            <g id="ticks" stroke="#3C3C4E" stroke-width="2"></g>
+            <text x="120" y="104" text-anchor="middle"
+                  font-family="'Clash Display','Manrope',sans-serif" font-weight="600"
+                  font-size="34" fill="#FFFFFF" style="font-feature-settings:'tnum'">8.5</text>
+            <text x="120" y="124" text-anchor="middle" font-family="Manrope" font-size="11"
+                  fill="#74748C">modal</text>
+          </svg>
+          <div class="conf">Confidence <b>~85% within ±1 grade</b></div>
+        </div>
+
+        <div class="subs" id="subs">
+          <div class="sub">
+            <div class="top"><span class="label">Centering</span><span class="prov measured">Measured</span></div>
+            <div class="meter"><i data-w="90"></i></div><div class="val tnum">9.0 / 10</div>
+          </div>
+          <div class="sub">
+            <div class="top"><span class="label">Corners</span><span class="prov estimated">Estimated</span></div>
+            <div class="meter"><i data-w="85"></i></div><div class="val tnum">8.5 / 10</div>
+          </div>
+          <div class="sub">
+            <div class="top"><span class="label">Edges</span><span class="prov estimated">Estimated</span></div>
+            <div class="meter"><i data-w="88"></i></div><div class="val tnum">8.8 / 10</div>
+          </div>
+          <div class="sub">
+            <div class="top"><span class="label">Surface</span><span class="prov limited">Limited</span></div>
+            <div class="meter"><i data-w="70" class="warn"></i></div><div class="val tnum">~7 / 10</div>
+          </div>
+        </div>
+
+        <div class="caveat">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2l7 13H2L9 2z" stroke="#F5B43C" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 7v4" stroke="#F5B43C" stroke-width="1.6" stroke-linecap="round"/><circle cx="9" cy="13" r="0.9" fill="#F5B43C"/></svg>
+          <span>Surface limited — we couldn't fully assess the holo under raking light. We widened the range to reflect it.</span>
+        </div>
+
+        <div class="gactions">
+          <button class="btn btn--secondary">Log my real grade later</button>
+          <button class="btn btn--text">See what affects this</button>
+        </div>
+
+        <p class="disclaimer">A pre-screen, not a grade. Holofy is not affiliated with PSA, CGC, or any grading service, nor with Nintendo or The Pokémon Company. Final grades may differ.</p>
+      </section>
+    </div>
+
+    <button class="btn btn--secondary" id="replay">Replay</button>
+  </main>
+
+  <script>
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const ns = 'http://www.w3.org/2000/svg';
+    const track = document.getElementById('track');
+    const band = document.getElementById('bandpath');
+    const ticksG = document.getElementById('ticks');
+    const len = track.getTotalLength();
+
+    // place integer ticks 1..10 along the arc
+    for (let g = 1; g <= 10; g++) {
+      const p = track.getPointAtLength((len * (g - 1)) / 9);
+      const c = track.getPointAtLength(len / 2); // approx center reference not needed; use geometry
+      const cx = 120, cy = 120;
+      const a = Math.atan2(p.y - cy, p.x - cx);
+      const inner = 84, outer = g === 10 ? 76 : 80;
+      const t = document.createElementNS(ns, 'line');
+      t.setAttribute('x1', cx + Math.cos(a) * (outer));
+      t.setAttribute('y1', cy + Math.sin(a) * (outer));
+      t.setAttribute('x2', cx + Math.cos(a) * (inner + 6));
+      t.setAttribute('y2', cy + Math.sin(a) * (inner + 6));
+      if (g === 10) { t.setAttribute('stroke', '#C4C4D4'); t.setAttribute('stroke-width', '2.4'); }
+      ticksG.appendChild(t);
+    }
+
+    function play() {
+      // band covers grade 8..9 → fractions (8-1)/9 .. (9-1)/9
+      const from = (8 - 1) / 9, to = (9 - 1) / 9;
+      const visible = (to - from) * len;
+      band.style.strokeDasharray = `${visible} ${len}`;
+      band.style.strokeDashoffset = `${-from * len}`;
+      band.style.opacity = '0';
+      document.querySelectorAll('.meter i').forEach(i => i.style.width = '0');
+
+      if (reduce) {
+        band.style.opacity = '0.95';
+        document.querySelectorAll('.meter i').forEach(i => i.style.width = i.dataset.w + '%');
+        return;
+      }
+      // arc draw feel: fade band in after a beat, then bloom
+      setTimeout(() => band.style.opacity = '0.95', 420);
+      document.querySelectorAll('.meter i').forEach((i, idx) => {
+        setTimeout(() => i.style.width = i.dataset.w + '%', 600 + idx * 60);
+      });
+    }
+    document.getElementById('replay').onclick = play;
+    play();
+  </script>
+</body>
+</html>

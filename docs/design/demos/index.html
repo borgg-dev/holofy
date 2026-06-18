@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Holofy · Foil Vault — signature screens</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://api.fontshare.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://api.fontshare.com/v2/css?f[]=clash-display@600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./demo.css" />
+  <style>
+    .home { max-width: 720px; margin: 0 auto; padding: var(--space-12) var(--space-6); }
+    .home__brand {
+      display: inline-flex; align-items: center; gap: var(--space-4);
+      margin-bottom: var(--space-8);
+    }
+    .mark {
+      width: 40px; height: 40px; border-radius: var(--radius-md);
+      background: var(--gradient-foil-sweep); --foil-angle: 200deg;
+      box-shadow: var(--elevation-foil);
+    }
+    .home h1 {
+      font-family: var(--typography-family-display); font-weight: 600;
+      font-size: var(--typography-scale-display-lg-size);
+      line-height: var(--typography-scale-display-lg-line-height);
+      letter-spacing: var(--typography-scale-display-lg-tracking);
+      margin: 0 0 var(--space-4);
+    }
+    .home p.lede {
+      font-size: var(--typography-scale-title-md-size);
+      line-height: 28px; color: var(--color-semantic-dark-text-secondary);
+      max-width: 52ch; margin: 0 0 var(--space-10);
+    }
+    .cards { display: grid; gap: var(--space-5); grid-template-columns: 1fr; }
+    @media (min-width: 640px) { .cards { grid-template-columns: repeat(3, 1fr); } }
+    .card {
+      text-decoration: none; color: inherit;
+      background: var(--color-semantic-dark-bg-elevated);
+      border: 1px solid var(--color-semantic-dark-border);
+      border-radius: var(--radius-lg); padding: var(--space-6);
+      display: flex; flex-direction: column; gap: var(--space-3);
+      transition: border-color var(--motion-duration-base) var(--motion-easing-standard),
+                  transform var(--motion-duration-base) var(--motion-easing-standard);
+    }
+    .card:hover { border-color: var(--color-semantic-dark-accent); transform: translateY(-3px); }
+    .card .num {
+      font-family: var(--typography-family-display); font-size: 22px;
+      color: var(--color-semantic-dark-text-tertiary);
+    }
+    .card .name {
+      font-size: var(--typography-scale-title-md-size); font-weight: 600;
+    }
+    .card .desc { font-size: var(--typography-scale-body-sm-size); color: var(--color-semantic-dark-text-secondary); }
+    .swatches { display: flex; gap: var(--space-3); margin-top: var(--space-10); }
+    .sw { display:flex; flex-direction:column; gap: var(--space-2); font-size: 11px; color: var(--color-semantic-dark-text-tertiary); }
+    .sw i { width: 56px; height: 28px; border-radius: var(--radius-sm); display:block; }
+  </style>
+</head>
+<body>
+  <main class="home">
+    <div class="home__brand">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="overline">Holofy · Foil Vault</span>
+    </div>
+    <h1>The three moments that earn the foil.</h1>
+    <p class="lede">Calm Vault surfaces hold the value and the trust. Foil is the reward — it shows up only when the collector earns it. These are the runnable specs for the three signature screens.</p>
+
+    <nav class="cards">
+      <a class="card" href="./scan-frame.html">
+        <span class="num tnum">01</span>
+        <span class="name">Scan frame</span>
+        <span class="desc">Teal capture-lock + live quality chips. Refuses a bad photo, coaches a good one.</span>
+      </a>
+      <a class="card" href="./foil-reveal.html">
+        <span class="num tnum">02</span>
+        <span class="name">Foil reveal</span>
+        <span class="desc">The payoff: tilt-reactive holo, value count-up in euros, recognized variant.</span>
+      </a>
+      <a class="card" href="./pre-grade-gauge.html">
+        <span class="num tnum">03</span>
+        <span class="name">Pre-grade gauge</span>
+        <span class="desc">An honest range, four sub-scores, the disclaimer that keeps it legal.</span>
+      </a>
+    </nav>
+
+    <div class="swatches">
+      <span class="sw"><i style="background:var(--color-brand-holo-violet)"></i>Holo Violet</span>
+      <span class="sw"><i style="background:var(--color-brand-foil-magenta)"></i>Foil Magenta</span>
+      <span class="sw"><i style="background:var(--color-brand-vault-teal)"></i>Vault Teal</span>
+      <span class="sw"><i style="background:var(--color-brand-near-black);border:1px solid var(--color-semantic-dark-border)"></i>Vault</span>
+      <span class="sw"><i style="background:var(--gradient-foil-sweep);--foil-angle:160deg"></i>Foil sweep</span>
+    </div>
+  </main>
+</body>
+</html>
