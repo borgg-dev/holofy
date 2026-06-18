@@ -89,7 +89,12 @@ export function GameSection({ group, children }: Props) {
       >
         <GameGlyph game={game} />
         <View style={styles.headerText}>
-          <Text variant="titleMd" tone="primary" numberOfLines={1}>
+          <Text
+            variant="titleMd"
+            tone="primary"
+            numberOfLines={1}
+            style={{ textTransform: "uppercase", letterSpacing: 0.8 }}
+          >
             {game.name}
           </Text>
           <View style={[styles.subtotal, { gap: theme.space["2"] }]}>
