@@ -24,6 +24,7 @@ from app.db.base import Base, TimestampMixin
 from app.db.types import GUID, new_uuid
 
 if TYPE_CHECKING:
+    from app.db.models.authenticity import AuthenticityRecord
     from app.db.models.collection import CollectionItem
     from app.db.models.portfolio import PortfolioSnapshot
     from app.db.models.pregrade import PreGradeRecord
@@ -53,6 +54,11 @@ class User(TimestampMixin, Base):
         passive_deletes=True,
     )
     pregrades: Mapped[list["PreGradeRecord"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    authenticity_screens: Mapped[list["AuthenticityRecord"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,

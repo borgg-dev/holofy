@@ -30,13 +30,20 @@ app/
     scan.py            /scan request + response contract (resolved | needs_confirmation).
     grading.py         /pregrade contract: SubScore, GradeProbabilityRange (range, never a
                        single grade), estimated | retake outcomes + disclaimer.
+    authenticity.py    /authenticity contract: AuthenticitySignal, RiskBand (a three-band risk
+                       flag, never a fake/genuine verdict), assessed | retake | not_assessed.
     collection.py      Add-to-collection request + valued collection response.
     portfolio.py       Portfolio total + snapshot/history response.
   grading/
     centering.py       In-house pixel-level centering measurement (numpy; promoted Spike D).
     capture_store.py   CaptureStore seam: resolves a capture_ref to image bytes (mock = synthetic).
+  authenticity/
+    catalog_existence.py  CatalogExistenceChecker seam + the tri-state existence verdict.
+    reference_catalog.py  Reference-backed existence check (the mock); catches a never-printed
+                          variant — the strongest single fake signal.
   providers/
-    base.py            RecognitionProvider / PricingProvider / GradingProvider Protocols.
+    base.py            RecognitionProvider / PricingProvider / GradingProvider /
+                       AuthenticityProvider Protocols.
     factory.py         Config-driven selection of concrete providers.
     recognition/
       mock.py          Deterministic fixtures incl. the low-confidence top-2 case.
@@ -47,10 +54,15 @@ app/
     grading/
       mock.py          Deterministic bought sub-scores (corners/edges/surface) incl. a
                        poor-surface and a low-confidence fixture; Ximilar /v2/grade drops in later.
+    authenticity/
+      mock.py          Deterministic per-signal reads (print-pattern/holo/font/cardstock) incl.
+                       strong-authentic, mixed and poor-capture fixtures; the CV ensemble later.
   services/
     scan.py            Orchestration: recognize → (confirm | price) → persist → response.
     pregrade.py        Compose in-house centering + bought sub-scores → grade probability
                        range; refuse (retake) on a capture too poor to grade honestly.
+    authenticity.py    Compose visual signals + catalog cross-check → a risk *band* (never a
+                       verdict); value-gate, refuse (retake), never-printed-variant override.
     collection.py      Add a card; value the holdings in € via the pricing seam.
     portfolio.py       Total the collection, snapshot it, read the value-over-time series.
   db/
@@ -59,11 +71,14 @@ app/
     session.py         Async engine + session factory + unit-of-work scope.
     erasure.py         Right-to-erasure strategy (cascade + data-lake purge manifest).
     models/            User, Card, CollectionItem, PortfolioSnapshot, ScanRecord,
-                       PreGradeRecord, PriceObservation, and the persisted enums.
+                       PreGradeRecord, AuthenticityRecord, PriceObservation, and the
+                       persisted enums.
     repositories/      Typed async data access — the only layer that issues queries.
   api/
-    health.py, scan.py, pregrade.py, collection.py, portfolio.py, dependencies.py
-migrations/            Alembic (env reads the app's DATABASE_URL; initial + pregrade_records).
+    health.py, scan.py, pregrade.py, authenticity.py, collection.py, portfolio.py,
+    dependencies.py
+migrations/            Alembic (env reads the app's DATABASE_URL; initial + pregrade_records
+                       + authenticity_records).
 tests/                 Unit (providers, centering, pregrade composition, persistence) +
                        API (TestClient) coverage.
 ```
@@ -120,10 +135,18 @@ PYTHONPATH=.deps:. python3 -m alembic check
 | Recognition  | `MockRecognitionProvider` | — (Ximilar/on-device lands behind the Protocol)   |
 | Pricing      | `MockPricingProvider`     | `TcgdexPricingProvider` (open TCGdex API, no key)  |
 | Grading      | `MockGradingProvider`     | — (Ximilar `/v2/grade` lands behind the Protocol) |
+| Authenticity | `MockAuthenticityProvider` | — (a CV ensemble lands behind the Protocol)       |
 | Capture store| `MockCaptureStore` (synthetic captures by ref) | — (EU-region object storage)        |
 
-Select per environment via `HOLOFY_RECOGNITION_PROVIDER`, `HOLOFY_PRICING_PROVIDER` and
-`HOLOFY_GRADING_PROVIDER`.
+Select per environment via `HOLOFY_RECOGNITION_PROVIDER`, `HOLOFY_PRICING_PROVIDER`,
+`HOLOFY_GRADING_PROVIDER` and `HOLOFY_AUTHENTICITY_PROVIDER`.
+
+The **catalog-existence cross-check is *not* a provider** — it is a deterministic reference-DB
+lookup the authenticity service owns (the analogue of in-house centering, kept out of the
+`GradingProvider` seam). The mock answers from a small fixed set of known printings so the
+never-printed-variant case — the strongest single fake signal — is testable with no catalog
+sync; the real reference-DB-backed checker drops in behind the `CatalogExistenceChecker`
+Protocol (ADR 0006).
 
 **Centering is *not* mocked** — it is measured in-house (`app/grading/centering.py`, pure
 numpy, promoted from Spike D). The grading provider only supplies the three *bought*
@@ -169,8 +192,10 @@ All settings are env vars prefixed `HOLOFY_` (or a `.env` file). Notable ones:
 | `HOLOFY_RECOGNITION_PROVIDER`        | `mock`           | `mock`                                          |
 | `HOLOFY_PRICING_PROVIDER`            | `mock`           | `mock` / `tcgdex`                               |
 | `HOLOFY_GRADING_PROVIDER`            | `mock`           | `mock` (bought corners/edges/surface)           |
+| `HOLOFY_AUTHENTICITY_PROVIDER`       | `mock`           | `mock` (visual print/holo/font/cardstock reads) |
 | `HOLOFY_RECOGNITION_CONFIRM_THRESHOLD` | `0.85`         | Below this top-1 confidence → confirm prompt    |
 | `HOLOFY_PREGRADE_MIN_CENTERING_CONFIDENCE` | `0.4`      | Below this the pre-grade refuses (retake)       |
+| `HOLOFY_AUTHENTICITY_MIN_VALUE_EUR`  | `50.0`           | Below this € value → `not_assessed` (cheap cards aren't faked) |
 | `HOLOFY_AUTH_PROVIDER`               | `dev_token`      | `dev_token` (real IdP swaps in behind the seam) |
 | `HOLOFY_AUTH_DEV_SECRET`             | _(dev default)_  | Signs dev tokens; set a real secret outside `local` |
 | `HOLOFY_RATE_LIMIT_PROVIDER`         | `memory`         | `memory` (Redis backend lands behind the Protocol) |
@@ -205,7 +230,8 @@ curl -H "Authorization: Bearer <token>" http://127.0.0.1:8000/portfolio
 returns `429 quota_exceeded` with `details.limit` and `details.reset_seconds`. The limiter
 is an in-process daily counter behind a `RateLimiter` Protocol; a Redis backend drops in for
 the multi-instance gateway. Tune the limit with `HOLOFY_FREE_TIER_DAILY_SCANS`. `/pregrade`
-shares the same daily budget (one quota key), so it can't be used to sidestep the scan cap.
+and `/authenticity` share the same daily budget (one quota key), so they can't be used to
+sidestep the scan cap.
 
 ## Endpoints
 
@@ -229,6 +255,25 @@ shares the same daily budget (one quota key), so it can't be used to sidestep th
     `HOLOFY_PREGRADE_MIN_CENTERING_CONFIDENCE`.
   - An unresolvable `capture_ref` (unknown/expired upload) is `404 capture_not_found` —
     distinct from a gradeable-but-poor capture.
+- `POST /authenticity` — `{ "capture_ref", "card_id" }` → `AuthenticityResponse`. Composes the
+  four visual signals (print-pattern, holo, font/layout, cardstock) with a catalog-existence
+  cross-check into a private authenticity **risk band**, and persists an `AuthenticityRecord`.
+  Every response carries a `disclaimer`: it is a risk signal for the owner, **not** a verdict
+  that a card is genuine or counterfeit, and **not** an assessment of any seller (charter §3.5).
+  There is no `is_fake`/`is_genuine`/`verdict` field anywhere — the most adverse output is
+  `elevated_risk`.
+  - `status: "assessed"` → `assessment` with `risk_band`
+    (`strong_signals`/`inconclusive`/`elevated_risk` — never a boolean), the per-signal
+    `signals` (incl. the catalog cross-check), an overall `confidence`, and
+    `recommend_authentication`. A `(set, number, variant, era)` that was **never printed**
+    floors the band at `elevated_risk` regardless of clean visuals.
+  - `status: "not_assessed"` → `reasons`. Below `HOLOFY_AUTHENTICITY_MIN_VALUE_EUR` (cheap
+    commons aren't faked) the screen is skipped rather than fake-scored — a typed **200**.
+  - `status: "retake"` → `reasons`. A capture too poor to read the signals refuses with
+    coaching, never a confident wrong band — a typed **200**, not a 500.
+  - The `card_id` must already exist in the catalog (the cross-check and value gate need a
+    resolved identity), else `404 card_not_found`; an unresolvable `capture_ref` is
+    `404 capture_not_found`.
 - `POST /collection` — `{ "canonical_id", "condition"?, "quantity"?, "acquired_price_eur"?,
   "acquired_on"? }` → the added holding with its current € valuation. The card must already
   exist in the catalog (scan or look it up first), else `404 card_not_found`.

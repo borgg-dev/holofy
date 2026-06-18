@@ -18,7 +18,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import collection, health, portfolio, pregrade, scan
+from app.api import authenticity, collection, health, portfolio, pregrade, scan
 from app.auth.factory import build_auth_provider
 from app.config import Settings, get_settings
 from app.core.errors import ErrorBody, ErrorResponse, HolofyError
@@ -26,6 +26,7 @@ from app.core.logging import bind_request_id, configure_logging, current_request
 from app.db.session import create_engine, create_session_factory
 from app.grading.capture_store import MockCaptureStore
 from app.providers.factory import (
+    build_authenticity_provider,
     build_grading_provider,
     build_pricing_provider,
     build_recognition_provider,
@@ -45,6 +46,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.pricing_provider = pricing_provider
     app.state.pricing_client = pricing_client
     app.state.grading_provider = build_grading_provider(settings)
+    app.state.authenticity_provider = build_authenticity_provider(settings)
     # Object storage for capture stills is mocked for now (synthetic captures by ref); the
     # real EU-region client drops in behind the same CaptureStore Protocol.
     app.state.capture_store = MockCaptureStore()
@@ -61,6 +63,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             "recognition_provider": settings.recognition_provider,
             "pricing_provider": settings.pricing_provider,
             "grading_provider": settings.grading_provider,
+            "authenticity_provider": settings.authenticity_provider,
             "auth_provider": settings.auth_provider,
             "rate_limit_provider": settings.rate_limit_provider,
         },
@@ -154,6 +157,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(scan.router)
     app.include_router(pregrade.router)
+    app.include_router(authenticity.router)
     app.include_router(collection.router)
     app.include_router(portfolio.router)
 

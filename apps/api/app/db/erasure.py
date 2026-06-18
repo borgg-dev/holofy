@@ -14,8 +14,10 @@ Two distinct kinds of data are involved, handled differently:
 2. **Derived/replicated personal data outside Postgres** — capture images in object
    storage and any rows already copied into the training data lake. The DB cascade cannot
    reach these, so erasure must *enumerate* them before the rows vanish and hand them to
-   the out-of-band purge: the object-storage keys (``ScanRecord.capture_ref``) and the
-   scan ids that may exist in a training set.
+   the out-of-band purge: every object-storage key the user produced — scan bundles
+   (``ScanRecord.capture_ref``), pre-grade captures (``PreGradeRecord.capture_ref``) and
+   authenticity-screen captures (``AuthenticityRecord.capture_ref``) — and the scan ids that
+   may exist in a training set.
 
 ``plan_erasure`` runs inside the same transaction as the delete and returns that manifest;
 the caller (an erasure job, a later slice) executes the storage/lake deletions and only
@@ -33,6 +35,8 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.models.authenticity import AuthenticityRecord
+from app.db.models.pregrade import PreGradeRecord
 from app.db.models.scan import ScanRecord
 
 
@@ -40,9 +44,10 @@ from app.db.models.scan import ScanRecord
 class ErasureManifest:
     """What an out-of-band purge must delete once the DB rows are gone.
 
-    ``capture_refs`` are object-storage keys for the user's scan images;
-    ``training_eligible_scan_ids`` are the scans that *may* have been replicated into the
-    data lake (they had standing consent), so the lake purge can target them precisely.
+    ``capture_refs`` are object-storage keys for every still the user produced — scans,
+    pre-grades and authenticity screens; ``training_eligible_scan_ids`` are the scans that
+    *may* have been replicated into the data lake (they had standing consent), so the lake
+    purge can target them precisely.
     """
 
     user_id: uuid.UUID
@@ -56,15 +61,35 @@ async def plan_erasure(session: AsyncSession, user_id: uuid.UUID) -> ErasureMani
     Call this, then delete the user, then execute the manifest against object storage and
     the data lake — all within one transaction so a crash can't leave orphaned images.
     """
-    stmt = select(
+    scan_stmt = select(
         ScanRecord.id, ScanRecord.capture_ref, ScanRecord.training_consent
     ).where(ScanRecord.user_id == user_id)
-    rows = (await session.execute(stmt)).all()
+    scan_rows = (await session.execute(scan_stmt)).all()
+
+    # Pre-grade and authenticity captures are object-storage stills too, and must be purged
+    # with the user even though those tables carry no separate training-consent flag (they
+    # are not replicated into the lake on their own).
+    pregrade_refs = (
+        await session.execute(
+            select(PreGradeRecord.capture_ref).where(PreGradeRecord.user_id == user_id)
+        )
+    ).scalars()
+    authenticity_refs = (
+        await session.execute(
+            select(AuthenticityRecord.capture_ref).where(
+                AuthenticityRecord.user_id == user_id
+            )
+        )
+    ).scalars()
+
+    capture_refs = [capture_ref for _, capture_ref, _ in scan_rows if capture_ref]
+    capture_refs.extend(ref for ref in pregrade_refs if ref)
+    capture_refs.extend(ref for ref in authenticity_refs if ref)
 
     return ErasureManifest(
         user_id=user_id,
-        capture_refs=[capture_ref for _, capture_ref, _ in rows if capture_ref],
+        capture_refs=capture_refs,
         training_eligible_scan_ids=[
-            scan_id for scan_id, _, training_consent in rows if training_consent
+            scan_id for scan_id, _, training_consent in scan_rows if training_consent
         ],
     )

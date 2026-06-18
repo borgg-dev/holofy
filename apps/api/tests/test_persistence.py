@@ -366,6 +366,50 @@ async def test_user_erasure_cascades_personal_data_and_spares_catalog(
     assert await _count(session, PriceObservation) == 1
 
 
+@pytest.mark.asyncio
+async def test_erasure_manifest_includes_pregrade_and_authenticity_captures(
+    session: AsyncSession,
+) -> None:
+    # Every object-storage still the user produced — not just scan bundles — must be enumerated
+    # for the out-of-band purge, or pre-grade / authenticity captures would survive a delete.
+    from app.db.models import AuthenticityRecord, PreGradeRecord
+    from app.db.models.enums import AuthenticityStatus, PregradeStatus
+
+    users = UserRepository(session)
+    user = await users.create()
+    card = await _emberwyrm(session)
+    await ScanRepository(session).record(
+        user_id=user.id,
+        capture_ref="s3://eu/captures/scan-1",
+        outcome=ScanOutcome.RESOLVED,
+        resolved_card_id=card.id,
+    )
+    session.add(
+        PreGradeRecord(
+            user_id=user.id,
+            capture_ref="s3://eu/captures/pregrade-1",
+            card_id=card.id,
+            status=PregradeStatus.RETAKE,
+        )
+    )
+    session.add(
+        AuthenticityRecord(
+            user_id=user.id,
+            capture_ref="s3://eu/captures/authenticity-1",
+            card_id=card.id,
+            status=AuthenticityStatus.RETAKE,
+        )
+    )
+    await session.commit()
+
+    manifest = await plan_erasure(session, user.id)
+    assert set(manifest.capture_refs) == {
+        "s3://eu/captures/scan-1",
+        "s3://eu/captures/pregrade-1",
+        "s3://eu/captures/authenticity-1",
+    }
+
+
 def _card_table():
     from app.db.models import Card
 

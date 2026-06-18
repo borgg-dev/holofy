@@ -54,6 +54,32 @@ class PregradeStatus(StrEnum):
     RETAKE = "retake"
 
 
+class AuthenticityStatus(StrEnum):
+    """Terminal state of an authenticity assessment.
+
+    ``assessed`` — a risk band was produced. ``retake`` — the capture was too poor to read
+    the signals honestly. ``not_assessed`` — the card's value was below the screening
+    threshold (cheap commons aren't faked), so no score was offered.
+    """
+
+    ASSESSED = "assessed"
+    RETAKE = "retake"
+    NOT_ASSESSED = "not_assessed"
+
+
+class AuthenticityRiskBand(StrEnum):
+    """The composite authenticity read — a band, deliberately never a fake/genuine boolean.
+
+    ``strong_signals`` — evidence consistent with a genuine card. ``inconclusive`` — mixed
+    or insufficient. ``elevated_risk`` — diverges from a genuine reference; seek expert
+    authentication. There is intentionally no "counterfeit" value (charter §3.5).
+    """
+
+    STRONG_SIGNALS = "strong_signals"
+    INCONCLUSIVE = "inconclusive"
+    ELEVATED_RISK = "elevated_risk"
+
+
 class PriceSource(StrEnum):
     """Provenance of a price point — which feed it came from."""
 

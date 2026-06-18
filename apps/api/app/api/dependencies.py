@@ -15,6 +15,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.base import AuthProvider
+from app.authenticity.reference_catalog import ReferenceCatalogExistenceChecker
 from app.config import Settings
 from app.core.errors import NotAuthenticatedError
 from app.db.models import User
@@ -25,8 +26,14 @@ from app.db.repositories import (
     UserRepository,
 )
 from app.grading.capture_store import CaptureStore
-from app.providers.base import GradingProvider, PricingProvider, RecognitionProvider
+from app.providers.base import (
+    AuthenticityProvider,
+    GradingProvider,
+    PricingProvider,
+    RecognitionProvider,
+)
 from app.ratelimit.base import RateLimiter
+from app.services.authenticity import AuthenticityService
 from app.services.collection import CollectionService
 from app.services.portfolio import PortfolioService
 from app.services.pregrade import PregradeService
@@ -54,6 +61,10 @@ def get_pricing_provider(request: Request) -> PricingProvider:
 
 def get_grading_provider(request: Request) -> GradingProvider:
     return request.app.state.grading_provider
+
+
+def get_authenticity_provider(request: Request) -> AuthenticityProvider:
+    return request.app.state.authenticity_provider
 
 
 def get_capture_store(request: Request) -> CaptureStore:
@@ -127,6 +138,19 @@ def get_pregrade_service(
     return PregradeService(
         grading=grading,
         min_centering_confidence=settings.pregrade_min_centering_confidence,
+    )
+
+
+def get_authenticity_service(
+    settings: Settings = Depends(get_settings),
+    provider: AuthenticityProvider = Depends(get_authenticity_provider),
+) -> AuthenticityService:
+    # The catalog-existence checker is stateless and deterministic, so it is built per
+    # request rather than held on app state; the reference-DB-backed one drops in here later.
+    return AuthenticityService(
+        provider=provider,
+        catalog=ReferenceCatalogExistenceChecker(),
+        min_value_eur=settings.authenticity_min_value_eur,
     )
 
 

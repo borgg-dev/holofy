@@ -8,6 +8,7 @@ one aggregate.
 
 from __future__ import annotations
 
+from app.db.repositories.authenticity import AuthenticityRepository
 from app.db.repositories.card import CardRepository
 from app.db.repositories.collection import CollectionRepository
 from app.db.repositories.portfolio import PortfolioRepository
@@ -17,6 +18,7 @@ from app.db.repositories.scan import ScanRepository
 from app.db.repositories.user import UserRepository
 
 __all__ = [
+    "AuthenticityRepository",
     "CardRepository",
     "CollectionRepository",
     "PortfolioRepository",

@@ -15,12 +15,19 @@ loud failure at startup, not a confusing ``NoneType`` later.
 from __future__ import annotations
 
 from app.config import (
+    AuthenticityBackend,
     GradingBackend,
     PricingBackend,
     RecognitionBackend,
     Settings,
 )
-from app.providers.base import GradingProvider, PricingProvider, RecognitionProvider
+from app.providers.authenticity.mock import MockAuthenticityProvider
+from app.providers.base import (
+    AuthenticityProvider,
+    GradingProvider,
+    PricingProvider,
+    RecognitionProvider,
+)
 from app.providers.grading.mock import MockGradingProvider
 from app.providers.pricing.mock import MockPricingProvider
 from app.providers.pricing.tcgdex import TcgdexClient
@@ -68,3 +75,16 @@ def build_grading_provider(settings: Settings) -> GradingProvider:
             return MockGradingProvider()
         case unknown:  # pragma: no cover - guards an unwired enum value
             raise ValueError(f"unsupported grading backend: {unknown}")
+
+
+def build_authenticity_provider(settings: Settings) -> AuthenticityProvider:
+    """Return the configured provider for the per-signal authenticity reads.
+
+    The catalog-existence cross-check is not selected here — it is a deterministic
+    reference-DB lookup the authenticity service owns, not a model behind this seam.
+    """
+    match settings.authenticity_provider:
+        case AuthenticityBackend.MOCK:
+            return MockAuthenticityProvider()
+        case unknown:  # pragma: no cover - guards an unwired enum value
+            raise ValueError(f"unsupported authenticity backend: {unknown}")

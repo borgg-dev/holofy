@@ -21,6 +21,7 @@ from app.db.models.enums import Variant
 from app.db.types import GUID, new_uuid
 
 if TYPE_CHECKING:
+    from app.db.models.authenticity import AuthenticityRecord
     from app.db.models.collection import CollectionItem
     from app.db.models.pregrade import PreGradeRecord
     from app.db.models.price import PriceObservation
@@ -60,3 +61,6 @@ class Card(TimestampMixin, Base):
     )
     scans: Mapped[list["ScanRecord"]] = relationship(back_populates="resolved_card")
     pregrades: Mapped[list["PreGradeRecord"]] = relationship(back_populates="card")
+    authenticity_screens: Mapped[list["AuthenticityRecord"]] = relationship(
+        back_populates="card"
+    )

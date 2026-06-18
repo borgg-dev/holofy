@@ -7,9 +7,12 @@ re-exported here.
 
 from __future__ import annotations
 
+from app.db.models.authenticity import AuthenticityRecord
 from app.db.models.card import Card
 from app.db.models.collection import CollectionItem
 from app.db.models.enums import (
+    AuthenticityRiskBand,
+    AuthenticityStatus,
     CardCondition,
     PregradeStatus,
     PriceBasis,
@@ -24,6 +27,9 @@ from app.db.models.scan import ScanRecord
 from app.db.models.user import User
 
 __all__ = [
+    "AuthenticityRecord",
+    "AuthenticityRiskBand",
+    "AuthenticityStatus",
     "Card",
     "CardCondition",
     "CollectionItem",

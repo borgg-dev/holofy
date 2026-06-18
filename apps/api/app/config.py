@@ -43,6 +43,13 @@ class GradingBackend(StrEnum):
     MOCK = "mock"
 
 
+class AuthenticityBackend(StrEnum):
+    # The visual-signal CV ensemble is built (not bought) per architecture §3.3; ``mock`` is
+    # the only backend wired today. The catalog-existence cross-check is not selected here —
+    # it is a deterministic reference-DB lookup the service owns.
+    MOCK = "mock"
+
+
 class AuthBackend(StrEnum):
     DEV_TOKEN = "dev_token"
 
@@ -81,6 +88,7 @@ class Settings(BaseSettings):
     recognition_provider: RecognitionBackend = RecognitionBackend.MOCK
     pricing_provider: PricingBackend = PricingBackend.MOCK
     grading_provider: GradingBackend = GradingBackend.MOCK
+    authenticity_provider: AuthenticityBackend = AuthenticityBackend.MOCK
 
     # Auth seam: the dev-token backend mints/verifies an HMAC-signed bearer that maps to a
     # seeded user, so endpoints are genuinely user-scoped with no OAuth/Clerk yet. Real
@@ -109,6 +117,11 @@ class Settings(BaseSettings):
     # below this the capture is too poor to estimate a grade from, so the pre-grade refuses
     # with a "retake" signal rather than emitting a confident wrong range.
     pregrade_min_centering_confidence: float = 0.4
+
+    # Authenticity screening is only meaningful on cards worth faking (architecture §3.3:
+    # "scoped to vintage/high-value"). Below this € value the service returns a typed
+    # "not needed for this value" rather than a fake-precise risk score on a cheap common.
+    authenticity_min_value_eur: float = 50.0
 
     log_level: str = "INFO"
     log_json: bool = True
