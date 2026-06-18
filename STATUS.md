@@ -1,6 +1,26 @@
 # Holofy — Live Status
 
-**Updated:** 2026-06-18 · **Phase:** 3 COMPLETE → hardening pass, then Phase 4 (stack scanning) · **Launch anchor:** before 2026-09-16
+**Updated:** 2026-06-18 · **Phase:** 4 COMPLETE + DEV-MODE READY → Phase 5 (productionization) · **Launch anchor:** before 2026-09-16
+
+## ✅ DEV-MODE READY (proven live, not just unit-green)
+`make api-smoke` boots a fresh API and drives the whole product over HTTP — scan (incl. live €732.60 confirm), stack scan, collection, portfolio, pre-grade range, authenticity (no verdict), account-level consent — mock-first, no keys. Runbook: `docs/DEV_RUNBOOK.md`; one-command targets in the top-level `Makefile`. Mobile: strict TS clean, all suites green, every screen renders (fixture-backed; HTTP seam points at the local API).
+
+The autonomous **mock-first roadmap is essentially complete**: full MVP (scan/value/portfolio/pre-grade/anti-fake/data-loop) + stack scanning, all behind swappable seams. Next steps split into autonomous productionization vs founder-gated mocks→real activation.
+
+## Phase 4 — Stack scanning + dev-mode ready: COMPLETE ✅ (retro: docs/PHASE_4_RETRO.md)
+| Unit | What | Status |
+|------|------|--------|
+| dev-smoke | Live end-to-end journey over HTTP + Makefile + DEV_RUNBOOK | ✅ |
+| P4.1 | /scan/batch: dedupe + COGS-safe charge-before-recognize (failed audit on COGS → refined → proven) | ✅ 170 tests |
+| P4.2 | Mobile rapid scan: filmstrip + dedupe-merge + confirm-at-end + bulk add | ✅ 135 tests |
+
+## Phase 5 — Productionization (next)
+| Unit | What | Status |
+|------|------|--------|
+| P5.1 | Docker/compose (api+Postgres+Redis), real Redis limiter, run on Postgres, CI, env templates — autonomous, no keys | next |
+| P5.2 | Real provider adapters (Ximilar/pricing/OAuth/billing) behind seams, contract-tested, activation gated on keys | next |
+
+**Mocks→real activation needs the founder** (BLOCKERS.md): API keys/accounts, billing+OAuth provider choices, EU cloud, legal price-display clearance, expo-camera. Each is a config/seam swap, not a rewrite.
 
 ## MVP feature set: COMPLETE (mock-first) ✅
 The full market-fit MVP runs end-to-end on mocks: scan → identify → € value (Cardmarket-native) → confirm low-confidence variants → portfolio → pre-grade (range+confidence) → authenticity (risk band, no verdict) → consented data loop. All behind swappable provider seams. The BLOCKERS (legal price-display clearance, Ximilar/aggregator keys, dev accounts, billing, OAuth, Redis, expo-camera) gate only the mocks→real switch, not the build.
