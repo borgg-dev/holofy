@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { impactMedium } from "@/lib/haptics";
 
@@ -36,6 +37,7 @@ const CHIP_ORDER: (keyof QualitySignals)[] = ["focus", "glare", "frame"];
 // Quality is mock-driven here; the lock/refuse/announce wiring is the real thing.
 export function ScanScreen({ onBack, onCaptured, onStackMode }: Props) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
 
   // Selecting Stack hands off to the rapid scanner (a different screen with a different
@@ -83,7 +85,7 @@ export function ScanScreen({ onBack, onCaptured, onStackMode }: Props) {
   }, [locked, firstFailing, onCaptured]);
 
   return (
-    <Screen ground="flat" edges={[]}>
+    <Screen ground="flat" edges={[]} padded={false}>
       <CameraPreview />
       {/* Edge vignette so attention falls to the frame. */}
       <View
@@ -109,7 +111,7 @@ export function ScanScreen({ onBack, onCaptured, onStackMode }: Props) {
           styles.coach,
           {
             paddingHorizontal: theme.space["5"],
-            paddingBottom: theme.space["9"],
+            paddingBottom: insets.bottom + theme.space["7"],
             paddingTop: theme.space["7"],
             gap: theme.space["6"],
           },
@@ -137,8 +139,14 @@ export function ScanScreen({ onBack, onCaptured, onStackMode }: Props) {
 
 function TopBar({ onMode, onBack }: { onMode: (m: CaptureMode) => void; onBack?: () => void }) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.topbar, { paddingHorizontal: theme.space["5"], paddingTop: theme.space["7"] }]}>
+    <View
+      style={[
+        styles.topbar,
+        { paddingHorizontal: theme.space["5"], paddingTop: insets.top + theme.space["4"] },
+      ]}
+    >
       {/* As a tab root there's nowhere to go back to, so the chevron only shows when a
           handler is wired (e.g. a deep stack push) — a spacer keeps the toggle centered. */}
       {onBack ? (

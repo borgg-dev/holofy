@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { StyleSheet, View, type ViewStyle } from "react-native";
-import { SafeAreaView, type Edge } from "react-native-safe-area-context";
+import { useSafeAreaInsets, type Edge } from "react-native-safe-area-context";
 
 import { useTheme } from "@/theme";
 
@@ -8,32 +8,52 @@ type Props = {
   children: ReactNode;
   /** "vault" paints the radial Vault-depth ground; "flat" is the plain bg. */
   ground?: "vault" | "flat";
-  /** Safe-area edges to inset. Camera screens opt out (edges={[]}) to go full-bleed. */
+  /**
+   * Safe-area edges to gutter. Each listed edge gets `inset + a design gutter` so content
+   * never hugs an edge — on web (inset 0) the design gutter alone keeps it clear; on a
+   * notched device the inset stacks on top. Camera screens opt out with `edges={[]}` to go
+   * full-bleed and clear the safe area on their own controls.
+   */
   edges?: readonly Edge[];
+  /** Apply the standard horizontal page gutter. On by default; full-bleed screens pass false. */
   padded?: boolean;
   style?: ViewStyle;
 };
 
-// Every screen mounts inside this. It owns the Vault background and safe-area
-// insets so individual screens don't re-derive the ground. The "vault" ground is
-// the token's radial depth — a violet-tinted near-black, never a flat black.
+const DEFAULT_EDGES = ["top", "bottom"] as const;
+
+// Every content screen mounts inside this. It owns the Vault background and — crucially — the
+// spacing contract: a comfortable gutter on each safe-area edge (the device inset plus a design
+// token), and one standard horizontal page gutter. Spacing lives here so screens don't re-derive
+// it and nothing ends up flush to an edge. The "vault" ground is the token's radial depth — a
+// violet-tinted near-black, never a flat black.
 export function Screen({
   children,
   ground = "vault",
-  edges = ["top", "bottom"],
-  padded = false,
+  edges = DEFAULT_EDGES,
+  padded = true,
   style,
 }: Props) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
+
+  // The design gutter sits on top of the raw safe-area inset so the first/last element always
+  // breathes, even where the inset is 0 (web, non-notched devices). Horizontal edges use the
+  // page gutter; vertical edges use a slightly larger one so headers and action rows clear the
+  // status bar / home indicator comfortably.
+  const has = (edge: Edge) => edges.includes(edge);
+  const sidePad = padded ? theme.space["5"] : 0;
+  const layout: ViewStyle = {
+    paddingTop: has("top") ? insets.top + theme.space["6"] : 0,
+    paddingBottom: has("bottom") ? insets.bottom + theme.space["5"] : 0,
+    paddingLeft: (has("left") ? insets.left : 0) + sidePad,
+    paddingRight: (has("right") ? insets.right : 0) + sidePad,
+  };
+
   return (
     <View style={[styles.root, { backgroundColor: theme.color.bg }]}>
       {ground === "vault" ? <VaultGround /> : null}
-      <SafeAreaView
-        edges={edges}
-        style={[styles.safe, padded ? { paddingHorizontal: theme.space["5"] } : null, style]}
-      >
-        {children}
-      </SafeAreaView>
+      <View style={[styles.safe, layout, style]}>{children}</View>
     </View>
   );
 }

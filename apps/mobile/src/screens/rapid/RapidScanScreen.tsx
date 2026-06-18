@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { impactLight, impactMedium, notifyWarning } from "@/lib/haptics";
 
@@ -38,6 +39,7 @@ type Props = {
 // strip/merge/announce wiring is the real thing.
 export function RapidScanScreen({ onBack, onReview }: Props) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
   const captures = useMockStackCaptures();
 
@@ -112,7 +114,7 @@ export function RapidScanScreen({ onBack, onReview }: Props) {
   const allFlipped = captures.done;
 
   return (
-    <Screen ground="flat" edges={["bottom"]}>
+    <Screen ground="flat" edges={[]} padded={false}>
       <CameraPreview />
       <View
         pointerEvents="none"
@@ -133,7 +135,7 @@ export function RapidScanScreen({ onBack, onReview }: Props) {
       </View>
 
       {/* Intent line over the frame — the value-only promise, set before the first flip. */}
-      <View style={[styles.intent, { top: theme.space["12"], paddingHorizontal: theme.space["6"] }]}>
+      <View style={[styles.intent, { top: insets.top + theme.space["11"], paddingHorizontal: theme.space["6"] }]}>
         <Text variant="overline" tone="tertiary" style={styles.center}>
           {RAPID_EYEBROW}
         </Text>
@@ -153,7 +155,7 @@ export function RapidScanScreen({ onBack, onReview }: Props) {
             borderTopColor: theme.color.border,
             paddingHorizontal: theme.space["5"],
             paddingTop: theme.space["5"],
-            paddingBottom: theme.space["6"],
+            paddingBottom: insets.bottom + theme.space["5"],
             gap: theme.space["5"],
           },
         ]}
@@ -184,8 +186,14 @@ export function RapidScanScreen({ onBack, onReview }: Props) {
 
 function TopBar({ onBack }: { onBack?: () => void }) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.topbar, { paddingHorizontal: theme.space["5"], paddingTop: theme.space["7"] }]}>
+    <View
+      style={[
+        styles.topbar,
+        { paddingHorizontal: theme.space["5"], paddingTop: insets.top + theme.space["4"] },
+      ]}
+    >
       <IconButton accessibilityLabel="Back" onPress={onBack}>
         <ChevronLeft color={theme.color.textPrimary} />
       </IconButton>

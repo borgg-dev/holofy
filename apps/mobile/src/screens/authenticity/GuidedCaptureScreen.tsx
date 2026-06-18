@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { impactLight } from "@/lib/haptics";
 
@@ -39,6 +40,7 @@ type Props = {
 // structure intentionally mirrors the pre-grade capture so the system speaks one consistent voice.
 export function GuidedCaptureScreen({ onBack, onComplete }: Props) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
 
   const { shotIndex, signals, locked, firstFailing, capturedCount, total, complete, capture } =
@@ -88,7 +90,7 @@ export function GuidedCaptureScreen({ onBack, onComplete }: Props) {
   }, [locked, firstFailing, capture, shot.label]);
 
   return (
-    <Screen ground="flat" edges={[]}>
+    <Screen ground="flat" edges={[]} padded={false}>
       <CameraPreview />
       <View
         pointerEvents="none"
@@ -102,7 +104,12 @@ export function GuidedCaptureScreen({ onBack, onComplete }: Props) {
         ]}
       />
 
-      <View style={[styles.topbar, { paddingHorizontal: theme.space["5"], paddingTop: theme.space["7"] }]}>
+      <View
+        style={[
+          styles.topbar,
+          { paddingHorizontal: theme.space["5"], paddingTop: insets.top + theme.space["4"] },
+        ]}
+      >
         <IconButton accessibilityLabel="Back" onPress={onBack}>
           <ChevronLeft color={theme.color.textPrimary} />
         </IconButton>
@@ -117,7 +124,7 @@ export function GuidedCaptureScreen({ onBack, onComplete }: Props) {
       <View
         style={[
           styles.brief,
-          { paddingHorizontal: theme.space["6"], top: theme.space["12"], gap: theme.space["2"] },
+          { paddingHorizontal: theme.space["6"], top: insets.top + theme.space["11"], gap: theme.space["2"] },
         ]}
         accessibilityRole="header"
       >
@@ -138,7 +145,7 @@ export function GuidedCaptureScreen({ onBack, onComplete }: Props) {
           styles.coach,
           {
             paddingHorizontal: theme.space["5"],
-            paddingBottom: theme.space["9"],
+            paddingBottom: insets.bottom + theme.space["7"],
             paddingTop: theme.space["7"],
             gap: theme.space["6"],
           },

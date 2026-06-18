@@ -57,13 +57,14 @@ export function PregradeGaugeScreen({
   }, [range, verdict, confidence]);
 
   return (
-    <Screen ground="vault" edges={["top", "bottom"]}>
+    <Screen ground="vault" edges={["top", "bottom"]} padded={false}>
       <ScrollView
         contentContainerStyle={[
           styles.content,
           {
-            padding: theme.space["6"],
-            paddingTop: theme.space["8"],
+            paddingHorizontal: theme.space["6"],
+            paddingTop: theme.space["2"],
+            paddingBottom: theme.space["6"],
             gap: theme.space["7"],
           },
         ]}
@@ -199,7 +200,7 @@ export function PregradeComputing() {
   return (
     <Screen ground="vault" edges={["top", "bottom"]} padded>
       <View
-        style={[styles.computing, { gap: theme.space["7"], paddingTop: theme.space["9"] }]}
+        style={[styles.computing, { gap: theme.space["7"], paddingTop: theme.space["3"] }]}
         accessibilityLiveRegion="polite"
         accessibilityLabel={`${COMPUTING_TITLE} ${COMPUTING_SUB}`}
       >
@@ -238,7 +239,7 @@ export function PregradeError({ onRetry, onBack }: { onRetry?: () => void; onBac
   const theme = useTheme();
   return (
     <Screen ground="vault" edges={["top", "bottom"]} padded>
-      <View style={[styles.computing, { gap: theme.space["7"], paddingTop: theme.space["9"] }]}>
+      <View style={[styles.computing, { gap: theme.space["7"], paddingTop: theme.space["3"] }]}>
         <View style={styles.topbar}>
           <Text
             variant="label"

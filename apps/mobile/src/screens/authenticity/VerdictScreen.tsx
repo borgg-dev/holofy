@@ -56,11 +56,16 @@ export function VerdictScreen({ assessment, onAuthenticate, onRescan, onBack }: 
   }, [assessment]);
 
   return (
-    <Screen ground="vault" edges={["top", "bottom"]}>
+    <Screen ground="vault" edges={["top", "bottom"]} padded={false}>
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { padding: theme.space["6"], paddingTop: theme.space["7"], gap: theme.space["7"] },
+          {
+            paddingHorizontal: theme.space["6"],
+            paddingTop: theme.space["2"],
+            paddingBottom: theme.space["6"],
+            gap: theme.space["7"],
+          },
         ]}
         showsVerticalScrollIndicator={false}
       >

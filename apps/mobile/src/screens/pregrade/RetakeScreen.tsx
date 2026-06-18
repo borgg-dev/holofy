@@ -37,7 +37,7 @@ export function RetakeScreen({
 
   return (
     <Screen ground="vault" edges={["top", "bottom"]} padded>
-      <View style={[styles.root, { paddingTop: theme.space["9"], gap: theme.space["8"] }]}>
+      <View style={[styles.root, { paddingTop: theme.space["3"], gap: theme.space["8"] }]}>
         <View style={{ gap: theme.space["3"] }} accessibilityRole="header">
           <Text variant="overline" tone="lock">
             {RETAKE_OVERLINE}

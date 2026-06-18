@@ -19,7 +19,7 @@ export function SettingsScreen({ onPrivacy }: Props) {
   const theme = useTheme();
 
   return (
-    <Screen ground="vault" padded>
+    <Screen ground="vault" edges={["top"]} padded>
       <View style={{ gap: theme.space["1"], marginBottom: theme.space["6"] }}>
         <Text variant="overline" tone="tertiary">
           {copy.overline}

@@ -32,7 +32,7 @@ export function ScreeningState() {
   return (
     <Screen ground="vault" edges={["top", "bottom"]} padded>
       <View
-        style={[styles.root, { gap: theme.space["7"], paddingTop: theme.space["9"] }]}
+        style={[styles.root, { gap: theme.space["7"], paddingTop: theme.space["3"] }]}
         accessibilityLiveRegion="polite"
         accessibilityLabel={`${SCREENING_TITLE} ${SCREENING_SUB}`}
       >
@@ -71,7 +71,7 @@ export function ScreeningError({ onRetry, onBack }: { onRetry?: () => void; onBa
   const theme = useTheme();
   return (
     <Screen ground="vault" edges={["top", "bottom"]} padded>
-      <View style={[styles.root, { gap: theme.space["7"], paddingTop: theme.space["9"] }]}>
+      <View style={[styles.root, { gap: theme.space["7"], paddingTop: theme.space["3"] }]}>
         <BackRow onBack={onBack} />
         <View style={[styles.spacer, { gap: theme.space["3"], justifyContent: "center" }]}>
           <Text variant="displayMd" tone="primary">
@@ -107,7 +107,7 @@ export function ScreeningRetake({
 
   return (
     <Screen ground="vault" edges={["top", "bottom"]} padded>
-      <View style={[styles.root, { paddingTop: theme.space["9"], gap: theme.space["8"] }]}>
+      <View style={[styles.root, { paddingTop: theme.space["3"], gap: theme.space["8"] }]}>
         <View style={{ gap: theme.space["3"] }} accessibilityRole="header">
           <Text variant="overline" tone="lock">
             {RETAKE_OVERLINE}
@@ -164,7 +164,7 @@ export function ScreeningNotAssessed({
 
   return (
     <Screen ground="vault" edges={["top", "bottom"]} padded>
-      <View style={[styles.root, { paddingTop: theme.space["9"], gap: theme.space["7"] }]}>
+      <View style={[styles.root, { paddingTop: theme.space["3"], gap: theme.space["7"] }]}>
         <View style={{ gap: theme.space["3"] }} accessibilityRole="header">
           <Text variant="overline" tone="tertiary">
             {NOT_ASSESSED_OVERLINE}

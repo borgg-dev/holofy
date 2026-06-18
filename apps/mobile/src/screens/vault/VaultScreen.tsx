@@ -66,7 +66,7 @@ export function VaultScreen({ revision = 0, onScan, onRapidScan, onOpenCard }: P
 
   if (state.status === "loading") {
     return (
-      <Screen ground="vault" padded>
+      <Screen ground="vault" edges={["top"]} padded>
         <VaultHeaderSkeleton />
         <View style={{ gap: theme.space["3"], marginTop: theme.space["6"] }}>
           {[0, 1, 2].map((i) => (
@@ -79,7 +79,7 @@ export function VaultScreen({ revision = 0, onScan, onRapidScan, onOpenCard }: P
 
   if (state.status === "error") {
     return (
-      <Screen ground="vault" padded>
+      <Screen ground="vault" edges={["top"]} padded>
         <View style={[styles.centered, { gap: theme.space["4"] }]}>
           <Text variant="titleLg" tone="primary">
             Couldn't load your Vault
@@ -98,7 +98,7 @@ export function VaultScreen({ revision = 0, onScan, onRapidScan, onOpenCard }: P
   const empty = items.length === 0;
 
   return (
-    <Screen ground="vault" padded>
+    <Screen ground="vault" edges={["top"]} padded>
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
