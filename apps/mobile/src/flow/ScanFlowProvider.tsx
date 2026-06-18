@@ -57,6 +57,18 @@ type ScanFlowValue = {
   runPregrade: (captureRef: string) => Promise<Pregrade | null>;
   /** Clear the pre-grade back to idle — e.g. on leaving the gauge for a fresh re-scan. */
   resetPregrade: () => void;
+  /**
+   * The session's training-consent choice, threaded into the scan/pre-grade calls so a
+   * consented capture is sent with the opt-in. Off until the user explicitly turns it on
+   * (the first-capture prompt, or the privacy screen) — never implied (charter §3.5).
+   */
+  trainingConsent: boolean;
+  /** Set the session consent choice; the first-capture prompt and privacy screen call this. */
+  setTrainingConsent: (granted: boolean) => void;
+  /** Whether the one-time first-capture consent prompt has been shown this session. */
+  consentPromptSeen: boolean;
+  /** Mark the first-capture prompt shown so it isn't offered again. */
+  markConsentPromptSeen: () => void;
   reset: () => void;
 };
 
@@ -68,12 +80,15 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
   const [revealChoice, setRevealChoice] = useState<ScanChoice | null>(null);
   const [vaultRevision, setVaultRevision] = useState(0);
   const [pregrade, setPregrade] = useState<PregradeState>({ status: "idle" });
+  // Off by default — the only honest default for personal-data consent (charter §3.5).
+  const [trainingConsent, setTrainingConsent] = useState(false);
+  const [consentPromptSeen, setConsentPromptSeen] = useState(false);
 
   const runScan = useCallback(
     async (bundleId: string) => {
       setScan({ status: "scanning", bundleId });
       try {
-        const result = await api.scan({ bundleId });
+        const result = await api.scan({ bundleId, trainingConsent });
         setScan({ status: "ready", bundleId, result });
         // A confident match goes straight to reveal; an ambiguous one waits for confirm.
         setRevealChoice(
@@ -94,7 +109,7 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
         return null;
       }
     },
-    [api]
+    [api, trainingConsent]
   );
 
   const addToVault = useCallback(
@@ -119,6 +134,7 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
         const result = await api.pregrade({
           captureRef,
           cardId: revealChoice?.identity.canonicalId ?? null,
+          trainingConsent,
         });
         setPregrade({ status: "ready", result });
         return result;
@@ -127,10 +143,11 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
         return null;
       }
     },
-    [api, revealChoice]
+    [api, revealChoice, trainingConsent]
   );
 
   const resetPregrade = useCallback(() => setPregrade({ status: "idle" }), []);
+  const markConsentPromptSeen = useCallback(() => setConsentPromptSeen(true), []);
 
   const reset = useCallback(() => {
     setScan({ status: "idle" });
@@ -149,6 +166,10 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
       pregrade,
       runPregrade,
       resetPregrade,
+      trainingConsent,
+      setTrainingConsent,
+      consentPromptSeen,
+      markConsentPromptSeen,
       reset,
     }),
     [
@@ -161,6 +182,9 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
       pregrade,
       runPregrade,
       resetPregrade,
+      trainingConsent,
+      consentPromptSeen,
+      markConsentPromptSeen,
       reset,
     ]
   );

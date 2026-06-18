@@ -139,3 +139,22 @@ export type PregradeRetake = {
 };
 
 export type Pregrade = PregradeEstimate | PregradeRetake;
+
+// ── Training consent ─────────────────────────────────────────────────────────
+//
+// The user's explicit, revocable permission to let their captures improve Holofy's
+// models — the data-loop moat. Deliberately separate from app-usage consent and OFF
+// by default; the privacy screen reads and writes this. `granted` is the account-level
+// switch; `consented` breaks it down so the copy can be specific and honest about what
+// is actually being shared.
+
+export type ConsentCounts = {
+  scans: number;
+  pregrades: number;
+  authenticity: number;
+};
+
+export type TrainingConsent = {
+  granted: boolean;
+  consented: ConsentCounts;
+};

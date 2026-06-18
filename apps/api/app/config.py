@@ -50,6 +50,13 @@ class AuthenticityBackend(StrEnum):
     MOCK = "mock"
 
 
+class DataLakeBackend(StrEnum):
+    # The consented-capture training lake. ``mock`` (an in-memory recorder) is the only
+    # backend wired today; the real EU-region writer drops in behind the same DataLakeSink
+    # Protocol. Region residency stays an infra/compliance concern, not a call-site one.
+    MOCK = "mock"
+
+
 class AuthBackend(StrEnum):
     DEV_TOKEN = "dev_token"
 
@@ -89,6 +96,11 @@ class Settings(BaseSettings):
     pricing_provider: PricingBackend = PricingBackend.MOCK
     grading_provider: GradingBackend = GradingBackend.MOCK
     authenticity_provider: AuthenticityBackend = AuthenticityBackend.MOCK
+
+    # Where consented captures land as training examples (the moat, architecture §6). The
+    # in-memory mock records emissions for tests; the real EU-region lake writer drops in
+    # behind the same DataLakeSink Protocol with no change at the emission sites.
+    datalake_sink: DataLakeBackend = DataLakeBackend.MOCK
 
     # Auth seam: the dev-token backend mints/verifies an HMAC-signed bearer that maps to a
     # seeded user, so endpoints are genuinely user-scoped with no OAuth/Clerk yet. Real

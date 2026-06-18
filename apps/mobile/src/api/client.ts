@@ -8,12 +8,17 @@ import { ApiError, type ApiErrorCode } from "./errors";
 import {
   fixtureAddToCollection,
   fixtureCollection,
+  fixtureNoteConsentedPregrade,
+  fixtureNoteConsentedScan,
   fixturePortfolio,
+  fixtureSetTrainingConsent,
+  fixtureTrainingConsent,
   pregradeFixtureFor,
   scanFixtureFor,
 } from "./fixtures";
 import {
   mapCollectionItem,
+  mapConsent,
   mapPortfolio,
   mapPregrade,
   mapScanResponse,
@@ -24,9 +29,11 @@ import type {
   Portfolio,
   Pregrade,
   ScanResult,
+  TrainingConsent,
 } from "./models";
 import type {
   WireCollectionItem,
+  WireConsentState,
   WireErrorResponse,
   WirePortfolio,
   WirePregradeResponse,
@@ -36,6 +43,8 @@ import type {
 export type ScanRequest = {
   bundleId: string;
   imageCount?: number;
+  /** Opt this capture into the training lake. Off unless explicitly set (GDPR, charter §3.5). */
+  trainingConsent?: boolean;
 };
 
 export type AddToCollectionRequest = {
@@ -50,6 +59,15 @@ export type PregradeRequest = {
   captureRef: string;
   /** Catalog card this capture is of, when a scan already resolved it. */
   cardId?: string | null;
+  /** Opt this capture into the training lake. Off unless explicitly set (GDPR, charter §3.5). */
+  trainingConsent?: boolean;
+};
+
+export type SetConsentRequest = {
+  /** `true` opts the account into training-data use; `false` revokes it. */
+  granted: boolean;
+  /** The surface/copy version the choice was made under, for the server's audit trail. */
+  note?: string;
 };
 
 export interface HolofyClient {
@@ -59,6 +77,10 @@ export interface HolofyClient {
   portfolio(): Promise<Portfolio>;
   /** Honest pre-grade: an `estimated` range + sub-scores, or a `retake` with reasons. */
   pregrade(req: PregradeRequest): Promise<Pregrade>;
+  /** The account's current training-consent posture — off by default. */
+  trainingConsent(): Promise<TrainingConsent>;
+  /** Grant or revoke training-data consent; returns the resulting posture. */
+  setTrainingConsent(req: SetConsentRequest): Promise<TrainingConsent>;
 }
 
 // ── HTTP implementation ──────────────────────────────────────────────────────
@@ -105,10 +127,15 @@ export function createHttpClient(config: HttpClientConfig): HolofyClient {
   }
 
   return {
-    async scan({ bundleId, imageCount = 1 }) {
+    async scan({ bundleId, imageCount = 1, trainingConsent = false }) {
       const wire = await request<WireScanResponse>("/scan", {
         method: "POST",
-        body: JSON.stringify({ bundle_id: bundleId, image_count: imageCount }),
+        body: JSON.stringify({
+          bundle_id: bundleId,
+          image_count: imageCount,
+          // Only sent as opt-in; the server defaults it off, so omitting it never consents.
+          training_consent: trainingConsent,
+        }),
       });
       return mapScanResponse(wire);
     },
@@ -136,12 +163,29 @@ export function createHttpClient(config: HttpClientConfig): HolofyClient {
       return mapPortfolio(wire);
     },
 
-    async pregrade({ captureRef, cardId }) {
+    async pregrade({ captureRef, cardId, trainingConsent = false }) {
       const wire = await request<WirePregradeResponse>("/pregrade", {
         method: "POST",
-        body: JSON.stringify({ capture_ref: captureRef, card_id: cardId ?? null }),
+        body: JSON.stringify({
+          capture_ref: captureRef,
+          card_id: cardId ?? null,
+          training_consent: trainingConsent,
+        }),
       });
       return mapPregrade(wire);
+    },
+
+    async trainingConsent() {
+      const wire = await request<WireConsentState>("/consent/training");
+      return mapConsent(wire);
+    },
+
+    async setTrainingConsent({ granted, note }) {
+      const wire = await request<WireConsentState>("/consent/training", {
+        method: "PUT",
+        body: JSON.stringify({ granted, note: note ?? null }),
+      });
+      return mapConsent(wire);
     },
   };
 }
@@ -199,8 +243,9 @@ export function createFixtureClient(config: FixtureClientConfig = {}): HolofyCli
   const wait = () => new Promise<void>((resolve) => setTimeout(resolve, latency));
 
   return {
-    async scan({ bundleId }) {
+    async scan({ bundleId, trainingConsent = false }) {
       await wait();
+      if (trainingConsent) fixtureNoteConsentedScan();
       return mapScanResponse(scanFixtureFor(bundleId));
     },
     async addToCollection({ canonicalId, condition, quantity }) {
@@ -215,11 +260,22 @@ export function createFixtureClient(config: FixtureClientConfig = {}): HolofyCli
       await wait();
       return mapPortfolio(fixturePortfolio());
     },
-    async pregrade({ captureRef }) {
+    async pregrade({ captureRef, trainingConsent = false }) {
       // Pre-grade assesses four factors — give it a beat longer than a price lookup so
       // the staged "Assessing…" copy is visible rather than a flash.
       await new Promise<void>((resolve) => setTimeout(resolve, latency * 2));
+      if (trainingConsent) fixtureNoteConsentedPregrade();
       return mapPregrade(pregradeFixtureFor(captureRef));
+    },
+
+    async trainingConsent() {
+      await wait();
+      return mapConsent(fixtureTrainingConsent());
+    },
+
+    async setTrainingConsent({ granted }) {
+      await wait();
+      return mapConsent(fixtureSetTrainingConsent(granted));
     },
   };
 }

@@ -27,6 +27,8 @@ type Props = {
   /** Bumped by the flow on each Add → triggers a refetch so the Vault reflects it. */
   revision?: number;
   onScan?: () => void;
+  /** Open the privacy / training-consent screen. */
+  onPrivacy?: () => void;
 };
 
 type LoadState =
@@ -38,7 +40,7 @@ type LoadState =
 // counts up, the change since the last snapshot, the holding count, then the list with
 // each card's current € contribution. This is a "money" surface — calm, near-black, the
 // foil restrained to the total's glow header. Loading / empty / error are all real states.
-export function VaultScreen({ revision = 0, onScan }: Props) {
+export function VaultScreen({ revision = 0, onScan, onPrivacy }: Props) {
   const theme = useTheme();
   const api = useApi();
   const [state, setState] = useState<LoadState>({ status: "loading" });
@@ -109,14 +111,12 @@ export function VaultScreen({ revision = 0, onScan }: Props) {
         contentContainerStyle={{ paddingBottom: theme.space["10"] }}
         ListEmptyComponent={<EmptyVault onScan={onScan} />}
         ListFooterComponent={
-          empty ? null : (
-            <Button
-              label="Scan a card"
-              tier="secondary"
-              onPress={onScan}
-              style={{ marginTop: theme.space["7"] }}
-            />
-          )
+          <View style={{ marginTop: theme.space["7"], gap: theme.space["2"] }}>
+            {empty ? null : <Button label="Scan a card" tier="secondary" onPress={onScan} />}
+            {onPrivacy ? (
+              <Button label="Privacy & training" tier="tertiary" onPress={onPrivacy} />
+            ) : null}
+          </View>
         }
       />
     </Screen>

@@ -18,11 +18,13 @@ import type {
   ScanChoice,
   ScanResult,
   SubScore,
+  TrainingConsent,
 } from "./models";
 import type {
   WireCardIdentity,
   WireCollectionItem,
   WireConfirmationChoice,
+  WireConsentState,
   WirePortfolio,
   WirePortfolioSnapshot,
   WirePregradeResponse,
@@ -177,6 +179,25 @@ export function mapPregrade(w: WirePregradeResponse): Pregrade {
     throw new MappingError("Pre-grade retake carried no coaching reasons.");
   }
   return { status: "retake", reasons, disclaimer: w.disclaimer };
+}
+
+// ── Training consent ─────────────────────────────────────────────────────────
+
+export function mapConsent(w: WireConsentState): TrainingConsent {
+  return {
+    granted: w.granted,
+    consented: {
+      scans: w.consented.scans,
+      pregrades: w.consented.pregrades,
+      authenticity: w.consented.authenticity,
+    },
+  };
+}
+
+/** Total captures currently feeding the training lake — the figure the copy speaks to. */
+export function consentedTotal(consent: TrainingConsent): number {
+  const { scans, pregrades, authenticity } = consent.consented;
+  return scans + pregrades + authenticity;
 }
 
 /** Thrown when a wire payload is structurally valid JSON but violates the contract. */

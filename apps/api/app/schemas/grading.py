@@ -95,6 +95,14 @@ class PregradeRequest(BaseModel):
     capture_ref: str = Field(min_length=1, max_length=512)
     card_id: str | None = Field(default=None, description="Catalog card id this capture is of, if known.")
 
+    # An at-capture opt-in — the first-capture prompt's "yes". Defaults off (GDPR, §3.5) and
+    # carries no per-record meaning on its own: when set, the server grants the *account*, and
+    # this pre-grade (and every future capture) then inherits that standing consent. The
+    # record's eligibility is always the account's preference, never this flag in isolation.
+    # ``consent_note`` records which copy version the opt-in was given under.
+    training_consent: bool = False
+    consent_note: str | None = Field(default=None, max_length=255)
+
 
 class PregradeResponse(BaseModel):
     """The pre-grade result the UI renders.

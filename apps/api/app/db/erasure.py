@@ -16,8 +16,11 @@ Two distinct kinds of data are involved, handled differently:
    reach these, so erasure must *enumerate* them before the rows vanish and hand them to
    the out-of-band purge: every object-storage key the user produced — scan bundles
    (``ScanRecord.capture_ref``), pre-grade captures (``PreGradeRecord.capture_ref``) and
-   authenticity-screen captures (``AuthenticityRecord.capture_ref``) — and the scan ids that
-   may exist in a training set.
+   authenticity-screen captures (``AuthenticityRecord.capture_ref``) — and the *record* ids,
+   per capture kind, that may have been replicated into the lake. All three kinds carry their
+   own revocable ``training_consent``, and each consented record can produce one training
+   example (``app/datalake/emit.py``), so the lake purge must target all three — not only
+   scans — or a consented pre-grade / authenticity example would survive the delete.
 
 ``plan_erasure`` runs inside the same transaction as the delete and returns that manifest;
 the caller (an erasure job, a later slice) executes the storage/lake deletions and only
@@ -45,14 +48,17 @@ class ErasureManifest:
     """What an out-of-band purge must delete once the DB rows are gone.
 
     ``capture_refs`` are object-storage keys for every still the user produced — scans,
-    pre-grades and authenticity screens; ``training_eligible_scan_ids`` are the scans that
-    *may* have been replicated into the data lake (they had standing consent), so the lake
-    purge can target them precisely.
+    pre-grades and authenticity screens. The ``training_eligible_*_ids`` lists are the records
+    of each kind that *may* have been replicated into the data lake (they had standing
+    consent, never revoked), so the lake purge can target each example precisely by its source
+    record id. The keys mirror ``TrainingExample.(kind, record_id)`` the sink stores against.
     """
 
     user_id: uuid.UUID
     capture_refs: list[str] = field(default_factory=list)
     training_eligible_scan_ids: list[uuid.UUID] = field(default_factory=list)
+    training_eligible_pregrade_ids: list[uuid.UUID] = field(default_factory=list)
+    training_eligible_authenticity_ids: list[uuid.UUID] = field(default_factory=list)
 
 
 async def plan_erasure(session: AsyncSession, user_id: uuid.UUID) -> ErasureManifest:
@@ -61,35 +67,62 @@ async def plan_erasure(session: AsyncSession, user_id: uuid.UUID) -> ErasureMani
     Call this, then delete the user, then execute the manifest against object storage and
     the data lake — all within one transaction so a crash can't leave orphaned images.
     """
-    scan_stmt = select(
-        ScanRecord.id, ScanRecord.capture_ref, ScanRecord.training_consent
-    ).where(ScanRecord.user_id == user_id)
-    scan_rows = (await session.execute(scan_stmt)).all()
-
-    # Pre-grade and authenticity captures are object-storage stills too, and must be purged
-    # with the user even though those tables carry no separate training-consent flag (they
-    # are not replicated into the lake on their own).
-    pregrade_refs = (
+    scan_rows = (
         await session.execute(
-            select(PreGradeRecord.capture_ref).where(PreGradeRecord.user_id == user_id)
+            select(
+                ScanRecord.id,
+                ScanRecord.capture_ref,
+                ScanRecord.training_consent,
+                ScanRecord.consent_revoked_at,
+            ).where(ScanRecord.user_id == user_id)
         )
-    ).scalars()
-    authenticity_refs = (
-        await session.execute(
-            select(AuthenticityRecord.capture_ref).where(
-                AuthenticityRecord.user_id == user_id
-            )
-        )
-    ).scalars()
+    ).all()
 
-    capture_refs = [capture_ref for _, capture_ref, _ in scan_rows if capture_ref]
-    capture_refs.extend(ref for ref in pregrade_refs if ref)
-    capture_refs.extend(ref for ref in authenticity_refs if ref)
+    # Pre-grades and authenticity screens are object-storage stills too, and — like scans —
+    # each carries its own revocable consent and can be replicated into the lake, so we
+    # enumerate both their capture keys and their consented record ids.
+    pregrade_rows = (
+        await session.execute(
+            select(
+                PreGradeRecord.id,
+                PreGradeRecord.capture_ref,
+                PreGradeRecord.training_consent,
+                PreGradeRecord.consent_revoked_at,
+            ).where(PreGradeRecord.user_id == user_id)
+        )
+    ).all()
+    authenticity_rows = (
+        await session.execute(
+            select(
+                AuthenticityRecord.id,
+                AuthenticityRecord.capture_ref,
+                AuthenticityRecord.training_consent,
+                AuthenticityRecord.consent_revoked_at,
+            ).where(AuthenticityRecord.user_id == user_id)
+        )
+    ).all()
+
+    capture_refs = [ref for _, ref, _, _ in scan_rows if ref]
+    capture_refs.extend(ref for _, ref, _, _ in pregrade_rows if ref)
+    capture_refs.extend(ref for _, ref, _, _ in authenticity_rows if ref)
 
     return ErasureManifest(
         user_id=user_id,
         capture_refs=capture_refs,
-        training_eligible_scan_ids=[
-            scan_id for scan_id, _, training_consent in scan_rows if training_consent
-        ],
+        training_eligible_scan_ids=_eligible_ids(scan_rows),
+        training_eligible_pregrade_ids=_eligible_ids(pregrade_rows),
+        training_eligible_authenticity_ids=_eligible_ids(authenticity_rows),
     )
+
+
+def _eligible_ids(rows: list) -> list[uuid.UUID]:
+    """The record ids that had standing consent (opted in, never revoked) — the lake targets.
+
+    Same predicate as the repositories' ``list_training_eligible`` and the emission gate, so a
+    purge can't miss an example the lake would have ingested.
+    """
+    return [
+        record_id
+        for record_id, _, training_consent, consent_revoked_at in rows
+        if training_consent and consent_revoked_at is None
+    ]

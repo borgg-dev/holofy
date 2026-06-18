@@ -161,6 +161,29 @@ export type WirePregradeResponse = {
   reasons: string[] | null;
 };
 
+// Training consent: the user's explicit, revocable grip on the data-loop moat
+// (apps/api/app/schemas/consent.py). Separate from app-usage consent and off by default;
+// the privacy screen reads and writes it.
+
+/** apps/api/app/schemas/consent.py :: ConsentCounts. Per-kind tally of consented captures. */
+export type WireConsentCounts = {
+  scans: number;
+  pregrades: number;
+  authenticity: number;
+};
+
+/** apps/api/app/schemas/consent.py :: ConsentState. */
+export type WireConsentState = {
+  granted: boolean;
+  consented: WireConsentCounts;
+};
+
+/** apps/api/app/schemas/consent.py :: ConsentUpdate (request body for PUT /consent/training). */
+export type WireConsentUpdate = {
+  granted: boolean;
+  note?: string | null;
+};
+
 /** apps/api/app/core/errors.py :: ErrorResponse envelope. */
 export type WireErrorResponse = {
   error: {

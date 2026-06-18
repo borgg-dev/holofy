@@ -18,6 +18,7 @@ from app.auth.base import AuthProvider
 from app.authenticity.reference_catalog import ReferenceCatalogExistenceChecker
 from app.config import Settings
 from app.core.errors import NotAuthenticatedError
+from app.datalake.base import DataLakeSink
 from app.db.models import User
 from app.db.repositories import (
     CardRepository,
@@ -69,6 +70,10 @@ def get_authenticity_provider(request: Request) -> AuthenticityProvider:
 
 def get_capture_store(request: Request) -> CaptureStore:
     return request.app.state.capture_store
+
+
+def get_datalake_sink(request: Request) -> DataLakeSink:
+    return request.app.state.datalake_sink
 
 
 def get_auth_provider(request: Request) -> AuthProvider:
@@ -123,10 +128,12 @@ def get_scan_service(
     settings: Settings = Depends(get_settings),
     recognition: RecognitionProvider = Depends(get_recognition_provider),
     pricing: PricingProvider = Depends(get_pricing_provider),
+    data_lake: DataLakeSink = Depends(get_datalake_sink),
 ) -> ScanService:
     return ScanService(
         recognition=recognition,
         pricing=pricing,
+        data_lake=data_lake,
         confirm_threshold=settings.recognition_confirm_threshold,
     )
 

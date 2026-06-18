@@ -15,25 +15,33 @@ band, so the outcomes can't be confused.
 ``capture_ref`` points at the stills in object storage; the bytes are never stored
 (data minimization, §6). ``signals`` keeps the per-signal reads as JSON — a training label
 and an audit trail — without a row per signal.
+
+Like a scan, an authenticity screen carries its own ``training_consent`` (default ``False``,
+revocable): it is an independent capture event the user consents to share separately. Only a
+consented, never-revoked screen is emitted to the data lake — the privacy gate is enforced at
+emission and at the column.
 """
 
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     Float,
     ForeignKey,
     String,
+    Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
 from app.db.models.enums import AuthenticityRiskBand, AuthenticityStatus
-from app.db.types import GUID, new_uuid
+from app.db.types import GUID, Timestamp, new_uuid
 
 if TYPE_CHECKING:
     from app.db.models.card import Card
@@ -53,6 +61,12 @@ class AuthenticityRecord(TimestampMixin, Base):
             "risk_band IS NULL OR risk_band IN "
             "('strong_signals', 'inconclusive', 'elevated_risk')",
             name="risk_band_is_a_band",
+        ),
+        # Consent active and revoked at once is a contradiction — forbid it at the row, as on
+        # the scan record. Mirrors ``scan_records.consent_not_active_when_revoked``.
+        CheckConstraint(
+            "NOT (training_consent AND consent_revoked_at IS NOT NULL)",
+            name="authenticity_consent_not_active_when_revoked",
         ),
     )
 
@@ -86,6 +100,15 @@ class AuthenticityRecord(TimestampMixin, Base):
 
     # On retake / not_assessed: why no band was produced, for the owner's history.
     reasons: Mapped[list[str]] = mapped_column(JSON, default=list)
+
+    # --- The consent moat, per record: explicit, revocable, separate from app-usage and from
+    # the scan's consent. An authenticity screen is its own capture event the user consents to
+    # share (its signals are the authenticity model's labels, and a later real grade makes it a
+    # verified-genuine example); off by default, never replicated to the lake unless opted in.
+    # Mirrors ``ScanRecord``; revocation marks it for lake purge. ---
+    training_consent: Mapped[bool] = mapped_column(Boolean, default=False)
+    consent_revoked_at: Mapped[datetime | None] = mapped_column(Timestamp)
+    consent_note: Mapped[str | None] = mapped_column(Text)
 
     user: Mapped["User"] = relationship(back_populates="authenticity_screens")
     card: Mapped["Card | None"] = relationship(back_populates="authenticity_screens")

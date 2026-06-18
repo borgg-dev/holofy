@@ -28,6 +28,7 @@ from app.api.dependencies import (
     get_authenticity_service,
     get_capture_store,
     get_current_user,
+    get_datalake_sink,
     get_pricing_provider,
     get_rate_limiter,
     get_session,
@@ -41,6 +42,8 @@ from app.core.errors import (
     PriceUnavailableError,
     QuotaExceededError,
 )
+from app.datalake.base import DataLakeSink
+from app.datalake.emit import emit_authenticity
 from app.db.models import User
 from app.db.repositories import AuthenticityRepository, CardRepository
 from app.grading.capture_store import CaptureNotFoundError as CaptureMissing
@@ -49,6 +52,7 @@ from app.providers.base import PricingProvider
 from app.ratelimit.base import RateLimiter
 from app.schemas.authenticity import AuthenticityRequest, AuthenticityResponse
 from app.services.authenticity import AuthenticityService
+from app.services.consent import build_consent_service
 
 router = APIRouter(tags=["authenticity"])
 
@@ -79,6 +83,7 @@ async def assess_authenticity(
     limiter: RateLimiter = Depends(get_rate_limiter),
     settings: Settings = Depends(get_settings),
     session: AsyncSession = Depends(get_session),
+    data_lake: DataLakeSink = Depends(get_datalake_sink),
 ) -> AuthenticityResponse:
     # Charge quota before spending a screening credit so abuse can't drive COGS.
     window = await limiter.check_and_consume(
@@ -127,12 +132,24 @@ async def assess_authenticity(
         value_eur=await _value_or_none(pricing, card.canonical_id),
     )
 
-    await AuthenticityRepository(session).record(
+    # Each capture inherits the account's standing consent — never the wire flag directly.
+    # An explicit opt-in grants the account first; otherwise the account preference governs.
+    consent = await build_consent_service(session).resolve_for_capture(
+        user, opt_in=request.training_consent, note=request.consent_note
+    )
+
+    record = await AuthenticityRepository(session).record(
         result,
         user_id=user.id,
         capture_ref=request.capture_ref,
         card_id=card.id,
+        training_consent=consent.training_consent,
+        consent_note=consent.consent_note,
     )
+    # Close the consent loop: emit to the lake only when the screen carries standing consent.
+    # The gate inside ``emit_authenticity`` no-ops a non-consented record, so a default
+    # (consent-off) screen is the owner's private history and nothing more.
+    await emit_authenticity(data_lake, record)
     return result
 
 

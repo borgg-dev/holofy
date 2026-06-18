@@ -9,5 +9,11 @@ export default function Vault() {
   const router = useRouter();
   const { vaultRevision } = useScanFlow();
 
-  return <VaultScreen revision={vaultRevision} onScan={() => router.replace("/")} />;
+  return (
+    <VaultScreen
+      revision={vaultRevision}
+      onScan={() => router.replace("/")}
+      onPrivacy={() => router.push("/privacy")}
+    />
+  );
 }

@@ -68,6 +68,41 @@ class ScanRepository:
         scan.consent_revoked_at = utcnow()
         await self._session.flush()
 
+    async def revoke_training_consent_for_user(self, user_id: uuid.UUID) -> int:
+        """Withdraw consent across all of a user's scans — the account-level "stop training on
+        my data" switch. Returns how many scans were newly revoked.
+
+        Only scans currently consented are touched; an already-revoked scan keeps its original
+        revocation stamp (idempotent). The lake purge of these scans is the erasure path's job
+        (``app/db/erasure.py``); here we flip the gate so no *future* emission includes them.
+        """
+        scans = await self.list_for_user(user_id)
+        revoked = 0
+        for scan in scans:
+            if scan.training_consent:
+                scan.training_consent = False
+                scan.consent_revoked_at = utcnow()
+                revoked += 1
+        await self._session.flush()
+        return revoked
+
+    async def grant_training_consent_for_user(self, user_id: uuid.UUID) -> int:
+        """Grant consent across a user's existing scans — the account-level opt-in applied
+        retroactively to history the user now agrees to share. Returns how many were granted.
+
+        Clears any prior revocation stamp (the row can't hold consent *and* a revocation, per
+        the check constraint), so a re-opt-in cleanly re-enables the scan.
+        """
+        scans = await self.list_for_user(user_id)
+        granted = 0
+        for scan in scans:
+            if not scan.training_consent:
+                scan.training_consent = True
+                scan.consent_revoked_at = None
+                granted += 1
+        await self._session.flush()
+        return granted
+
     async def list_training_eligible(self) -> list[ScanRecord]:
         """Scans the data lake may ingest: explicit consent, never revoked.
 

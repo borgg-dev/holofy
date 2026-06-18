@@ -11,6 +11,7 @@
 import type {
   WireCardIdentity,
   WireCollectionItem,
+  WireConsentState,
   WirePortfolio,
   WirePregradeResponse,
   WirePriceQuote,
@@ -224,8 +225,48 @@ export function fixturePortfolio(): WirePortfolio {
   };
 }
 
+// Training consent, fixture-side. Off by default (the only honest default for personal data,
+// charter §3.5). A consented scan/pre-grade bumps the matching count so the privacy screen's
+// "N captures are helping improve Holofy" copy reflects the demo flow, and revoking clears it.
+let consentedScans = 0;
+let consentedPregrades = 0;
+
+function consentState(): WireConsentState {
+  const granted = consentedScans + consentedPregrades > 0;
+  return {
+    granted,
+    consented: { scans: consentedScans, pregrades: consentedPregrades, authenticity: 0 },
+  };
+}
+
+export function fixtureTrainingConsent(): WireConsentState {
+  return consentState();
+}
+
+export function fixtureSetTrainingConsent(granted: boolean): WireConsentState {
+  if (granted) {
+    // Grant retroactively consents the existing demo captures so the count is non-zero.
+    if (consentedScans === 0) consentedScans = 1;
+  } else {
+    consentedScans = 0;
+    consentedPregrades = 0;
+  }
+  return consentState();
+}
+
+/** Record a consented capture so the fixture's consent counts track the flow. */
+export function fixtureNoteConsentedScan(): void {
+  consentedScans += 1;
+}
+
+export function fixtureNoteConsentedPregrade(): void {
+  consentedPregrades += 1;
+}
+
 /** Reset mutable fixture state between tests/sessions. */
 export function resetFixtures(): void {
+  consentedScans = 0;
+  consentedPregrades = 0;
   collection = [
     {
       id: "fixture-tidecaller",

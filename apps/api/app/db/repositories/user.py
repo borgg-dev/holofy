@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.user import User
+from app.db.types import utcnow
 
 
 class UserRepository:
@@ -33,6 +34,34 @@ class UserRepository:
             User.auth_provider == provider, User.auth_subject == subject
         )
         return (await self._session.execute(stmt)).scalar_one_or_none()
+
+    async def grant_training_consent(
+        self, user: User, *, note: str | None = None
+    ) -> None:
+        """Opt the account into training-data use — the durable grant the privacy screen sets.
+
+        Stamps the grant and clears any prior revocation (the row can't hold consent *and* a
+        revocation, per the check constraint), so a re-opt-in cleanly re-enables the account.
+        Idempotent: re-granting an already-consented account just refreshes the note.
+        """
+        user.training_consent = True
+        user.training_consent_at = utcnow()
+        user.training_consent_revoked_at = None
+        user.consent_note = note
+        await self._session.flush()
+
+    async def revoke_training_consent(self, user: User) -> None:
+        """Opt the account out — future captures stop carrying consent immediately.
+
+        Clearing the flag and stamping the revocation is enough to gate *future* emissions;
+        the purge of already-shared captures is the erasure path's job (``app/db/erasure.py``).
+        Idempotent: a re-revoke keeps the original revocation stamp.
+        """
+        if not user.training_consent and user.training_consent_revoked_at is not None:
+            return
+        user.training_consent = False
+        user.training_consent_revoked_at = utcnow()
+        await self._session.flush()
 
     async def delete(self, user: User) -> None:
         """Erase a user and every owned row (collection, scans, snapshots) via cascade.

@@ -3,6 +3,7 @@ export type {
   CardIdentity,
   CollectionItem,
   Condition,
+  ConsentCounts,
   GradeProbabilityRange,
   GradingAxis,
   Portfolio,
@@ -16,6 +17,7 @@ export type {
   ScanChoice,
   ScanResult,
   SubScore,
+  TrainingConsent,
   Variant,
 } from "./models";
 export {
@@ -25,6 +27,7 @@ export {
   type HolofyClient,
   type PregradeRequest,
   type ScanRequest,
+  type SetConsentRequest,
 } from "./client";
 export { ApiProvider, useApi } from "./ApiProvider";
 export { ApiError, isOffline, isRecognitionFailure, type ApiErrorCode } from "./errors";
@@ -35,4 +38,5 @@ export {
   portfolioChange,
   type PortfolioChange,
 } from "./portfolio";
+export { consentedTotal } from "./mapping";
 export { countUpValue } from "./countUp";

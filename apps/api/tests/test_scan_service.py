@@ -12,6 +12,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import RecognitionFailedError
+from app.datalake.mock import MockDataLakeSink
 from app.db.models import ScanOutcome as PersistedScanOutcome
 from app.db.repositories import CardRepository, ScanRepository, UserRepository
 from app.providers.pricing.mock import MockPricingProvider
@@ -46,10 +47,13 @@ class _StubRecognition:
         return self._result
 
 
-def _service(result: RecognitionResult) -> ScanService:
+def _service(
+    result: RecognitionResult, sink: MockDataLakeSink | None = None
+) -> ScanService:
     return ScanService(
         recognition=_StubRecognition(result),
         pricing=MockPricingProvider(),
+        data_lake=sink or MockDataLakeSink(),
         confirm_threshold=_THRESHOLD,
     )
 

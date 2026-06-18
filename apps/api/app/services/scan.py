@@ -9,6 +9,11 @@ and, only with explicit consent, the raw material of the training moat. ``traini
 is never set here unless the caller passes it through from an explicit opt-in; the default is
 off (charter §3.5, GDPR). A resolved scan also lands its card in the shared catalog so it is
 immediately addable to the collection.
+
+The consent moat is closed here: after a scan is recorded, it is offered to the data lake
+through ``emit_scan``, whose gate emits *only* a consented, never-revoked record. A
+not-consented scan is recorded as the user's history but never reaches the sink — the
+privacy hard line is one gate, not a check scattered per call site.
 """
 
 from __future__ import annotations
@@ -17,6 +22,8 @@ import uuid
 from decimal import Decimal
 
 from app.core.errors import PriceUnavailableError, RecognitionFailedError
+from app.datalake.base import DataLakeSink
+from app.datalake.emit import emit_scan
 from app.db.models.enums import ScanOutcome as PersistedScanOutcome
 from app.db.models.enums import Variant as PersistedVariant
 from app.db.repositories import CardRepository, ScanRepository
@@ -37,10 +44,12 @@ class ScanService:
         *,
         recognition: RecognitionProvider,
         pricing: PricingProvider,
+        data_lake: DataLakeSink,
         confirm_threshold: float,
     ) -> None:
         self._recognition = recognition
         self._pricing = pricing
+        self._data_lake = data_lake
         self._confirm_threshold = confirm_threshold
 
     async def scan(
@@ -55,7 +64,7 @@ class ScanService:
     ) -> ScanResponse:
         result = await self._recognition.recognize(bundle)
         if not result.candidates:
-            await scans.record(
+            unrecognized = await scans.record(
                 user_id=user_id,
                 capture_ref=bundle.bundle_id,
                 outcome=PersistedScanOutcome.UNRECOGNIZED,
@@ -63,6 +72,7 @@ class ScanService:
                 training_consent=training_consent,
                 consent_note=consent_note,
             )
+            await emit_scan(self._data_lake, unrecognized)
             raise RecognitionFailedError(
                 "No card could be recognized in this capture.",
                 details={"bundle_id": bundle.bundle_id},
@@ -72,7 +82,7 @@ class ScanService:
 
         if result.needs_confirmation(self._confirm_threshold):
             response = await self._confirmation_response(result.candidates[:2])
-            await scans.record(
+            unconfirmed = await scans.record(
                 user_id=user_id,
                 capture_ref=bundle.bundle_id,
                 outcome=PersistedScanOutcome.NEEDS_CONFIRMATION,
@@ -81,6 +91,7 @@ class ScanService:
                 training_consent=training_consent,
                 consent_note=consent_note,
             )
+            await emit_scan(self._data_lake, unconfirmed)
             return response
 
         top = result.top
@@ -95,7 +106,7 @@ class ScanService:
                 price=await self._price_or_none(top.identity.canonical_id),
             ),
         )
-        await scans.record(
+        resolved = await scans.record(
             user_id=user_id,
             capture_ref=bundle.bundle_id,
             outcome=PersistedScanOutcome.RESOLVED,
@@ -105,6 +116,7 @@ class ScanService:
             training_consent=training_consent,
             consent_note=consent_note,
         )
+        await emit_scan(self._data_lake, resolved)
         return response
 
     async def _confirmation_response(

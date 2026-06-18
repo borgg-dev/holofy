@@ -27,6 +27,7 @@ from app.db.models import (
     PriceSource,
     ScanOutcome,
     ScanRecord,
+    User,
     Variant,
 )
 from app.db.repositories import (
@@ -174,6 +175,71 @@ async def test_active_consent_with_revocation_stamp_is_rejected(
             outcome=ScanOutcome.RESOLVED,
             training_consent=True,
             consent_revoked_at=datetime.now(timezone.utc),
+        )
+    )
+    with pytest.raises(IntegrityError):
+        await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_account_training_consent_defaults_to_off(session: AsyncSession) -> None:
+    # The account-level guarantee: a fresh user carries no standing training consent.
+    user = await UserRepository(session).create()
+    await session.commit()
+    assert user.training_consent is False
+    assert user.training_consent_at is None
+    assert user.training_consent_revoked_at is None
+
+
+@pytest.mark.asyncio
+async def test_account_grant_then_revoke_round_trips(session: AsyncSession) -> None:
+    users = UserRepository(session)
+    user = await users.create()
+    await session.commit()
+
+    await users.grant_training_consent(user, note="privacy-screen-v1")
+    await session.commit()
+    assert user.training_consent is True
+    assert user.training_consent_at is not None
+    assert user.consent_note == "privacy-screen-v1"
+
+    await users.revoke_training_consent(user)
+    await session.commit()
+    assert user.training_consent is False
+    assert user.training_consent_revoked_at is not None
+
+    # Re-granting clears the prior revocation so the account is cleanly consented again.
+    await users.grant_training_consent(user)
+    await session.commit()
+    assert user.training_consent is True
+    assert user.training_consent_revoked_at is None
+
+
+@pytest.mark.asyncio
+async def test_account_revocation_is_idempotent(session: AsyncSession) -> None:
+    users = UserRepository(session)
+    user = await users.create()
+    await users.grant_training_consent(user)
+    await session.commit()
+
+    await users.revoke_training_consent(user)
+    await session.commit()
+    first_stamp = user.training_consent_revoked_at
+
+    await users.revoke_training_consent(user)
+    await session.commit()
+    assert user.training_consent_revoked_at == first_stamp
+
+
+@pytest.mark.asyncio
+async def test_account_active_consent_with_revocation_stamp_is_rejected(
+    session: AsyncSession,
+) -> None:
+    # The same row-level guard the capture tables carry, now on the account.
+    session.add(
+        User(
+            training_consent=True,
+            training_consent_revoked_at=datetime.now(timezone.utc),
         )
     )
     with pytest.raises(IntegrityError):
@@ -384,22 +450,23 @@ async def test_erasure_manifest_includes_pregrade_and_authenticity_captures(
         outcome=ScanOutcome.RESOLVED,
         resolved_card_id=card.id,
     )
-    session.add(
-        PreGradeRecord(
-            user_id=user.id,
-            capture_ref="s3://eu/captures/pregrade-1",
-            card_id=card.id,
-            status=PregradeStatus.RETAKE,
-        )
+    pregrade = PreGradeRecord(
+        user_id=user.id,
+        capture_ref="s3://eu/captures/pregrade-1",
+        card_id=card.id,
+        status=PregradeStatus.RETAKE,
+        # This one was consented — its derived lake example must be enumerated for purge.
+        training_consent=True,
     )
-    session.add(
-        AuthenticityRecord(
-            user_id=user.id,
-            capture_ref="s3://eu/captures/authenticity-1",
-            card_id=card.id,
-            status=AuthenticityStatus.RETAKE,
-        )
+    session.add(pregrade)
+    authenticity = AuthenticityRecord(
+        user_id=user.id,
+        capture_ref="s3://eu/captures/authenticity-1",
+        card_id=card.id,
+        status=AuthenticityStatus.RETAKE,
+        training_consent=True,
     )
+    session.add(authenticity)
     await session.commit()
 
     manifest = await plan_erasure(session, user.id)
@@ -408,6 +475,10 @@ async def test_erasure_manifest_includes_pregrade_and_authenticity_captures(
         "s3://eu/captures/pregrade-1",
         "s3://eu/captures/authenticity-1",
     }
+    # The consented pre-grade and authenticity screens are enumerated by record id so the lake
+    # purge can target their training examples precisely — not only the scans.
+    assert manifest.training_eligible_pregrade_ids == [pregrade.id]
+    assert manifest.training_eligible_authenticity_ids == [authenticity.id]
 
 
 def _card_table():

@@ -24,6 +24,7 @@ from app.db.models import User
 from app.db.repositories import CardRepository, ScanRepository
 from app.ratelimit.base import RateLimiter
 from app.schemas.scan import CaptureBundleRef, ScanResponse
+from app.services.consent import build_consent_service
 from app.services.scan import ScanService
 
 router = APIRouter(tags=["scan"])
@@ -54,11 +55,18 @@ async def scan(
             },
         )
 
+    # Each capture inherits the account's standing consent — never the wire flag directly.
+    # An explicit opt-in on the bundle grants the account first, so this and future scans
+    # carry it; otherwise the account preference (off by default) governs.
+    consent = await build_consent_service(session).resolve_for_capture(
+        user, opt_in=bundle.training_consent, note=bundle.consent_note
+    )
+
     return await service.scan(
         bundle,
         user_id=user.id,
         scans=ScanRepository(session),
         cards=CardRepository(session),
-        training_consent=bundle.training_consent,
-        consent_note=bundle.consent_note,
+        training_consent=consent.training_consent,
+        consent_note=consent.consent_note,
     )
