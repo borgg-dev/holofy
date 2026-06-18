@@ -38,7 +38,7 @@ class Card(TimestampMixin, Base):
 
     id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=new_uuid)
 
-    # The external catalog key (e.g. TCGdex ``base1-4``); the pricing provider is keyed on
+    # The external catalog key (e.g. TCGdex ``origins-12``); the pricing provider is keyed on
     # this, so it is the join target for price lookups and must be unique.
     canonical_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
 

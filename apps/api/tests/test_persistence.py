@@ -38,31 +38,31 @@ from app.db.repositories import (
     UserRepository,
 )
 
-_CHARIZARD = dict(
-    canonical_id="base1-4",
-    name="Charizard",
-    set_name="Base Set",
-    set_code="base1",
-    collector_number="4",
+_EMBERWYRM = dict(
+    canonical_id="origins-12",
+    name="Emberwyrm Sovereign",
+    set_name="Origins Vault",
+    set_code="origins",
+    collector_number="12",
     language="en",
     variant=Variant.HOLO,
 )
 
 
-async def _charizard(session: AsyncSession):
-    return await CardRepository(session).upsert(**_CHARIZARD)
+async def _emberwyrm(session: AsyncSession):
+    return await CardRepository(session).upsert(**_EMBERWYRM)
 
 
 @pytest.mark.asyncio
 async def test_card_round_trips_with_canonical_lookup(session: AsyncSession) -> None:
     cards = CardRepository(session)
-    created = await cards.upsert(**_CHARIZARD)
+    created = await cards.upsert(**_EMBERWYRM)
     await session.commit()
 
-    fetched = await cards.get_by_canonical_id("base1-4")
+    fetched = await cards.get_by_canonical_id("origins-12")
     assert fetched is not None
     assert fetched.id == created.id
-    assert fetched.name == "Charizard"
+    assert fetched.name == "Emberwyrm Sovereign"
     assert fetched.variant is Variant.HOLO
     # Timestamps land timezone-aware in UTC, not naive.
     assert fetched.created_at.tzinfo is not None
@@ -71,8 +71,8 @@ async def test_card_round_trips_with_canonical_lookup(session: AsyncSession) -> 
 @pytest.mark.asyncio
 async def test_card_upsert_is_idempotent_on_canonical_id(session: AsyncSession) -> None:
     cards = CardRepository(session)
-    first = await cards.upsert(**_CHARIZARD)
-    again = await cards.upsert(**{**_CHARIZARD, "name": "Charizard (corrected)"})
+    first = await cards.upsert(**_EMBERWYRM)
+    again = await cards.upsert(**{**_EMBERWYRM, "name": "Emberwyrm Sovereign (corrected)"})
     await session.commit()
 
     assert first.id == again.id
@@ -83,10 +83,10 @@ async def test_card_upsert_is_idempotent_on_canonical_id(session: AsyncSession) 
 @pytest.mark.asyncio
 async def test_same_art_reprint_is_a_distinct_card(session: AsyncSession) -> None:
     cards = CardRepository(session)
-    await cards.upsert(**_CHARIZARD)
-    # Same name/art, different set — the ×10 variant the disambiguation tuple separates.
+    await cards.upsert(**_EMBERWYRM)
+    # Same name/art, different set — the ~31× variant the disambiguation tuple separates.
     await cards.upsert(
-        **{**_CHARIZARD, "canonical_id": "base2-4", "set_code": "base2"}
+        **{**_EMBERWYRM, "canonical_id": "echo-12", "set_code": "echo"}
     )
     await session.commit()
 
@@ -182,7 +182,7 @@ async def test_active_consent_with_revocation_stamp_is_rejected(
 
 @pytest.mark.asyncio
 async def test_price_observations_persist_history(session: AsyncSession) -> None:
-    card = await _charizard(session)
+    card = await _emberwyrm(session)
     prices = PriceRepository(session)
     await prices.record(
         card_id=card.id,
@@ -210,7 +210,7 @@ async def test_price_observations_persist_history(session: AsyncSession) -> None
 
 @pytest.mark.asyncio
 async def test_duplicate_price_snapshot_is_rejected(session: AsyncSession) -> None:
-    card = await _charizard(session)
+    card = await _emberwyrm(session)
     prices = PriceRepository(session)
     observed = datetime(2026, 6, 18, tzinfo=timezone.utc)
     args = dict(
@@ -230,7 +230,7 @@ async def test_duplicate_price_snapshot_is_rejected(session: AsyncSession) -> No
 
 @pytest.mark.asyncio
 async def test_negative_price_is_rejected(session: AsyncSession) -> None:
-    card = await _charizard(session)
+    card = await _emberwyrm(session)
     session.add(
         PriceObservation(
             card_id=card.id,
@@ -282,7 +282,7 @@ async def test_portfolio_snapshot_records_and_reads_as_series(
 @pytest.mark.asyncio
 async def test_collection_item_constraints(session: AsyncSession) -> None:
     user = await UserRepository(session).create()
-    card = await _charizard(session)
+    card = await _emberwyrm(session)
     await session.commit()
 
     session.add(
@@ -300,7 +300,7 @@ async def test_collection_item_constraints(session: AsyncSession) -> None:
 @pytest.mark.asyncio
 async def test_collection_lists_with_card_eager_loaded(session: AsyncSession) -> None:
     user = await UserRepository(session).create()
-    card = await _charizard(session)
+    card = await _emberwyrm(session)
     await CollectionRepository(session).add(
         user_id=user.id,
         card_id=card.id,
@@ -313,7 +313,7 @@ async def test_collection_lists_with_card_eager_loaded(session: AsyncSession) ->
 
     items = await CollectionRepository(session).list_for_user(user.id)
     assert len(items) == 1
-    assert items[0].card.canonical_id == "base1-4"
+    assert items[0].card.canonical_id == "origins-12"
     assert items[0].acquired_price_eur == Decimal("180.00")
 
 
@@ -323,7 +323,7 @@ async def test_user_erasure_cascades_personal_data_and_spares_catalog(
 ) -> None:
     users = UserRepository(session)
     user = await users.create()
-    card = await _charizard(session)
+    card = await _emberwyrm(session)
     await CollectionRepository(session).add(
         user_id=user.id, card_id=card.id, condition=CardCondition.NEAR_MINT
     )
@@ -362,7 +362,7 @@ async def test_user_erasure_cascades_personal_data_and_spares_catalog(
     assert await _count(session, ScanRecord) == 0
     assert await _count(session, PortfolioSnapshot) == 0
     # ...but the shared catalog and its market price history remain.
-    assert await CardRepository(session).get_by_canonical_id("base1-4") is not None
+    assert await CardRepository(session).get_by_canonical_id("origins-12") is not None
     assert await _count(session, PriceObservation) == 1
 
 

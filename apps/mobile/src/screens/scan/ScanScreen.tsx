@@ -43,7 +43,7 @@ export function ScanScreen({ onBack, onCaptured }: Props) {
   const reduceMotion = useReduceMotion();
 
   const [mode, setMode] = useState<CaptureMode>("scan");
-  const { signals, locked, firstFailing, cycle } = useMockCaptureQuality();
+  const { signals, locked, firstFailing } = useMockCaptureQuality();
 
   const [toast, setToast] = useState<string | null>(null);
   const [refuseSignal, setRefuseSignal] = useState(0);
@@ -83,7 +83,17 @@ export function ScanScreen({ onBack, onCaptured }: Props) {
     <Screen ground="flat" edges={[]}>
       <CameraPreview />
       {/* Edge vignette so attention falls to the frame. */}
-      <View pointerEvents="none" style={[styles.vignette, { borderColor: withAlpha(theme.color.bg, 0.55) }]} />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.vignette,
+          {
+            borderColor: withAlpha(theme.color.bg, 0.55),
+            borderWidth: theme.space["11"],
+            borderRadius: theme.space["11"],
+          },
+        ]}
+      />
 
       <TopBar mode={mode} onMode={setMode} onBack={onBack} />
 
@@ -91,7 +101,17 @@ export function ScanScreen({ onBack, onCaptured }: Props) {
         <ScanFrame locked={locked} />
       </View>
 
-      <View style={styles.coach}>
+      <View
+        style={[
+          styles.coach,
+          {
+            paddingHorizontal: theme.space["5"],
+            paddingBottom: theme.space["9"],
+            paddingTop: theme.space["7"],
+            gap: theme.space["6"],
+          },
+        ]}
+      >
         <CoachingToast message={toast} />
 
         {mode === "stack" ? (
@@ -102,7 +122,7 @@ export function ScanScreen({ onBack, onCaptured }: Props) {
           </View>
         ) : null}
 
-        <View style={styles.chips} accessibilityRole="summary">
+        <View style={[styles.chips, { gap: theme.space["3"] }]} accessibilityRole="summary">
           {CHIP_ORDER.map((key) => {
             const { signal, label } = chipFor(key, signals[key]);
             return <QualityChip key={key} signal={signal} label={label} state={signals[key]} />;
@@ -115,17 +135,6 @@ export function ScanScreen({ onBack, onCaptured }: Props) {
           onPress={handleShutter}
           refuseSignal={refuseSignal}
         />
-
-        {/* Dev affordance to step the mock quality forward; trimmed in P1.4. */}
-        <Text
-          variant="caption"
-          tone="tertiary"
-          onPress={cycle}
-          accessibilityLabel="Step the demo capture quality"
-          style={styles.devHint}
-        >
-          Demo: tap to advance capture quality
-        </Text>
       </View>
     </Screen>
   );
@@ -167,8 +176,6 @@ const styles = StyleSheet.create({
   },
   vignette: {
     ...StyleSheet.absoluteFillObject,
-    borderWidth: 64,
-    borderRadius: 64,
   },
   frameZone: {
     position: "absolute",
@@ -187,22 +194,14 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 3,
-    paddingHorizontal: 16,
-    paddingBottom: 40,
-    paddingTop: 24,
     alignItems: "center",
-    gap: 20,
   },
   chips: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
-    gap: 8,
   },
   stackNotice: {
     alignItems: "center",
-  },
-  devHint: {
-    marginTop: -8,
   },
 });

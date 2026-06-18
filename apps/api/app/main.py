@@ -18,11 +18,14 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import health, scan
+from app.api import collection, health, portfolio, scan
+from app.auth.factory import build_auth_provider
 from app.config import Settings, get_settings
 from app.core.errors import ErrorBody, ErrorResponse, HolofyError
 from app.core.logging import bind_request_id, configure_logging, current_request_id
+from app.db.session import create_engine, create_session_factory
 from app.providers.factory import build_pricing_provider, build_recognition_provider
+from app.ratelimit.factory import build_rate_limiter
 
 _REQUEST_ID_HEADER = "X-Request-ID"
 
@@ -36,11 +39,20 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     pricing_provider, pricing_client = build_pricing_provider(settings)
     app.state.pricing_provider = pricing_provider
     app.state.pricing_client = pricing_client
+    app.state.auth_provider = build_auth_provider(settings)
+    app.state.rate_limiter = build_rate_limiter(settings)
+
+    engine = create_engine(settings.database_url, echo=settings.database_echo)
+    app.state.db_engine = engine
+    app.state.session_factory = create_session_factory(engine)
+
     logger.info(
         "providers initialized",
         extra={
             "recognition_provider": settings.recognition_provider,
             "pricing_provider": settings.pricing_provider,
+            "auth_provider": settings.auth_provider,
+            "rate_limit_provider": settings.rate_limit_provider,
         },
     )
     try:
@@ -48,6 +60,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     finally:
         if pricing_client is not None:
             await pricing_client.aclose()
+        await engine.dispose()
 
 
 def _error_response(
@@ -130,6 +143,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(scan.router)
+    app.include_router(collection.router)
+    app.include_router(portfolio.router)
 
     return app
 

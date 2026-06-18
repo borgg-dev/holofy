@@ -1,8 +1,9 @@
 # Holofy — mobile
 
-The React Native (Expo) app. This slice (P1.3) is the foundation: the design-token
-theme layer, the bespoke Foil Vault primitives, and the scan-frame screen shell.
-It is **not** the full scan flow (recognition → € value → portfolio) — that's P1.4.
+The React Native (Expo) app. The design-token theme layer, the bespoke Foil Vault
+primitives, the typed API client, and the **full core scan flow** (P1.3 + P1.4):
+scan-frame → capture → recognize → **foil reveal** (or **low-confidence confirm**) →
+Add to Vault → the **Vault** (portfolio) reflects it.
 
 ## Stack
 
@@ -17,14 +18,43 @@ It is **not** the full scan flow (recognition → € value → portfolio) — t
 
 ```
 app/                     expo-router routes
-  _layout.tsx            fonts + Vault paint + theme/safe-area providers
-  index.tsx              → ScanScreen (the app's front door)
+  _layout.tsx            fonts + Vault paint + theme/api/flow/safe-area providers
+  index.tsx              → ScanScreen (the app's front door); capture → scan → route
+  reveal.tsx             → RevealScreen (the foil reveal payoff)
+  confirm.tsx            → ConfirmScreen (low-confidence top-2 + € delta)
+  vault.tsx              → VaultScreen (the portfolio)
 src/
   theme/                 tokens → RN theme (dark default + light), type, motion
-  components/            bespoke primitives — Screen, FoilSurface, Text,
-                         ValueText, QualityChip, Shutter, ModeToggle, ScanFrame…
+  api/                   typed client (fixture + HTTP), models, mapping, fixtures
+  flow/                  ScanFlowProvider — carries the in-flight scan + Add action
+  components/            bespoke primitives — Screen, FoilSurface, FoilCard, Text,
+                         ValueText, CountUpValue, Button, Skeleton, QualityChip,
+                         Shutter, ModeToggle, ScanFrame…
   screens/scan/          the scan-frame screen, its copy, and mock capture state
+  screens/reveal/        the foil value reveal + its copy
+  screens/confirm/       the variant disambiguation chooser
+  screens/vault/         the portfolio screen
+  screens/shared/        cross-screen formatting (identity/trend) + TrendPill
 ```
+
+## The flow
+
+`ApiProvider` defaults to the **fixture client**, so the whole flow runs with no
+backend (point at staging with a `mode="http"` change in `app/_layout.tsx`).
+`ScanFlowProvider` holds the in-flight scan result and the Add-to-Vault action so the
+route screens stay thin and a `CardIdentity` never serializes through URL params.
+
+- **Reveal** (`screens/reveal/foil-reveal.md`): the card lifts off the Vault with a
+  once-only foil sweep (`FoilCard`), the € value counts up in tabular figures, the
+  identity + 30-day trend settle in, and actions stay disabled until the reveal
+  settles (~900ms). States: revealing, resting, **pricing** (value skeleton),
+  **no-price** (never a fabricated number). Reduced motion → instant settled value.
+- **Confirm** (low-confidence): renders `/scan` `needs_confirmation` as the top-2
+  candidates with each price and the **€ delta** called out — the reason to ask.
+  A real radiogroup; Confirm required before Add (trust over speed).
+- **Vault**: total € value (count-up, foil glow), change vs last snapshot, card count,
+  and the holdings list with each card's current € contribution. Loading / empty /
+  error are all real states; refetches when the flow signals a new Add.
 
 ## Design-token contract
 
@@ -66,21 +96,26 @@ the scan screen to run with native modules.
   `tokens.css`, and `dist/{index.js,index.cjs,index.d.ts}` from 146 tokens.
 - The compiled package resolves and imports both as **ESM and CJS** through its
   `exports` map (`tokens.color.semantic.dark.lock` etc. read correctly at runtime).
-- `tsc --strict --noUncheckedIndexedAccess` passes on the token-consuming theme
-  layer (`theme/theme.ts`, `theme/color.ts`) against the **real** generated `.d.ts`,
-  and on the scan logic (`screens/scan/copy.ts`, `useMockCaptureQuality.ts`).
-  The strict pass caught and fixed two real issues (a too-narrow color type and an
-  unchecked index access).
-- No hardcoded design colors in `src/` — the only hex literals are clearly-named
-  **mock camera-photo** tones in `CameraPreview.tsx`, deleted with the real feed.
+- `npm test` is green — **26 tests** via `node --test` (strip-types), covering the
+  API client/mapping/fixtures, the full fixture flow (scan → add → portfolio total
+  reflects it), the count-up easing, and the new cross-screen formatters
+  (`screens/shared/format.ts`: identity sub-line, SR labels, trend derivation/sign,
+  EU percent formatting — a price dip reads as "down", never an error).
+- `tsc --strict --noUncheckedIndexedAccess` is clean on `screens/shared/format.ts`
+  against the real model types.
+- No hardcoded design colors in any flow file — `grep` over `screens/{reveal,confirm,
+  vault,shared}`, `flow/`, and the new components finds **zero** hex literals; all
+  color/spacing/radius/motion resolves from `@holofy/design-tokens`.
 
 **Needs a device / simulator (not runnable here):**
-- A full `npm install` of the native toolchain (Expo/RN/reanimated/camera).
-- `tsc --noEmit` across the `.tsx` tree (needs the Expo/RN type packages installed).
-- The lock haptic, the reanimated lock-snap/breathe/shake choreography, font load,
-  and the live `prefers-reduced-motion` behavior — all need a real runtime.
+- A full `npm install` of the native toolchain (Expo/RN/reanimated/camera) — so
+  `tsc --noEmit` across the full `.tsx` tree and `eslint` aren't runnable here.
+- The reveal foil-sweep/sheen/count-up choreography, the lock haptic, font load, and
+  the live `prefers-reduced-motion` behavior all need a real runtime. The reduced-
+  motion branches (instant value, no sweep, static skeleton) are wired but unverified
+  on-device.
 
-## The scan-frame screen (P1.3 deliverable)
+## The scan-frame screen
 
 Implements `packages/design-tokens/screens/scan-frame.md`:
 
@@ -97,4 +132,7 @@ Implements `packages/design-tokens/screens/scan-frame.md`:
   it keeps the color/glow crossfade so state stays legible.
 
 Capture quality is mock-driven (`useMockCaptureQuality`) — the real on-device
-signal stream lands in P1.4; the lock / refuse / announce wiring around it is real.
+signal stream replaces it later; the lock / refuse / announce wiring around it is
+real. A locked capture runs recognition and routes by outcome (reveal vs confirm);
+the demo build alternates a high-confidence and a low-confidence bundle so both
+paths are reachable without a camera.

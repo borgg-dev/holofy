@@ -56,6 +56,30 @@ class UpstreamUnavailableError(HolofyError):
     code = "upstream_unavailable"
 
 
+class NotAuthenticatedError(HolofyError):
+    """No usable credential on a user-scoped path — missing or malformed bearer token."""
+
+    status_code = 401
+    code = "not_authenticated"
+
+
+class InvalidCredentialError(HolofyError):
+    """A bearer token was present but failed verification or named no known user."""
+
+    status_code = 401
+    code = "invalid_credential"
+
+
+class QuotaExceededError(HolofyError):
+    """The caller has spent its plan's quota for the window — a freemium boundary, not a
+    fault. ``details`` carries the limit and the seconds until it resets so the client can
+    show "resets in …" rather than a bare 429.
+    """
+
+    status_code = 429
+    code = "quota_exceeded"
+
+
 class ErrorBody(BaseModel):
     code: str
     message: str

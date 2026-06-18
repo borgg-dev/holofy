@@ -9,6 +9,7 @@
     "ios": "expo start --ios",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
+    "test": "node --experimental-strip-types --import ./scripts/register-resolver.mjs --test 'src/**/*.test.ts'",
     "tokens": "node ../../packages/design-tokens/build.mjs"
   },
   "dependencies": {

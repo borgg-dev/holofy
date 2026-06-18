@@ -143,7 +143,7 @@ class TcgdexClient:
     async def fetch_cardmarket_price(
         self, card_id: str, *, locale: str | None = None
     ) -> CardmarketPrice:
-        """Resolve a TCGdex card id (e.g. ``base1-4``) to its Cardmarket EUR pricing.
+        """Resolve a TCGdex card id (e.g. ``origins-12``) to its Cardmarket EUR pricing.
 
         Raises ``CardNotFound`` for an unknown id and ``PriceUnavailable`` when the card
         exists but TCGdex holds no Cardmarket entry for it. Both are domain conditions, not

@@ -29,6 +29,12 @@ class CaptureBundleRef(BaseModel):
     bundle_id: str = Field(min_length=1)
     image_count: int = Field(default=1, ge=1)
 
+    # Training-data consent for *this* scan — separate from app-usage, defaults off (GDPR,
+    # charter §3.5). The scan is only ever training-eligible when the client sends an
+    # explicit opt-in; ``consent_note`` records where/which copy version it was given under.
+    training_consent: bool = False
+    consent_note: str | None = Field(default=None, max_length=255)
+
 
 class ScanOutcome(StrEnum):
     RESOLVED = "resolved"

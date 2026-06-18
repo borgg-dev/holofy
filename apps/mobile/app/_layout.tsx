@@ -6,6 +6,8 @@ import * as SystemUI from "expo-system-ui";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { ApiProvider } from "@/api";
+import { ScanFlowProvider } from "@/flow/ScanFlowProvider";
 import { ThemeProvider, darkTheme, fontAssets } from "@/theme";
 
 // Root layout: load the brand fonts, paint the Vault under the navigator before
@@ -27,14 +29,20 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <StatusBar style="light" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: darkTheme.color.bg },
-              animation: "fade",
-            }}
-          />
+          {/* Fixture-backed by default so the whole scan→reveal→Vault flow runs with no
+              server; pointing at staging is a `mode="http"` + baseUrl change here. */}
+          <ApiProvider>
+            <ScanFlowProvider>
+              <StatusBar style="light" />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: darkTheme.color.bg },
+                  animation: "fade",
+                }}
+              />
+            </ScanFlowProvider>
+          </ApiProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

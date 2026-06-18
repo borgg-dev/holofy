@@ -1,9 +1,10 @@
 """Offline pricing provider for tests and keyless local runs.
 
-Returns fixed € quotes for the recognition mock's canonical ids; the ~30× spread between
-the two Charizard reprints mirrors the real variant-mis-pricing risk the confirm step
-guards against. Unknown ids raise ``PriceUnavailableError`` — the same domain signal the
-real provider raises for a long-tail card — so callers exercise that branch offline.
+Returns fixed € quotes for the recognition mock's canonical ids; the ~31× spread between
+the two Emberwyrm Sovereign printings mirrors the real variant-mis-pricing risk the
+confirm step guards against. Unknown ids raise ``PriceUnavailableError`` — the same domain
+signal the real provider raises for a long-tail card — so callers exercise that branch
+offline.
 """
 
 from __future__ import annotations
@@ -18,9 +19,9 @@ _SOURCE = "mock"
 
 # canonical_id → (trend, avg30, low)
 _PRICES: dict[str, tuple[Decimal, Decimal, Decimal]] = {
-    "base1-4": (Decimal("757.10"), Decimal("529.99"), Decimal("100.00")),
-    "base2-4": (Decimal("24.50"), Decimal("22.10"), Decimal("9.00")),
-    "base1-2": (Decimal("289.00"), Decimal("271.40"), Decimal("120.00")),
+    "origins-12": (Decimal("757.10"), Decimal("529.99"), Decimal("100.00")),
+    "echo-12": (Decimal("24.50"), Decimal("22.10"), Decimal("9.00")),
+    "origins-8": (Decimal("289.00"), Decimal("271.40"), Decimal("120.00")),
 }
 
 

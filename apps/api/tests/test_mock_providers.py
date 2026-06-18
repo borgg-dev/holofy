@@ -38,8 +38,8 @@ async def test_recognition_low_confidence_fixture_trips_confirm_with_top_two() -
 
     assert len(result.candidates) == 2
     assert result.needs_confirmation(0.85)
-    # Candidates are the two same-name Charizard reprints — same art, different value.
-    assert {c.identity.canonical_id for c in result.candidates} == {"base1-4", "base2-4"}
+    # Candidates are the two Emberwyrm Sovereign printings — same art, different value.
+    assert {c.identity.canonical_id for c in result.candidates} == {"origins-12", "echo-12"}
 
 
 @pytest.mark.asyncio
@@ -50,7 +50,7 @@ async def test_recognition_unknown_bundle_defaults_to_low_confidence_case() -> N
 
 @pytest.mark.asyncio
 async def test_mock_pricing_returns_known_quote() -> None:
-    quote = await MockPricingProvider().price("base1-4")
+    quote = await MockPricingProvider().price("origins-12")
     assert quote.value == Decimal("757.10")
     assert quote.currency == "EUR"
     assert quote.source == "mock"

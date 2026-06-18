@@ -34,7 +34,7 @@ def _client(handler) -> TcgdexClient:
 
 
 def _card_payload(pricing: dict | None) -> dict:
-    card: dict = {"id": "base1-4", "name": "Charizard"}
+    card: dict = {"id": "origins-12", "name": "Emberwyrm Sovereign"}
     if pricing is not None:
         card["pricing"] = pricing
     return card
@@ -58,7 +58,7 @@ async def test_fetch_leads_with_cardmarket_trend() -> None:
         }
     )
     async with _client(lambda _req: httpx.Response(200, json=payload)) as client:
-        price = await client.fetch_cardmarket_price("base1-4")
+        price = await client.fetch_cardmarket_price("origins-12")
 
     assert price.trend_eur == Decimal("757.10")
     assert price.display_value == Decimal("757.10")
@@ -73,7 +73,7 @@ async def test_display_value_falls_back_to_avg30_when_trend_missing() -> None:
         {"cardmarket": {"avg30": 529.99, "updated": _now_iso()}}
     )
     async with _client(lambda _req: httpx.Response(200, json=payload)) as client:
-        price = await client.fetch_cardmarket_price("base1-4")
+        price = await client.fetch_cardmarket_price("origins-12")
 
     assert price.trend_eur is None
     assert price.display_value == Decimal("529.99")
@@ -90,9 +90,9 @@ async def test_fetch_targets_locale_specific_path() -> None:
         )
 
     async with _client(handler) as client:
-        await client.fetch_cardmarket_price("base1-4", locale="fr")
+        await client.fetch_cardmarket_price("origins-12", locale="fr")
 
-    assert seen == ["/v2/fr/cards/base1-4"]
+    assert seen == ["/v2/fr/cards/origins-12"]
 
 
 @pytest.mark.asyncio
@@ -100,7 +100,7 @@ async def test_missing_cardmarket_block_raises_price_unavailable() -> None:
     payload = _card_payload({"tcgplayer": {"trend": 12.0}})  # exists, no cardmarket
     async with _client(lambda _req: httpx.Response(200, json=payload)) as client:
         with pytest.raises(PriceUnavailable):
-            await client.fetch_cardmarket_price("base1-4")
+            await client.fetch_cardmarket_price("origins-12")
 
 
 @pytest.mark.asyncio
@@ -122,7 +122,7 @@ async def test_provider_maps_trend_reading_to_quote() -> None:
                         "idProduct": 273699}}
     )
     async with _client(lambda _req: httpx.Response(200, json=payload)) as client:
-        quote = await TcgdexPricingProvider(client).price("base1-4")
+        quote = await TcgdexPricingProvider(client).price("origins-12")
 
     assert quote.value == Decimal("757.10")
     assert quote.basis == "trend"
@@ -142,7 +142,7 @@ async def test_provider_translates_price_unavailable() -> None:
     payload = _card_payload({"tcgplayer": {"trend": 1.0}})
     async with _client(lambda _req: httpx.Response(200, json=payload)) as client:
         with pytest.raises(PriceUnavailableError):
-            await TcgdexPricingProvider(client).price("base1-4")
+            await TcgdexPricingProvider(client).price("origins-12")
 
 
 @pytest.mark.asyncio
@@ -152,4 +152,4 @@ async def test_provider_translates_transport_failure_to_upstream_error() -> None
 
     async with _client(handler) as client:
         with pytest.raises(UpstreamUnavailableError):
-            await TcgdexPricingProvider(client).price("base1-4")
+            await TcgdexPricingProvider(client).price("origins-12")

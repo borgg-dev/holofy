@@ -1,10 +1,12 @@
-"""API-level coverage via FastAPI's TestClient — health, the two scan outcomes, the
-error envelope, and the request-id round-trip. Runs entirely on mock providers.
+"""API-level coverage via FastAPI's TestClient — health, auth, the two scan outcomes, the
+error envelope, and the request-id round-trip. Runs entirely on mock providers against an
+in-memory database.
 """
 
 from __future__ import annotations
 
 from app.schemas.scan import ScanOutcome
+from tests.conftest import auth_header
 
 
 def test_health_reports_active_backends_and_region(client) -> None:  # noqa: ANN001
@@ -18,19 +20,41 @@ def test_health_reports_active_backends_and_region(client) -> None:  # noqa: ANN
     assert body["data_region"].startswith("eu-")
 
 
-def test_scan_resolves_high_confidence_bundle(client) -> None:  # noqa: ANN001
+def test_scan_requires_authentication(client) -> None:  # noqa: ANN001
     response = client.post("/scan", json={"bundle_id": "mock-high-confidence"})
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "not_authenticated"
+
+
+def test_scan_rejects_forged_token(client) -> None:  # noqa: ANN001
+    response = client.post(
+        "/scan",
+        json={"bundle_id": "mock-high-confidence"},
+        headers={"Authorization": "Bearer collector-1.deadbeef"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "invalid_credential"
+
+
+def test_scan_resolves_high_confidence_bundle(client) -> None:  # noqa: ANN001
+    response = client.post(
+        "/scan", json={"bundle_id": "mock-high-confidence"}, headers=auth_header()
+    )
 
     assert response.status_code == 200
     body = response.json()
     assert body["outcome"] == ScanOutcome.RESOLVED
-    assert body["card"]["identity"]["canonical_id"] == "base1-2"
+    assert body["card"]["identity"]["canonical_id"] == "origins-8"
     assert body["card"]["price"]["currency"] == "EUR"
     assert body["choices"] is None
 
 
 def test_scan_low_confidence_bundle_requests_confirmation(client) -> None:  # noqa: ANN001
-    response = client.post("/scan", json={"bundle_id": "mock-low-confidence"})
+    response = client.post(
+        "/scan", json={"bundle_id": "mock-low-confidence"}, headers=auth_header()
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -42,7 +66,7 @@ def test_scan_low_confidence_bundle_requests_confirmation(client) -> None:  # no
 
 
 def test_scan_rejects_blank_bundle_id_with_error_envelope(client) -> None:  # noqa: ANN001
-    response = client.post("/scan", json={"bundle_id": ""})
+    response = client.post("/scan", json={"bundle_id": ""}, headers=auth_header())
 
     assert response.status_code == 422
     body = response.json()

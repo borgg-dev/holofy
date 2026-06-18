@@ -34,7 +34,7 @@ class CardIdentity(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     # The pricing key. For the TCGdex-backed catalog this is the ``<set>-<localId>`` id,
-    # e.g. ``base1-4``. Providers must agree on this scheme; recognition emits it.
+    # e.g. ``origins-12``. Providers must agree on this scheme; recognition emits it.
     canonical_id: str
     name: str
     set_name: str

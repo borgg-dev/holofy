@@ -12,8 +12,15 @@ class UserRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def create(self) -> User:
-        user = User()
+    async def create(
+        self, *, auth_provider: str | None = None, auth_subject: str | None = None
+    ) -> User:
+        """Provision a user, optionally linked to an external identity.
+
+        The auth pair is set together (the table's uniqueness guard requires both or
+        neither); a keyless call still yields a usable anonymous account.
+        """
+        user = User(auth_provider=auth_provider, auth_subject=auth_subject)
         self._session.add(user)
         await self._session.flush()
         return user

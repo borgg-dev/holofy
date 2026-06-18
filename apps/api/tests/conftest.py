@@ -8,6 +8,7 @@ from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.testclient import TestClient
 
+from app.auth.dev_token import mint_dev_token
 from app.config import PricingBackend, RecognitionBackend, Settings
 from app.db.base import Base
 from app.db.session import create_engine, create_session_factory
@@ -15,6 +16,7 @@ from app.main import create_app
 
 # In-memory SQLite — the whole persistence suite runs with no Postgres and no Docker.
 _TEST_DATABASE_URL = "sqlite+aiosqlite://"
+_DEV_SECRET = "test-secret"
 
 
 @pytest_asyncio.fixture
@@ -45,10 +47,13 @@ async def session() -> AsyncIterator[AsyncSession]:
 
 @pytest.fixture
 def settings() -> Settings:
-    # Fully mocked backends — the API suite must run with no network and no keys.
+    # Fully mocked backends and an in-memory database — the API suite runs with no network,
+    # no keys, and no Postgres. The dev secret is fixed so the test harness can mint tokens.
     return Settings(
         recognition_provider=RecognitionBackend.MOCK,
         pricing_provider=PricingBackend.MOCK,
+        database_url=_TEST_DATABASE_URL,
+        auth_dev_secret=_DEV_SECRET,
         log_json=False,
         cors_allow_origins=["https://app.holofy.test"],
     )
@@ -57,4 +62,20 @@ def settings() -> Settings:
 @pytest.fixture
 def client(settings: Settings):
     with TestClient(create_app(settings)) as test_client:
+        # The lifespan built the app's engine on the TestClient's portal loop; create the
+        # schema on that same engine/loop so the API routes and their repositories see the
+        # one in-memory database. ``portal.call`` runs the coroutine on that loop.
+        app = test_client.app
+        engine = app.state.db_engine
+
+        async def _create_schema() -> None:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+
+        test_client.portal.call(_create_schema)
         yield test_client
+
+
+def auth_header(subject: str = "collector-1") -> dict[str, str]:
+    """A bearer header for a deterministic test user — the harness's stand-in for login."""
+    return {"Authorization": f"Bearer {mint_dev_token(subject, secret=_DEV_SECRET)}"}

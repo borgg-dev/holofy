@@ -14,8 +14,12 @@ from __future__ import annotations
 from enum import StrEnum
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# The dev-token backend's default signing secret. Safe only for `local`; a validator below
+# refuses to boot with this value in any deployed environment.
+INSECURE_DEV_SECRET = "dev-insecure-do-not-use-in-production"
 
 
 class Environment(StrEnum):
@@ -31,6 +35,14 @@ class RecognitionBackend(StrEnum):
 class PricingBackend(StrEnum):
     MOCK = "mock"
     TCGDEX = "tcgdex"
+
+
+class AuthBackend(StrEnum):
+    DEV_TOKEN = "dev_token"
+
+
+class RateLimitBackend(StrEnum):
+    MEMORY = "memory"
 
 
 class Settings(BaseSettings):
@@ -63,6 +75,20 @@ class Settings(BaseSettings):
     recognition_provider: RecognitionBackend = RecognitionBackend.MOCK
     pricing_provider: PricingBackend = PricingBackend.MOCK
 
+    # Auth seam: the dev-token backend mints/verifies an HMAC-signed bearer that maps to a
+    # seeded user, so endpoints are genuinely user-scoped with no OAuth/Clerk yet. Real
+    # federated identity drops in behind the same AuthProvider Protocol (see ADR 0004).
+    auth_provider: AuthBackend = AuthBackend.DEV_TOKEN
+    # Signs dev tokens. Required outside `local`; the default is dev-only and the validator
+    # below refuses to boot a deployed environment that hasn't overridden it.
+    auth_dev_secret: str = INSECURE_DEV_SECRET
+
+    # Freemium COGS guard: the free ("Collector") tier is 8 ID scans/day (master plan §4).
+    # The memory limiter is fine for a single process; the Redis backend lands behind the
+    # same RateLimiter Protocol for the multi-instance gateway.
+    rate_limit_provider: RateLimitBackend = RateLimitBackend.MEMORY
+    free_tier_daily_scans: int = 8
+
     # Only consulted when pricing_provider == tcgdex. No key required — TCGdex is open.
     tcgdex_api_root: str = "https://api.tcgdex.net/v2"
     tcgdex_locale: str = "en"
@@ -74,6 +100,15 @@ class Settings(BaseSettings):
 
     log_level: str = "INFO"
     log_json: bool = True
+
+    @model_validator(mode="after")
+    def _require_real_dev_secret_when_deployed(self) -> "Settings":
+        if self.environment is not Environment.LOCAL and self.auth_dev_secret == INSECURE_DEV_SECRET:
+            raise ValueError(
+                "HOLOFY_AUTH_DEV_SECRET must be overridden with a real secret outside the "
+                "local environment"
+            )
+        return self
 
 
 @lru_cache

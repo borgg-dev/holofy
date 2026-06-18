@@ -22,29 +22,32 @@ from app.schemas.cards import (
     Variant,
 )
 
-_CHARIZARD_BASE = CardIdentity(
-    canonical_id="base1-4",
-    name="Charizard",
-    set_name="Base Set",
-    collector_number="4/102",
+# Holofy's own fixtures use invented cards — original creatures and sets, not real
+# trademarks — so nothing we ship carries someone else's IP. The Emberwyrm Sovereign
+# pair is the load-bearing one: same creature and art, two printings ~31× apart in price.
+_EMBERWYRM_ORIGINS = CardIdentity(
+    canonical_id="origins-12",
+    name="Emberwyrm Sovereign",
+    set_name="Origins Vault",
+    collector_number="12/120",
     language="en",
     variant=Variant.HOLO,
 )
 
-_CHARIZARD_BASE2 = CardIdentity(
-    canonical_id="base2-4",
-    name="Charizard",
-    set_name="Base Set 2",
-    collector_number="4/130",
+_EMBERWYRM_ECHO = CardIdentity(
+    canonical_id="echo-12",
+    name="Emberwyrm Sovereign",
+    set_name="Echo Reprint",
+    collector_number="12/95",
     language="en",
     variant=Variant.HOLO,
 )
 
-_BLASTOISE_BASE = CardIdentity(
-    canonical_id="base1-2",
-    name="Blastoise",
-    set_name="Base Set",
-    collector_number="2/102",
+_TIDECALLER_ORIGINS = CardIdentity(
+    canonical_id="origins-8",
+    name="Tidecaller Leviath",
+    set_name="Origins Vault",
+    collector_number="8/120",
     language="en",
     variant=Variant.HOLO,
 )
@@ -52,11 +55,11 @@ _BLASTOISE_BASE = CardIdentity(
 # bundle_id → ordered candidates. The first entry is the deterministic default.
 _FIXTURES: dict[str, list[RecognitionCandidate]] = {
     "mock-high-confidence": [
-        RecognitionCandidate(identity=_BLASTOISE_BASE, confidence=0.97),
+        RecognitionCandidate(identity=_TIDECALLER_ORIGINS, confidence=0.97),
     ],
     "mock-low-confidence": [
-        RecognitionCandidate(identity=_CHARIZARD_BASE, confidence=0.61),
-        RecognitionCandidate(identity=_CHARIZARD_BASE2, confidence=0.55),
+        RecognitionCandidate(identity=_EMBERWYRM_ORIGINS, confidence=0.61),
+        RecognitionCandidate(identity=_EMBERWYRM_ECHO, confidence=0.55),
     ],
 }
 
