@@ -65,12 +65,17 @@ const EMBERWYRM_ECHO = identity("echo-12", "Emberwyrm Sovereign", "Echo Reprint"
 const TIDECALLER_ORIGINS = identity("origins-8", "Tidecaller Leviath", "Origins Vault", "8/120", "holo");
 const GROVEKEEPER_WILDGROWTH = identity("wild-15", "Grovekeeper Thornmaw", "Wildgrowth", "15/88", "holo");
 
-const PRICES: Record<string, WirePriceQuote> = {
+const PRICES = {
   "origins-12": price("origins-12", "757.10", "529.99", "100.00"),
   "echo-12": price("echo-12", "24.50", "22.10", "9.00"),
   "origins-8": price("origins-8", "289.00", "271.40", "120.00"),
   "wild-15": price("wild-15", "61.40", "58.90", "28.00"),
-};
+} satisfies Record<string, WirePriceQuote>;
+
+/** Price for a canonical id we ship a quote for; null otherwise (no live comp). */
+function priceFor(canonicalId: string): WirePriceQuote | null {
+  return canonicalId in PRICES ? PRICES[canonicalId as keyof typeof PRICES] : null;
+}
 
 /** High-confidence single → reveal commits straight through (bundle "mock-high-confidence"). */
 export const RESOLVED_SCAN: WireScanResponse = {
@@ -149,7 +154,7 @@ let collection: WireCollectionItem[] = [
     condition: "near_mint",
     quantity: 1,
     acquired_price_eur: "210.00",
-    price: PRICES["origins-8"]!,
+    price: PRICES["origins-8"],
   },
   {
     id: "fixture-grovekeeper",
@@ -157,7 +162,7 @@ let collection: WireCollectionItem[] = [
     condition: "excellent",
     quantity: 2,
     acquired_price_eur: "44.00",
-    price: PRICES["wild-15"]!,
+    price: PRICES["wild-15"],
   },
 ];
 
@@ -180,7 +185,7 @@ export function fixtureAddToCollection(
     condition,
     quantity,
     acquired_price_eur: null,
-    price: PRICES[canonicalId] ?? null,
+    price: priceFor(canonicalId),
   };
   collection = [...collection, item];
   return { ...item };
@@ -228,7 +233,7 @@ export function resetFixtures(): void {
       condition: "near_mint",
       quantity: 1,
       acquired_price_eur: "210.00",
-      price: PRICES["origins-8"]!,
+      price: PRICES["origins-8"],
     },
     {
       id: "fixture-grovekeeper",
@@ -236,7 +241,7 @@ export function resetFixtures(): void {
       condition: "excellent",
       quantity: 2,
       acquired_price_eur: "44.00",
-      price: PRICES["wild-15"]!,
+      price: PRICES["wild-15"],
     },
   ];
 }

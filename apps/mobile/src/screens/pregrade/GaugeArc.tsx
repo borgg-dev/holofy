@@ -132,7 +132,7 @@ export function GaugeArc({ range }: Props) {
         ]}
       >
         <Text
-          style={[typeScale.displayMd, { color: theme.color.textPrimary }]}
+          style={[typeScale.titleLg, { color: theme.color.textPrimary }]}
           tabular
           accessibilityElementsHidden
           importantForAccessibility="no"

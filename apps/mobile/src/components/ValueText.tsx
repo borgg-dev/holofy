@@ -8,7 +8,7 @@ type Props = {
   currency?: string;
   /** Locale drives grouping/decimal marks — EU default formats €1.234,56. */
   locale?: string;
-  variant?: "displayXl" | "displayLg" | "displayMd" | "titleLg" | "body";
+  variant?: "displayXl" | "displayLg" | "displayMd" | "titleLg" | "titleMd" | "body";
   tone?: "primary" | "reward" | "secondary";
   style?: TextStyle;
 };

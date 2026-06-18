@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { StyleSheet, View, type ViewStyle } from "react-native";
+import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { useTheme } from "@/theme";
 
@@ -10,7 +10,7 @@ type Props = {
   /** A hairline foil-edge — reserved for surfaces holding a reward/value. */
   foilEdge?: boolean;
   padded?: boolean;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 };
 
 // The house surface. A Vault card: elevated near-black with a token border and
