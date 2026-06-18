@@ -28,6 +28,12 @@ mobile-build: ## Bundle the app for native (proves it actually compiles, not jus
 mobile-web: ## Export a runnable web build to apps/mobile/dist-web (open dist-web/index.html)
 	cd apps/mobile && npx expo export --platform web --output-dir dist-web
 
+mobile-watch: ## WATCH THE APP in your browser with fake data (Expo web dev server)
+	cd apps/mobile && npx expo start --web
+
+mobile-render-check: ## Headless screenshot of the web build (needs a browser w/ system libs)
+	cd apps/mobile && npx playwright install chromium && npx expo export --platform web --output-dir dist-web && node scripts/render_check.mjs dist-web
+
 tokens: ## Rebuild the design-token package (TS + CSS + dist)
 	cd packages/design-tokens && node build.mjs
 

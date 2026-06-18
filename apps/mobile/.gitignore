@@ -11,3 +11,4 @@ web-build/
 
 # The OFL fonts (Clash Display, Manrope) ARE committed — the app statically requires
 # them and the Metro bundle fails without them. OFL permits redistribution.
+dist-web/

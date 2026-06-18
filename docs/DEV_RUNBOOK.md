@@ -55,8 +55,28 @@ make tokens             # rebuild the design-token package
 cd apps/mobile && npx expo start   # run on a simulator/device (needs npm install + toolchain)
 ```
 
-The app runs **fixture-backed by default** (renders every screen with no backend). To point it at the
-local API, set the provider to HTTP mode in `apps/mobile/src/api/ApiProvider.tsx`:
+### 👀 Watch the app with fake data (fastest way to evaluate the UX)
+The app defaults to **fixture mode** — every screen and the whole flow run offline with realistic
+fake data (invented cards, prices, a populated Vault). To watch it:
+
+```bash
+make mobile-watch        # runs `expo start --web` -> opens in your browser, fake data
+# press `w` if it doesn't auto-open; or run on a phone/simulator with `i` / `a`
+```
+Or build a static site and open it:
+```bash
+make mobile-web          # -> apps/mobile/dist-web/  (open index.html via any static server)
+```
+Navigate: scan screen → (mock) capture → foil reveal → Add to Vault → Vault; plus Pre-grade,
+Check authenticity, Rapid stack scan, and the Privacy/consent screen.
+
+> Note: this repo's CI sandbox has no browser system libraries, so screenshots can't be produced
+> here — `make mobile-render-check` does headless screenshots on any machine that has a normal
+> browser. The build itself is verified (`make mobile-build` / `make mobile-web` both succeed).
+
+### Pointing the app at the live local API (real backend, still mock providers)
+The app runs **fixture-backed by default**. To point it at the local API instead, set the provider to
+HTTP mode in `apps/mobile/src/api/ApiProvider.tsx`:
 
 ```tsx
 <ApiProvider mode="http" baseUrl="http://localhost:8099" devToken={DEV_TOKEN}>
