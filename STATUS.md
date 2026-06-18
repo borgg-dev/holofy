@@ -1,6 +1,17 @@
 # Holofy — Live Status
 
-**Updated:** 2026-06-18 · **Phase:** 0 COMPLETE → entering Phase 1 · **Launch anchor:** before 2026-09-16
+**Updated:** 2026-06-18 · **Phase:** 1 — core scan loop (mock-first), in progress · **Launch anchor:** before 2026-09-16
+
+## Phase 1 progress (core scan loop)
+| Unit | What | Status |
+|------|------|--------|
+| P1.1 | Backend skeleton + swappable mock providers + consolidated TCGdex pricing + /scan | ✅ done (gate PASS; 27 tests) |
+| P1.3 | RN/Expo scaffold on design tokens + scan-frame screen (tokens now compiled to dist/) | ✅ done (gate PASS, no veto) |
+| P1.2 | Domain model + Postgres schema (card/collection/portfolio/scan + consent flag) | next (now unblocked) |
+| P1.4 | Vertical slice: scan→identify→€ value→add to collection (mocked) + carried authz/rate-limit seams | blocked by P1.2 |
+
+Security seams (authz, rate-limit on /scan) deferred from P1.1 → required in P1.4 (first slice with user data). Non-blocking audit polish tracked in task #11.
+
 
 > Resume point for any session: read this file + `DEVELOPMENT_CHARTER.md` + the task backlog.
 
