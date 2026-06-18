@@ -9,5 +9,9 @@
   ],
   "scripts": {
     "tokens": "node packages/design-tokens/build.mjs"
+  },
+  "dependencies": {
+    "@expo-google-fonts/manrope": "^0.4.2",
+    "@react-native/virtualized-lists": "^0.74.87"
   }
 }

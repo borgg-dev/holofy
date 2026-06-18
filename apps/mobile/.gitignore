@@ -9,6 +9,5 @@ web-build/
 /ios
 /android
 
-# Fonts are fetched at setup, not committed (OFL — see README "Fonts").
-assets/fonts/*.ttf
-assets/fonts/*.otf
+# The OFL fonts (Clash Display, Manrope) ARE committed — the app statically requires
+# them and the Metro bundle fails without them. OFL permits redistribution.

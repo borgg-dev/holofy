@@ -22,6 +22,12 @@ mobile-test: ## Run the mobile test suite
 mobile-typecheck: ## Strict TypeScript check on the mobile app
 	cd apps/mobile && npx tsc --noEmit
 
+mobile-build: ## Bundle the app for native (proves it actually compiles, not just typechecks)
+	cd apps/mobile && npx expo export --platform android --output-dir dist
+
+mobile-web: ## Export a runnable web build to apps/mobile/dist-web (open dist-web/index.html)
+	cd apps/mobile && npx expo export --platform web --output-dir dist-web
+
 tokens: ## Rebuild the design-token package (TS + CSS + dist)
 	cd packages/design-tokens && node build.mjs
 
