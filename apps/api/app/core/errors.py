@@ -44,6 +44,17 @@ class PriceUnavailableError(HolofyError):
     code = "price_unavailable"
 
 
+class CaptureNotFoundError(HolofyError):
+    """A pre-grade referenced a capture that doesn't resolve — an unknown/expired upload.
+
+    Distinct from a gradeable-but-poor capture: that is a typed ``retake`` body with a 200,
+    not an error envelope.
+    """
+
+    status_code = 404
+    code = "capture_not_found"
+
+
 class RecognitionFailedError(HolofyError):
     status_code = 422
     code = "recognition_failed"

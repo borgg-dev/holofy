@@ -37,6 +37,12 @@ class PricingBackend(StrEnum):
     TCGDEX = "tcgdex"
 
 
+class GradingBackend(StrEnum):
+    # Corners/edges/surface are bought first (Ximilar) then built; ``mock`` is the only
+    # backend wired today. Centering is in-house and not selected here.
+    MOCK = "mock"
+
+
 class AuthBackend(StrEnum):
     DEV_TOKEN = "dev_token"
 
@@ -74,6 +80,7 @@ class Settings(BaseSettings):
 
     recognition_provider: RecognitionBackend = RecognitionBackend.MOCK
     pricing_provider: PricingBackend = PricingBackend.MOCK
+    grading_provider: GradingBackend = GradingBackend.MOCK
 
     # Auth seam: the dev-token backend mints/verifies an HMAC-signed bearer that maps to a
     # seeded user, so endpoints are genuinely user-scoped with no OAuth/Clerk yet. Real
@@ -97,6 +104,11 @@ class Settings(BaseSettings):
     # Below this top-1 confidence the scan flow must ask the user to confirm rather than
     # commit a guess — getting a high-value variant wrong is the product's worst failure.
     recognition_confirm_threshold: float = 0.85
+
+    # Pre-grade honesty floor (charter §3.1): if the centering measurement's confidence is
+    # below this the capture is too poor to estimate a grade from, so the pre-grade refuses
+    # with a "retake" signal rather than emitting a confident wrong range.
+    pregrade_min_centering_confidence: float = 0.4
 
     log_level: str = "INFO"
     log_json: bool = True

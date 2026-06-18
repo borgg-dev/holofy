@@ -11,6 +11,7 @@ from __future__ import annotations
 from app.db.repositories.card import CardRepository
 from app.db.repositories.collection import CollectionRepository
 from app.db.repositories.portfolio import PortfolioRepository
+from app.db.repositories.pregrade import PreGradeRepository
 from app.db.repositories.price import PriceRepository
 from app.db.repositories.scan import ScanRepository
 from app.db.repositories.user import UserRepository
@@ -19,6 +20,7 @@ __all__ = [
     "CardRepository",
     "CollectionRepository",
     "PortfolioRepository",
+    "PreGradeRepository",
     "PriceRepository",
     "ScanRepository",
     "UserRepository",

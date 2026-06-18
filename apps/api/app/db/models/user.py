@@ -26,6 +26,7 @@ from app.db.types import GUID, new_uuid
 if TYPE_CHECKING:
     from app.db.models.collection import CollectionItem
     from app.db.models.portfolio import PortfolioSnapshot
+    from app.db.models.pregrade import PreGradeRecord
     from app.db.models.scan import ScanRecord
 
 
@@ -47,6 +48,11 @@ class User(TimestampMixin, Base):
         passive_deletes=True,
     )
     scans: Mapped[list["ScanRecord"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    pregrades: Mapped[list["PreGradeRecord"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,

@@ -22,6 +22,7 @@ from app.db.types import GUID, new_uuid
 
 if TYPE_CHECKING:
     from app.db.models.collection import CollectionItem
+    from app.db.models.pregrade import PreGradeRecord
     from app.db.models.price import PriceObservation
     from app.db.models.scan import ScanRecord
 
@@ -58,3 +59,4 @@ class Card(TimestampMixin, Base):
         passive_deletes=True,
     )
     scans: Mapped[list["ScanRecord"]] = relationship(back_populates="resolved_card")
+    pregrades: Mapped[list["PreGradeRecord"]] = relationship(back_populates="card")

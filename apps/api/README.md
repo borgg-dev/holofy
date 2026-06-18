@@ -28,10 +28,15 @@ app/
   schemas/
     cards.py           Domain DTOs: CardIdentity, RecognitionResult, PriceQuote.
     scan.py            /scan request + response contract (resolved | needs_confirmation).
+    grading.py         /pregrade contract: SubScore, GradeProbabilityRange (range, never a
+                       single grade), estimated | retake outcomes + disclaimer.
     collection.py      Add-to-collection request + valued collection response.
     portfolio.py       Portfolio total + snapshot/history response.
+  grading/
+    centering.py       In-house pixel-level centering measurement (numpy; promoted Spike D).
+    capture_store.py   CaptureStore seam: resolves a capture_ref to image bytes (mock = synthetic).
   providers/
-    base.py            RecognitionProvider / PricingProvider Protocols.
+    base.py            RecognitionProvider / PricingProvider / GradingProvider Protocols.
     factory.py         Config-driven selection of concrete providers.
     recognition/
       mock.py          Deterministic fixtures incl. the low-confidence top-2 case.
@@ -39,8 +44,13 @@ app/
       tcgdex.py        Shared TCGdex Cardmarket client (the spikes' helpers, consolidated).
       tcgdex_provider.py  Real PricingProvider over TCGdex (no key).
       mock.py          Offline PricingProvider for tests / keyless runs.
+    grading/
+      mock.py          Deterministic bought sub-scores (corners/edges/surface) incl. a
+                       poor-surface and a low-confidence fixture; Ximilar /v2/grade drops in later.
   services/
     scan.py            Orchestration: recognize → (confirm | price) → persist → response.
+    pregrade.py        Compose in-house centering + bought sub-scores → grade probability
+                       range; refuse (retake) on a capture too poor to grade honestly.
     collection.py      Add a card; value the holdings in € via the pricing seam.
     portfolio.py       Total the collection, snapshot it, read the value-over-time series.
   db/
@@ -49,12 +59,13 @@ app/
     session.py         Async engine + session factory + unit-of-work scope.
     erasure.py         Right-to-erasure strategy (cascade + data-lake purge manifest).
     models/            User, Card, CollectionItem, PortfolioSnapshot, ScanRecord,
-                       PriceObservation, and the persisted enums.
+                       PreGradeRecord, PriceObservation, and the persisted enums.
     repositories/      Typed async data access — the only layer that issues queries.
   api/
-    health.py, scan.py, collection.py, portfolio.py, dependencies.py
-migrations/            Alembic (env reads the app's DATABASE_URL; one initial revision).
-tests/                 Unit (providers, service, persistence) + API (TestClient) coverage.
+    health.py, scan.py, pregrade.py, collection.py, portfolio.py, dependencies.py
+migrations/            Alembic (env reads the app's DATABASE_URL; initial + pregrade_records).
+tests/                 Unit (providers, centering, pregrade composition, persistence) +
+                       API (TestClient) coverage.
 ```
 
 ## Database
@@ -108,8 +119,17 @@ PYTHONPATH=.deps:. python3 -m alembic check
 |--------------|---------------------------|---------------------------------------------------|
 | Recognition  | `MockRecognitionProvider` | — (Ximilar/on-device lands behind the Protocol)   |
 | Pricing      | `MockPricingProvider`     | `TcgdexPricingProvider` (open TCGdex API, no key)  |
+| Grading      | `MockGradingProvider`     | — (Ximilar `/v2/grade` lands behind the Protocol) |
+| Capture store| `MockCaptureStore` (synthetic captures by ref) | — (EU-region object storage)        |
 
-Select per environment via `HOLOFY_RECOGNITION_PROVIDER` and `HOLOFY_PRICING_PROVIDER`.
+Select per environment via `HOLOFY_RECOGNITION_PROVIDER`, `HOLOFY_PRICING_PROVIDER` and
+`HOLOFY_GRADING_PROVIDER`.
+
+**Centering is *not* mocked** — it is measured in-house (`app/grading/centering.py`, pure
+numpy, promoted from Spike D). The grading provider only supplies the three *bought*
+sub-grades (corners, edges, surface); the pre-grade service composes them with the in-house
+centering into an honest grade probability **range** — never a single grade (charter §3.1) —
+and refuses with a "retake" signal when a capture is too poor to grade honestly.
 
 ## Run
 
@@ -148,7 +168,9 @@ All settings are env vars prefixed `HOLOFY_` (or a `.env` file). Notable ones:
 | `HOLOFY_CORS_ALLOW_ORIGINS`          | _(empty)_        | Deny-by-default; JSON list per environment      |
 | `HOLOFY_RECOGNITION_PROVIDER`        | `mock`           | `mock`                                          |
 | `HOLOFY_PRICING_PROVIDER`            | `mock`           | `mock` / `tcgdex`                               |
+| `HOLOFY_GRADING_PROVIDER`            | `mock`           | `mock` (bought corners/edges/surface)           |
 | `HOLOFY_RECOGNITION_CONFIRM_THRESHOLD` | `0.85`         | Below this top-1 confidence → confirm prompt    |
+| `HOLOFY_PREGRADE_MIN_CENTERING_CONFIDENCE` | `0.4`      | Below this the pre-grade refuses (retake)       |
 | `HOLOFY_AUTH_PROVIDER`               | `dev_token`      | `dev_token` (real IdP swaps in behind the seam) |
 | `HOLOFY_AUTH_DEV_SECRET`             | _(dev default)_  | Signs dev tokens; set a real secret outside `local` |
 | `HOLOFY_RATE_LIMIT_PROVIDER`         | `memory`         | `memory` (Redis backend lands behind the Protocol) |
@@ -182,7 +204,8 @@ curl -H "Authorization: Bearer <token>" http://127.0.0.1:8000/portfolio
 (master plan §4), enforced per user before any recognition cost is spent. Over the budget
 returns `429 quota_exceeded` with `details.limit` and `details.reset_seconds`. The limiter
 is an in-process daily counter behind a `RateLimiter` Protocol; a Redis backend drops in for
-the multi-instance gateway. Tune the limit with `HOLOFY_FREE_TIER_DAILY_SCANS`.
+the multi-instance gateway. Tune the limit with `HOLOFY_FREE_TIER_DAILY_SCANS`. `/pregrade`
+shares the same daily budget (one quota key), so it can't be used to sidestep the scan cap.
 
 ## Endpoints
 
@@ -192,6 +215,20 @@ the multi-instance gateway. Tune the limit with `HOLOFY_FREE_TIER_DAILY_SCANS`.
   opted in) and, on a resolved card, lands it in the catalog so it is addable straight away.
   - `outcome: "resolved"` → `card` (identity + price).
   - `outcome: "needs_confirmation"` → `choices` (top-2) + `price_delta`.
+- `POST /pregrade` — `{ "capture_ref", "card_id"? }` → `PregradeResponse`. Composes the
+  in-house centering measurement with bought corners/edges/surface into an honest grade
+  **probability range**, and persists a `PreGradeRecord`. Every response carries a
+  `disclaimer`: it is a pre-screen, decision support, **not** an official grade.
+  - `status: "estimated"` → `probability` (`likely_low`/`likely_high` + `at_least`/
+    `p_at_least` — there is deliberately no single "grade" field), `sub_scores` (the four
+    PSA axes), and an overall `confidence`. Low capture/centering confidence widens the
+    range and lowers `confidence` rather than faking precision.
+  - `status: "retake"` → `reasons` (no range). A capture too poor to grade honestly — a
+    full-bleed card with no border, a washed-out/skewed border below the confidence floor —
+    is returned as a clear typed **200**, never a 500. Tune the floor with
+    `HOLOFY_PREGRADE_MIN_CENTERING_CONFIDENCE`.
+  - An unresolvable `capture_ref` (unknown/expired upload) is `404 capture_not_found` —
+    distinct from a gradeable-but-poor capture.
 - `POST /collection` — `{ "canonical_id", "condition"?, "quantity"?, "acquired_price_eur"?,
   "acquired_on"? }` → the added holding with its current € valuation. The card must already
   exist in the catalog (scan or look it up first), else `404 card_not_found`.

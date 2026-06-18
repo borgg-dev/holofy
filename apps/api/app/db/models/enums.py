@@ -43,6 +43,17 @@ class ScanOutcome(StrEnum):
     UNRECOGNIZED = "unrecognized"
 
 
+class PregradeStatus(StrEnum):
+    """Terminal state of a pre-grade event.
+
+    ``estimated`` — a grade probability range was produced. ``retake`` — the capture was too
+    poor to estimate honestly and the user was asked to re-capture.
+    """
+
+    ESTIMATED = "estimated"
+    RETAKE = "retake"
+
+
 class PriceSource(StrEnum):
     """Provenance of a price point — which feed it came from."""
 

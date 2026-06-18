@@ -24,10 +24,12 @@ from app.db.repositories import (
     PortfolioRepository,
     UserRepository,
 )
-from app.providers.base import PricingProvider, RecognitionProvider
+from app.grading.capture_store import CaptureStore
+from app.providers.base import GradingProvider, PricingProvider, RecognitionProvider
 from app.ratelimit.base import RateLimiter
 from app.services.collection import CollectionService
 from app.services.portfolio import PortfolioService
+from app.services.pregrade import PregradeService
 from app.services.scan import ScanService
 
 # auto_error off: a missing/blank Authorization header must surface as our own envelope,
@@ -48,6 +50,14 @@ def get_recognition_provider(request: Request) -> RecognitionProvider:
 
 def get_pricing_provider(request: Request) -> PricingProvider:
     return request.app.state.pricing_provider
+
+
+def get_grading_provider(request: Request) -> GradingProvider:
+    return request.app.state.grading_provider
+
+
+def get_capture_store(request: Request) -> CaptureStore:
+    return request.app.state.capture_store
 
 
 def get_auth_provider(request: Request) -> AuthProvider:
@@ -107,6 +117,16 @@ def get_scan_service(
         recognition=recognition,
         pricing=pricing,
         confirm_threshold=settings.recognition_confirm_threshold,
+    )
+
+
+def get_pregrade_service(
+    settings: Settings = Depends(get_settings),
+    grading: GradingProvider = Depends(get_grading_provider),
+) -> PregradeService:
+    return PregradeService(
+        grading=grading,
+        min_centering_confidence=settings.pregrade_min_centering_confidence,
     )
 
 

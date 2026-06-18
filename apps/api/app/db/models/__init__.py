@@ -11,12 +11,14 @@ from app.db.models.card import Card
 from app.db.models.collection import CollectionItem
 from app.db.models.enums import (
     CardCondition,
+    PregradeStatus,
     PriceBasis,
     PriceSource,
     ScanOutcome,
     Variant,
 )
 from app.db.models.portfolio import PortfolioSnapshot
+from app.db.models.pregrade import PreGradeRecord
 from app.db.models.price import PriceObservation
 from app.db.models.scan import ScanRecord
 from app.db.models.user import User
@@ -26,6 +28,8 @@ __all__ = [
     "CardCondition",
     "CollectionItem",
     "PortfolioSnapshot",
+    "PreGradeRecord",
+    "PregradeStatus",
     "PriceBasis",
     "PriceObservation",
     "PriceSource",
