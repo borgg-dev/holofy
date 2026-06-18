@@ -161,6 +161,67 @@ export type WirePregradeResponse = {
   reasons: string[] | null;
 };
 
+// Authenticity: the private anti-counterfeit screening contract. Mirrors
+// apps/api/app/schemas/authenticity.py field-for-field. The shape is the defamation
+// guardrail (charter §3.5) encoded in *types* — the headline is a three-value risk band,
+// never a boolean; the most adverse outcome is "elevated risk, seek professional
+// authentication"; and a poor capture or a low-value card is a typed `retake` /
+// `not_assessed`, never a confident wrong answer. There is no fake/genuine field anywhere.
+
+/** apps/api/app/schemas/authenticity.py :: SignalKind. The five per-signal reads. */
+export type WireSignalKind =
+  | "print_pattern"
+  | "holo_signature"
+  | "font_layout"
+  | "cardstock"
+  | "catalog_existence";
+
+/** apps/api/app/schemas/authenticity.py :: SignalObservation. A consistency, never a verdict. */
+export type WireSignalObservation = "consistent" | "inconclusive" | "deviation" | "unreadable";
+
+/** apps/api/app/schemas/authenticity.py :: RiskBand. A band, deliberately never a boolean. */
+export type WireRiskBand = "strong_signals" | "inconclusive" | "elevated_risk";
+
+/** apps/api/app/schemas/authenticity.py :: AuthenticityStatus. */
+export type WireAuthenticityStatus = "assessed" | "retake" | "not_assessed";
+
+/** apps/api/app/schemas/authenticity.py :: AuthenticitySignal. confidence is read-quality. */
+export type WireAuthenticitySignal = {
+  kind: WireSignalKind;
+  observation: WireSignalObservation;
+  /** 0–1 — how clearly *this signal* could be read, NOT how certain the verdict is. */
+  confidence: number;
+  detail: string;
+};
+
+/** apps/api/app/schemas/authenticity.py :: AuthenticityAssessment. value arrives as a string. */
+export type WireAuthenticityAssessment = {
+  risk_band: WireRiskBand;
+  /** 0–1 mean read-confidence of the signals — evidence quality, NOT verdict-certainty. */
+  confidence: number;
+  signals: WireAuthenticitySignal[];
+  recommend_authentication: boolean;
+  reference_value_eur: number | null;
+};
+
+/** apps/api/app/schemas/authenticity.py :: AuthenticityRequest (request body for POST). */
+export type WireAuthenticityRequest = {
+  capture_ref: string;
+  card_id: string;
+};
+
+/**
+ * apps/api/app/schemas/authenticity.py :: AuthenticityResponse.
+ * `status` keys the payload: `assessed` carries the band + signals + confidence;
+ * `retake`/`not_assessed` carry human-facing `reasons`. `disclaimer` is always present.
+ */
+export type WireAuthenticityResponse = {
+  status: WireAuthenticityStatus;
+  disclaimer: string;
+  assessment: WireAuthenticityAssessment | null;
+  reasons: string[] | null;
+};
+
 // Training consent: the user's explicit, revocable grip on the data-loop moat
 // (apps/api/app/schemas/consent.py). Separate from app-usage consent and off by default;
 // the privacy screen reads and writes it.

@@ -9,6 +9,7 @@
 // parallel one.
 
 import type {
+  WireAuthenticityResponse,
   WireCardIdentity,
   WireCollectionItem,
   WireConsentState,
@@ -21,6 +22,13 @@ import type {
 const PREGRADE_DISCLAIMER =
   "Pre-screen estimate, not an official grade. This is decision support to help you " +
   "decide whether a card is worth submitting — it is not a PSA, CGC or BGS grade.";
+
+// Verbatim from apps/api/app/schemas/authenticity.py :: AUTHENTICITY_DISCLAIMER — the
+// defamation-safe framing must read identically wherever it surfaces.
+const AUTHENTICITY_DISCLAIMER =
+  "Private authenticity screening, not a verdict. This is a risk signal to help you " +
+  "decide whether to pay for professional authentication — it is not a determination " +
+  "that a card is genuine or counterfeit, and it is not an assessment of any seller.";
 
 const AS_OF = "2026-06-18T00:00:00Z";
 
@@ -146,6 +154,182 @@ export function pregradeFixtureFor(captureRef: string): WirePregradeResponse {
   return captureRef.includes("retake") ? PREGRADE_RETAKE : PREGRADE_ESTIMATED;
 }
 
+// Authenticity fixtures, mirroring apps/api's authenticity mock. The five outcomes the
+// screen has to render honestly: a reassuring read, a mixed read, the most adverse read
+// (still "seek a professional", never "fake"), a refuse-to-screen poor capture, and a
+// below-threshold card that simply isn't worth screening. `confidence` is read-quality
+// (how clearly the card scanned) throughout — never verdict-certainty.
+
+/** Clean read on a high-value card — no counterfeit indicators (the most reassuring band). */
+export const AUTHENTICITY_STRONG: WireAuthenticityResponse = {
+  status: "assessed",
+  disclaimer: AUTHENTICITY_DISCLAIMER,
+  assessment: {
+    risk_band: "strong_signals",
+    confidence: 0.91,
+    signals: [
+      {
+        kind: "print_pattern",
+        observation: "consistent",
+        confidence: 0.94,
+        detail: "The CMYK rosette under magnification matches our reference for the Origins Vault print run.",
+      },
+      {
+        kind: "holo_signature",
+        observation: "consistent",
+        confidence: 0.88,
+        detail: "Foil reflectance across both tilt angles tracks the reference holo for this set.",
+      },
+      {
+        kind: "font_layout",
+        observation: "consistent",
+        confidence: 0.93,
+        detail: "Typography, kerning, and the energy box align with the reference layout.",
+      },
+      {
+        kind: "cardstock",
+        observation: "consistent",
+        confidence: 0.86,
+        detail: "Edge texture and stock thickness read as period-correct.",
+      },
+      {
+        kind: "catalog_existence",
+        observation: "consistent",
+        confidence: 0.99,
+        detail: "Origins Vault 8/120 holo was printed — the set, number, and variant all exist.",
+      },
+    ],
+    recommend_authentication: true,
+    reference_value_eur: 289.0,
+  },
+  reasons: null,
+};
+
+/** Mixed/insufficient evidence — some signals couldn't be read, so the read stays open. */
+export const AUTHENTICITY_INCONCLUSIVE: WireAuthenticityResponse = {
+  status: "assessed",
+  disclaimer: AUTHENTICITY_DISCLAIMER,
+  assessment: {
+    risk_band: "inconclusive",
+    confidence: 0.54,
+    signals: [
+      {
+        kind: "print_pattern",
+        observation: "consistent",
+        confidence: 0.71,
+        detail: "The dot pattern reads as consistent where it could be resolved.",
+      },
+      {
+        kind: "holo_signature",
+        observation: "unreadable",
+        confidence: 0.22,
+        detail: "Glare on the holo left too little to compare against the reference.",
+      },
+      {
+        kind: "font_layout",
+        observation: "inconclusive",
+        confidence: 0.49,
+        detail: "Layout is close to reference, but the capture was too soft to be sure.",
+      },
+      {
+        kind: "cardstock",
+        observation: "consistent",
+        confidence: 0.63,
+        detail: "Edge cues look period-correct.",
+      },
+      {
+        kind: "catalog_existence",
+        observation: "consistent",
+        confidence: 0.98,
+        detail: "Wildgrowth 15/88 holo was printed — the variant exists.",
+      },
+    ],
+    recommend_authentication: true,
+    reference_value_eur: 61.4,
+  },
+  reasons: null,
+};
+
+/** Signals diverge from a genuine reference — the most adverse band; never "fake". */
+export const AUTHENTICITY_ELEVATED: WireAuthenticityResponse = {
+  status: "assessed",
+  disclaimer: AUTHENTICITY_DISCLAIMER,
+  assessment: {
+    risk_band: "elevated_risk",
+    confidence: 0.83,
+    signals: [
+      {
+        kind: "print_pattern",
+        observation: "deviation",
+        confidence: 0.87,
+        detail: "The dot pattern is coarser than our reference for the Origins Vault print run.",
+      },
+      {
+        kind: "holo_signature",
+        observation: "deviation",
+        confidence: 0.79,
+        detail: "Foil reflectance falls off differently from the reference holo across tilt.",
+      },
+      {
+        kind: "font_layout",
+        observation: "consistent",
+        confidence: 0.84,
+        detail: "Typography and layout match the reference — these are easy to copy well.",
+      },
+      {
+        kind: "cardstock",
+        observation: "inconclusive",
+        confidence: 0.58,
+        detail: "Stock thickness is borderline; the edge read wasn't decisive.",
+      },
+      {
+        kind: "catalog_existence",
+        observation: "consistent",
+        confidence: 0.99,
+        detail: "Origins Vault 12/120 holo was printed — the variant itself exists.",
+      },
+    ],
+    recommend_authentication: true,
+    reference_value_eur: 757.1,
+  },
+  reasons: null,
+};
+
+/** Capture too poor to read the signals honestly — refuse, coach, never a band. */
+export const AUTHENTICITY_RETAKE: WireAuthenticityResponse = {
+  status: "retake",
+  disclaimer: AUTHENTICITY_DISCLAIMER,
+  assessment: null,
+  reasons: [
+    "The print-pattern close-up is too soft — move in until the dots are crisp.",
+    "Glare covers the holo. Tilt the card slowly so the foil catches light from the side.",
+  ],
+};
+
+/** Below the value threshold — cheap commons aren't faked, so no score is offered. */
+export const AUTHENTICITY_NOT_ASSESSED: WireAuthenticityResponse = {
+  status: "not_assessed",
+  disclaimer: AUTHENTICITY_DISCLAIMER,
+  assessment: null,
+  reasons: [
+    "This card's market value is low enough that it isn't a target for forgery.",
+    "Authenticity screening is reserved for higher-value cards, where a bad buy would cost you.",
+  ],
+};
+
+/**
+ * Map a capture ref to an authenticity fixture, mirroring apps/api's authenticity mock keys.
+ * The ref carries which outcome the demo should exercise; on device the outcome is the
+ * service's, keyed off the resolved card and capture, never the ref string.
+ */
+export function authenticityFixtureFor(captureRef: string): WireAuthenticityResponse {
+  if (captureRef.includes("retake")) return AUTHENTICITY_RETAKE;
+  if (captureRef.includes("not-assessed")) return AUTHENTICITY_NOT_ASSESSED;
+  if (captureRef.includes("inconclusive")) return AUTHENTICITY_INCONCLUSIVE;
+  if (captureRef.includes("elevated")) return AUTHENTICITY_ELEVATED;
+  return AUTHENTICITY_STRONG;
+}
+
 // A starter Vault — two confidently-owned holdings, so the portfolio reads as a real
 // (if small) collection rather than an empty shell. The flow adds to this in memory.
 let collection: WireCollectionItem[] = [
@@ -230,12 +414,17 @@ export function fixturePortfolio(): WirePortfolio {
 // "N captures are helping improve Holofy" copy reflects the demo flow, and revoking clears it.
 let consentedScans = 0;
 let consentedPregrades = 0;
+let consentedAuthenticity = 0;
 
 function consentState(): WireConsentState {
-  const granted = consentedScans + consentedPregrades > 0;
+  const granted = consentedScans + consentedPregrades + consentedAuthenticity > 0;
   return {
     granted,
-    consented: { scans: consentedScans, pregrades: consentedPregrades, authenticity: 0 },
+    consented: {
+      scans: consentedScans,
+      pregrades: consentedPregrades,
+      authenticity: consentedAuthenticity,
+    },
   };
 }
 
@@ -250,6 +439,7 @@ export function fixtureSetTrainingConsent(granted: boolean): WireConsentState {
   } else {
     consentedScans = 0;
     consentedPregrades = 0;
+    consentedAuthenticity = 0;
   }
   return consentState();
 }
@@ -263,10 +453,15 @@ export function fixtureNoteConsentedPregrade(): void {
   consentedPregrades += 1;
 }
 
+export function fixtureNoteConsentedAuthenticity(): void {
+  consentedAuthenticity += 1;
+}
+
 /** Reset mutable fixture state between tests/sessions. */
 export function resetFixtures(): void {
   consentedScans = 0;
   consentedPregrades = 0;
+  consentedAuthenticity = 0;
   collection = [
     {
       id: "fixture-tidecaller",

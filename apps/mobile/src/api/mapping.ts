@@ -7,6 +7,8 @@
 // the boundary, so no screen ever sees a raw string or re-parses.
 
 import type {
+  Authenticity,
+  AuthenticitySignal,
   AxisProvenance,
   CardIdentity,
   CollectionItem,
@@ -15,12 +17,15 @@ import type {
   PortfolioSnapshot,
   Pregrade,
   PriceQuote,
+  RiskBand,
   ScanChoice,
   ScanResult,
   SubScore,
   TrainingConsent,
 } from "./models";
 import type {
+  WireAuthenticityResponse,
+  WireAuthenticitySignal,
   WireCardIdentity,
   WireCollectionItem,
   WireConfirmationChoice,
@@ -29,6 +34,7 @@ import type {
   WirePortfolioSnapshot,
   WirePregradeResponse,
   WirePriceQuote,
+  WireRiskBand,
   WireScanResponse,
   WireScannedCard,
   WireSubScore,
@@ -179,6 +185,58 @@ export function mapPregrade(w: WirePregradeResponse): Pregrade {
     throw new MappingError("Pre-grade retake carried no coaching reasons.");
   }
   return { status: "retake", reasons, disclaimer: w.disclaimer };
+}
+
+// ── Authenticity ─────────────────────────────────────────────────────────────
+
+// The wire band is snake_case; the model is camelCase. This is the only place the two
+// vocabularies meet, so the rest of the app never sees a snake-cased band.
+const BAND_FROM_WIRE: Record<WireRiskBand, RiskBand> = {
+  strong_signals: "strongSignals",
+  inconclusive: "inconclusive",
+  elevated_risk: "elevatedRisk",
+};
+
+function mapSignal(w: WireAuthenticitySignal): AuthenticitySignal {
+  return {
+    kind: w.kind,
+    observation: w.observation,
+    confidence: w.confidence,
+    detail: w.detail,
+  };
+}
+
+export function mapAuthenticity(w: WireAuthenticityResponse): Authenticity {
+  if (w.status === "assessed") {
+    if (!w.assessment) {
+      throw new MappingError("Authenticity assessed without an assessment payload.");
+    }
+    const a = w.assessment;
+    if (a.signals.length === 0) {
+      throw new MappingError("Authenticity assessed without any signal reads.");
+    }
+    return {
+      status: "assessed",
+      band: BAND_FROM_WIRE[a.risk_band],
+      confidence: a.confidence,
+      signals: a.signals.map(mapSignal),
+      recommendAuthentication: a.recommend_authentication,
+      referenceValueEur: a.reference_value_eur,
+      disclaimer: w.disclaimer,
+    };
+  }
+
+  // Both refuse-paths carry reasons; the status keeps them apart so the UI shows the
+  // right framing — "one more pass" for a poor capture vs "not needed at this value".
+  const reasons = w.reasons ?? [];
+  if (reasons.length === 0) {
+    throw new MappingError(`Authenticity ${w.status} carried no reasons to explain it.`);
+  }
+  return {
+    status: w.status === "retake" ? "retake" : "notAssessed",
+    reasons,
+    disclaimer: w.disclaimer,
+  };
 }
 
 // ── Training consent ─────────────────────────────────────────────────────────

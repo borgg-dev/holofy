@@ -9,6 +9,7 @@ import {
 
 import {
   useApi,
+  type Authenticity,
   type CardIdentity,
   type Condition,
   type Pregrade,
@@ -36,6 +37,16 @@ type PregradeState =
   | { status: "ready"; result: Pregrade }
   | { status: "error" };
 
+// The authenticity sub-flow runs after the user captures the print + holo shots. Kept in
+// the same provider as the scan so the verdict route can read the result a back-navigation
+// preserves, and so the card being screened (the reveal choice) is already to hand for the
+// catalog cross-check and value gate the backend needs.
+type AuthenticityState =
+  | { status: "idle" }
+  | { status: "screening" }
+  | { status: "ready"; result: Authenticity }
+  | { status: "error" };
+
 type ScanFlowValue = {
   scan: ScanState;
   /**
@@ -57,6 +68,12 @@ type ScanFlowValue = {
   runPregrade: (captureRef: string) => Promise<Pregrade | null>;
   /** Clear the pre-grade back to idle — e.g. on leaving the gauge for a fresh re-scan. */
   resetPregrade: () => void;
+  /** The in-flight / settled authenticity screening for the card being checked. */
+  authenticity: AuthenticityState;
+  /** Run the authenticity screening on a captured print+holo bundle; stores the result. */
+  runAuthenticity: (captureRef: string) => Promise<Authenticity | null>;
+  /** Clear the authenticity back to idle — e.g. on leaving the verdict for a fresh re-shoot. */
+  resetAuthenticity: () => void;
   /**
    * The session's training-consent choice, threaded into the scan/pre-grade calls so a
    * consented capture is sent with the opt-in. Off until the user explicitly turns it on
@@ -80,6 +97,7 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
   const [revealChoice, setRevealChoice] = useState<ScanChoice | null>(null);
   const [vaultRevision, setVaultRevision] = useState(0);
   const [pregrade, setPregrade] = useState<PregradeState>({ status: "idle" });
+  const [authenticity, setAuthenticity] = useState<AuthenticityState>({ status: "idle" });
   // Off by default — the only honest default for personal-data consent (charter §3.5).
   const [trainingConsent, setTrainingConsent] = useState(false);
   const [consentPromptSeen, setConsentPromptSeen] = useState(false);
@@ -147,12 +165,37 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
   );
 
   const resetPregrade = useCallback(() => setPregrade({ status: "idle" }), []);
+
+  // The authenticity endpoint requires a resolved card (the catalog cross-check + value gate
+  // are meaningless without one), so this is a no-op when nothing has resolved — never a guess.
+  const runAuthenticity = useCallback(
+    async (captureRef: string) => {
+      const cardId = revealChoice?.identity.canonicalId;
+      if (!cardId) {
+        setAuthenticity({ status: "error" });
+        return null;
+      }
+      setAuthenticity({ status: "screening" });
+      try {
+        const result = await api.authenticity({ captureRef, cardId, trainingConsent });
+        setAuthenticity({ status: "ready", result });
+        return result;
+      } catch {
+        setAuthenticity({ status: "error" });
+        return null;
+      }
+    },
+    [api, revealChoice, trainingConsent]
+  );
+
+  const resetAuthenticity = useCallback(() => setAuthenticity({ status: "idle" }), []);
   const markConsentPromptSeen = useCallback(() => setConsentPromptSeen(true), []);
 
   const reset = useCallback(() => {
     setScan({ status: "idle" });
     setRevealChoice(null);
     setPregrade({ status: "idle" });
+    setAuthenticity({ status: "idle" });
   }, []);
 
   const value = useMemo<ScanFlowValue>(
@@ -166,6 +209,9 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
       pregrade,
       runPregrade,
       resetPregrade,
+      authenticity,
+      runAuthenticity,
+      resetAuthenticity,
       trainingConsent,
       setTrainingConsent,
       consentPromptSeen,
@@ -182,6 +228,9 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
       pregrade,
       runPregrade,
       resetPregrade,
+      authenticity,
+      runAuthenticity,
+      resetAuthenticity,
       trainingConsent,
       consentPromptSeen,
       markConsentPromptSeen,

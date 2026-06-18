@@ -140,6 +140,74 @@ export type PregradeRetake = {
 
 export type Pregrade = PregradeEstimate | PregradeRetake;
 
+// ── Authenticity ─────────────────────────────────────────────────────────────
+//
+// The anti-counterfeit screening contract, app-side. The headline is a *risk band* —
+// strongSignals / inconclusive / elevatedRisk — never a fake/genuine boolean (charter
+// §3.5). The most adverse outcome is "elevated risk, seek professional authentication".
+//
+// `confidence` here is the *evidence quality* — the mean read-confidence of the signals,
+// how clearly the card could be read — and is NOT verdict-certainty. A risky card can read
+// at high confidence. The view-logic (band.ts) keeps it visually separate from the band so
+// the UI never renders it as "X% sure it's risky". A capture too poor to read is a typed
+// `retake`; a card below the value threshold is `notAssessed` — discriminated states, not a
+// confident wrong answer, so a screen switches on `status` and the compiler proves the shape.
+
+export type SignalKind =
+  | "print_pattern"
+  | "holo_signature"
+  | "font_layout"
+  | "cardstock"
+  | "catalog_existence";
+
+/** What one signal read says — a *consistency* with a genuine reference, never a verdict. */
+export type SignalObservation = "consistent" | "inconclusive" | "deviation" | "unreadable";
+
+/** The composite read. A band, never a boolean; the most adverse is `elevatedRisk`. */
+export type RiskBand = "strongSignals" | "inconclusive" | "elevatedRisk";
+
+export type AuthenticitySignal = {
+  kind: SignalKind;
+  observation: SignalObservation;
+  /** 0–1 — how clearly *this signal* was read (capture/model quality). Not verdict-certainty. */
+  confidence: number;
+  /** Human-facing note on what was looked at — never an accusation. */
+  detail: string;
+};
+
+/** Capture good enough to screen: the band, the per-signal reads, and the evidence quality. */
+export type AuthenticityAssessment = {
+  status: "assessed";
+  band: RiskBand;
+  /** 0–1 mean read-confidence across the signals — evidence quality, kept separate from the band. */
+  confidence: number;
+  signals: AuthenticitySignal[];
+  /** Above the value threshold, the actionable output: a prompt to seek a professional. */
+  recommendAuthentication: boolean;
+  /** The € value that put the card over the screening threshold, for legible framing. */
+  referenceValueEur: number | null;
+  disclaimer: string;
+};
+
+/** Capture too poor to read the signals honestly: coaching reasons, never a band. */
+export type AuthenticityRetake = {
+  status: "retake";
+  reasons: string[];
+  disclaimer: string;
+};
+
+/** Below the value threshold — cheap commons aren't faked, so no score is offered. */
+export type AuthenticityNotAssessed = {
+  status: "notAssessed";
+  reasons: string[];
+  disclaimer: string;
+};
+
+export type Authenticity =
+  | AuthenticityAssessment
+  | AuthenticityRetake
+  | AuthenticityNotAssessed;
+
 // ── Training consent ─────────────────────────────────────────────────────────
 //
 // The user's explicit, revocable permission to let their captures improve Holofy's

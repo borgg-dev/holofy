@@ -44,6 +44,7 @@ export default function Reveal() {
           }
         }}
         onGrade={() => router.push("/pregrade-capture")}
+        onAuthenticity={() => router.push("/authenticity-capture")}
         onBack={() => router.replace("/")}
       />
       {showPrompt ? (

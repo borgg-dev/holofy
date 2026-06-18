@@ -6,8 +6,10 @@
 import { authHeader, type TokenProvider } from "./auth";
 import { ApiError, type ApiErrorCode } from "./errors";
 import {
+  authenticityFixtureFor,
   fixtureAddToCollection,
   fixtureCollection,
+  fixtureNoteConsentedAuthenticity,
   fixtureNoteConsentedPregrade,
   fixtureNoteConsentedScan,
   fixturePortfolio,
@@ -17,6 +19,7 @@ import {
   scanFixtureFor,
 } from "./fixtures";
 import {
+  mapAuthenticity,
   mapCollectionItem,
   mapConsent,
   mapPortfolio,
@@ -24,6 +27,7 @@ import {
   mapScanResponse,
 } from "./mapping";
 import type {
+  Authenticity,
   CollectionItem,
   Condition,
   Portfolio,
@@ -32,6 +36,7 @@ import type {
   TrainingConsent,
 } from "./models";
 import type {
+  WireAuthenticityResponse,
   WireCollectionItem,
   WireConsentState,
   WireErrorResponse,
@@ -63,6 +68,15 @@ export type PregradeRequest = {
   trainingConsent?: boolean;
 };
 
+export type AuthenticityRequest = {
+  /** Reference to the already-uploaded authenticity capture (print close-up + holo tilt). */
+  captureRef: string;
+  /** Catalog card this capture is of — required for the catalog cross-check + value gate. */
+  cardId: string;
+  /** Opt this capture into the training lake. Off unless explicitly set (GDPR, charter §3.5). */
+  trainingConsent?: boolean;
+};
+
 export type SetConsentRequest = {
   /** `true` opts the account into training-data use; `false` revokes it. */
   granted: boolean;
@@ -77,6 +91,11 @@ export interface HolofyClient {
   portfolio(): Promise<Portfolio>;
   /** Honest pre-grade: an `estimated` range + sub-scores, or a `retake` with reasons. */
   pregrade(req: PregradeRequest): Promise<Pregrade>;
+  /**
+   * Private authenticity screening: an `assessed` risk band + per-signal reads, a `retake`
+   * (poor capture), or `notAssessed` (below the value threshold). Never a fake/genuine verdict.
+   */
+  authenticity(req: AuthenticityRequest): Promise<Authenticity>;
   /** The account's current training-consent posture — off by default. */
   trainingConsent(): Promise<TrainingConsent>;
   /** Grant or revoke training-data consent; returns the resulting posture. */
@@ -175,6 +194,18 @@ export function createHttpClient(config: HttpClientConfig): HolofyClient {
       return mapPregrade(wire);
     },
 
+    async authenticity({ captureRef, cardId, trainingConsent = false }) {
+      const wire = await request<WireAuthenticityResponse>("/authenticity", {
+        method: "POST",
+        body: JSON.stringify({
+          capture_ref: captureRef,
+          card_id: cardId,
+          training_consent: trainingConsent,
+        }),
+      });
+      return mapAuthenticity(wire);
+    },
+
     async trainingConsent() {
       const wire = await request<WireConsentState>("/consent/training");
       return mapConsent(wire);
@@ -266,6 +297,14 @@ export function createFixtureClient(config: FixtureClientConfig = {}): HolofyCli
       await new Promise<void>((resolve) => setTimeout(resolve, latency * 2));
       if (trainingConsent) fixtureNoteConsentedPregrade();
       return mapPregrade(pregradeFixtureFor(captureRef));
+    },
+
+    async authenticity({ captureRef, trainingConsent = false }) {
+      // Screening reads several independent signals — give it the same beat as pre-grade
+      // so the staged "Screening…" copy is seen, not flashed.
+      await new Promise<void>((resolve) => setTimeout(resolve, latency * 2));
+      if (trainingConsent) fixtureNoteConsentedAuthenticity();
+      return mapAuthenticity(authenticityFixtureFor(captureRef));
     },
 
     async trainingConsent() {
