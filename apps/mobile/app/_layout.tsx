@@ -8,7 +8,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ApiProvider } from "@/api";
 import { ScanFlowProvider } from "@/flow/ScanFlowProvider";
-import { ThemeProvider, darkTheme, fontAssets } from "@/theme";
+import { ThemeProvider, fontAssets, useTheme } from "@/theme";
 
 // Root layout: load the brand fonts, paint the Vault under the navigator before
 // first paint, and wrap the app in the theme + safe-area providers. The root stack
@@ -17,11 +17,6 @@ import { ThemeProvider, darkTheme, fontAssets } from "@/theme";
 // Foil Vault has no default nav bar).
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(fontAssets);
-
-  useEffect(() => {
-    // Paint the navigator container in the Vault so route transitions never flash.
-    void SystemUI.setBackgroundColorAsync(darkTheme.color.bg);
-  }, []);
 
   // Hold first paint until fonts resolve so headlines don't reflow from a fallback.
   if (!fontsLoaded && !fontError) return null;
@@ -34,33 +29,51 @@ export default function RootLayout() {
               server; pointing at staging is a `mode="http"` + baseUrl change here. */}
           <ApiProvider>
             <ScanFlowProvider>
-              <StatusBar style="light" />
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: darkTheme.color.bg },
-                  animation: "fade",
-                }}
-              >
-                <Stack.Screen name="(tabs)" />
-                {/* Capture + payoff routes ride over the tabs. The card flows fade in like
-                    the tabs; the camera screens slide so the hand-off to capture reads as a
-                    deliberate move into a tool, not a tab switch. */}
-                <Stack.Screen name="reveal" />
-                <Stack.Screen name="confirm" />
-                <Stack.Screen name="card/[id]" />
-                <Stack.Screen name="pregrade" />
-                <Stack.Screen name="pregrade-capture" options={{ animation: "slide_from_bottom" }} />
-                <Stack.Screen name="authenticity" />
-                <Stack.Screen name="authenticity-capture" options={{ animation: "slide_from_bottom" }} />
-                <Stack.Screen name="rapid" options={{ animation: "slide_from_bottom" }} />
-                <Stack.Screen name="rapid-review" />
-                <Stack.Screen name="privacy" options={{ animation: "slide_from_right" }} />
-              </Stack>
+              <AppShell />
             </ScanFlowProvider>
           </ApiProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+  );
+}
+
+// The themed navigator shell. Lives under ThemeProvider so the status-bar contrast and the
+// navigator's container fill track the active scheme — light text on the Vault in dark, dark
+// text on the pale ground in light — and re-paint the moment the appearance mode changes.
+function AppShell() {
+  const theme = useTheme();
+
+  useEffect(() => {
+    // Paint the navigator container in the active bg so route transitions never flash.
+    void SystemUI.setBackgroundColorAsync(theme.color.bg);
+  }, [theme.color.bg]);
+
+  return (
+    <>
+      <StatusBar style={theme.scheme === "dark" ? "light" : "dark"} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: theme.color.bg },
+          animation: "fade",
+        }}
+      >
+        <Stack.Screen name="(tabs)" />
+        {/* Capture + payoff routes ride over the tabs. The card flows fade in like
+            the tabs; the camera screens slide so the hand-off to capture reads as a
+            deliberate move into a tool, not a tab switch. */}
+        <Stack.Screen name="reveal" />
+        <Stack.Screen name="confirm" />
+        <Stack.Screen name="card/[id]" />
+        <Stack.Screen name="pregrade" />
+        <Stack.Screen name="pregrade-capture" options={{ animation: "slide_from_bottom" }} />
+        <Stack.Screen name="authenticity" />
+        <Stack.Screen name="authenticity-capture" options={{ animation: "slide_from_bottom" }} />
+        <Stack.Screen name="rapid" options={{ animation: "slide_from_bottom" }} />
+        <Stack.Screen name="rapid-review" />
+        <Stack.Screen name="privacy" options={{ animation: "slide_from_right" }} />
+      </Stack>
+    </>
   );
 }

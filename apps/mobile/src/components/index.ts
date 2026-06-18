@@ -9,6 +9,7 @@ export { Skeleton } from "./Skeleton";
 export { QualityChip, type ChipState } from "./QualityChip";
 export { Shutter } from "./Shutter";
 export { ModeToggle, type CaptureMode } from "./ModeToggle";
+export { AppearanceToggle } from "./AppearanceToggle";
 export { IconButton } from "./IconButton";
 export { CoachingToast } from "./CoachingToast";
 export { ScanFrame } from "./ScanFrame";

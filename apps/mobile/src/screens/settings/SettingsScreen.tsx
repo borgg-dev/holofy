@@ -1,8 +1,8 @@
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 
-import { FoilSurface, Screen, Text } from "@/components";
+import { AppearanceToggle, FoilSurface, Screen, Text } from "@/components";
 import { ChevronRight } from "@/components/icons";
-import { useTheme } from "@/theme";
+import { useTheme, useThemeMode } from "@/theme";
 import { withAlpha } from "@/theme/color";
 import { settingsCopy as copy } from "./copy";
 
@@ -35,6 +35,8 @@ export function SettingsScreen({ onPrivacy }: Props) {
       >
         <AccountCard />
 
+        <AppearanceSection />
+
         <View style={{ gap: theme.space["3"] }}>
           <SettingRow
             label={copy.planRowLabel}
@@ -57,6 +59,25 @@ export function SettingsScreen({ onPrivacy }: Props) {
         </Text>
       </ScrollView>
     </Screen>
+  );
+}
+
+// The appearance control. A labeled segmented toggle that switches the whole app between
+// following the device and a pinned light/dark scheme — the choice persists across restarts.
+// Sits on the quiet inset surface so the violet active segment is the only colour that lifts.
+function AppearanceSection() {
+  const theme = useTheme();
+  const { mode, setThemeMode } = useThemeMode();
+  return (
+    <View style={{ gap: theme.space["3"] }}>
+      <Text variant="overline" tone="tertiary">
+        {copy.appearanceOverline}
+      </Text>
+      <AppearanceToggle value={mode} onChange={setThemeMode} />
+      <Text variant="caption" tone="tertiary">
+        {copy.appearanceHint}
+      </Text>
+    </View>
   );
 }
 

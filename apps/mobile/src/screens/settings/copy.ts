@@ -10,6 +10,9 @@ export const settingsCopy = {
   accountName: "Collector",
   accountStatus: "Free plan · sign-in arrives in the next build",
 
+  appearanceOverline: "APPEARANCE",
+  appearanceHint: "System follows your device. Light and Dark override it.",
+
   planRowLabel: "Plan",
   planRowValue: "Collector (Free)",
   planRowHint: "Upgrade to Collector+ for unlimited scans",
