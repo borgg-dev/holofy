@@ -233,6 +233,23 @@ the multi-instance gateway. Tune the limit with `HOLOFY_FREE_TIER_DAILY_SCANS`. 
 and `/authenticity` share the same daily budget (one quota key), so they can't be used to
 sidestep the scan cap.
 
+**Batch quota rule (`/scan/batch`).** Recognition *is* the COGS unit — one Ximilar credit per
+capture — so each submitted capture costs **one scan credit**, charged against the *same*
+per-user daily key `/scan` uses, **before** that capture is recognized. The client samples and
+dedupes frames on-device before sending, so in practice a stack costs roughly one credit per
+physical card; the backend then dedupes the *recognized* captures so a card never **banks**
+twice (one `ScanRecord`, one collection entry, one `count`≥1 result item). Dedupe collapses
+banking and display only — it does **not** refund the per-capture charge, so two flips of one
+card spend two credits exactly as scanning it twice singly would.
+
+Charging is per capture, in submission order: captures the day's remaining budget can't cover
+are returned as a single `quota_exceeded` item (`count` = how many hit the wall) and are
+**skipped before recognition** — never recognized, never banked, no credit spent. This is what
+bounds COGS: recognition calls can never exceed the day's remaining budget, so a zero-budget
+user drives **zero** recognition calls no matter how large the batch. `max=50` only caps the
+request to a sane size. The response's `quota` block reports `charged` (captures recognized) /
+`remaining` / `rejected` (captures skipped) so the client can show what was spent and banked.
+
 ## Endpoints
 
 - `GET /health` — status, version, active provider backends, data region. **(no auth)**
@@ -241,6 +258,18 @@ sidestep the scan cap.
   opted in) and, on a resolved card, lands it in the catalog so it is addable straight away.
   - `outcome: "resolved"` → `card` (identity + price).
   - `outcome: "needs_confirmation"` → `choices` (top-2) + `price_delta`.
+- `POST /scan/batch` — `{ "items": [ { "bundle_id", "image_count"? }, … ] }` (1…50) →
+  `BatchScanResponse`. Stack/rapid mode: the user flips through a pile, the client samples a
+  bundle per detected card, and this returns a **deduped per-card list to confirm at the end**
+  of the stack. **ID + value only** — grade and authenticity stay single-card guided (master
+  plan §7). Reuses the single scan's recognize+price path (`ScanService.classify`); only
+  per-capture charging, dedupe and per-card persistence sit on top.
+  - Each `items[]` entry carries an `outcome` (`resolved` / `needs_confirmation` /
+    `unrecognized` / `quota_exceeded`), a `count` (how many captures collapsed onto this card),
+    and `capture_refs` (the bundles that merged), plus the matching `card` / `choices` +
+    `price_delta` payload.
+  - `quota` summarises how the day's budget was spent: `limit`, `charged` (captures recognized,
+    one credit each), `remaining`, `rejected` (captures skipped before recognition).
 - `POST /pregrade` — `{ "capture_ref", "card_id"? }` → `PregradeResponse`. Composes the
   in-house centering measurement with bought corners/edges/surface into an honest grade
   **probability range**, and persists a `PreGradeRecord`. Every response carries a

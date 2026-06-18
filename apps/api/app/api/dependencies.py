@@ -35,10 +35,15 @@ from app.providers.base import (
 )
 from app.ratelimit.base import RateLimiter
 from app.services.authenticity import AuthenticityService
+from app.services.batch_scan import BatchScanService
 from app.services.collection import CollectionService
 from app.services.portfolio import PortfolioService
 from app.services.pregrade import PregradeService
 from app.services.scan import ScanService
+
+# The single daily scan budget both ``/scan`` and ``/scan/batch`` charge against, so a batch
+# can't be used to sidestep the per-user free-tier limit (master plan §4).
+SCAN_QUOTA_KEY = "scan:{user_id}"
 
 # auto_error off: a missing/blank Authorization header must surface as our own envelope,
 # not Starlette's default 403, so the client parses every auth failure the same way.
@@ -135,6 +140,25 @@ def get_scan_service(
         pricing=pricing,
         data_lake=data_lake,
         confirm_threshold=settings.recognition_confirm_threshold,
+    )
+
+
+def get_batch_scan_service(
+    user: User = Depends(get_current_user),
+    scan_service: ScanService = Depends(get_scan_service),
+    data_lake: DataLakeSink = Depends(get_datalake_sink),
+    limiter: RateLimiter = Depends(get_rate_limiter),
+    settings: Settings = Depends(get_settings),
+) -> BatchScanService:
+    # Reuses the single-scan ``classify`` path for recognize+price; the batch service adds only
+    # dedupe, per-card quota and per-card persistence on top. The quota key is the *same* one
+    # ``/scan`` charges, so the two endpoints share one daily free-tier budget per user.
+    return BatchScanService(
+        scan_service=scan_service,
+        data_lake=data_lake,
+        limiter=limiter,
+        quota_key=SCAN_QUOTA_KEY.format(user_id=user.id),
+        daily_limit=settings.free_tier_daily_scans,
     )
 
 

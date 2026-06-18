@@ -50,6 +50,27 @@ def main() -> int:
             f"· delta {_eur(low['price_delta'])}"
         )
 
+        batch = client.post(
+            "/scan/batch",
+            json={
+                "items": [
+                    {"bundle_id": "mock-high-confidence"},
+                    {"bundle_id": "mock-high-confidence"},
+                    {"bundle_id": "mock-high-confidence-2"},
+                    {"bundle_id": "mock-unrecognized"},
+                ]
+            },
+        ).json()
+        q = batch["quota"]
+        outcomes = ", ".join(
+            f"{i['outcome']}×{i['count']}" for i in batch["items"]
+        )
+        print(
+            f"scan (stack)  : {len(batch['items'])} card(s) [{outcomes}] · "
+            f"charged {q['charged']}/{q['limit']} · {q['remaining']} left "
+            f"(4 captures charged; 2 of one card deduped to one banked result)"
+        )
+
         add = client.post("/collection", json={"canonical_id": "origins-8"}).json()
         print(f"collection add: {add['card']['name']} @ {_eur(add['unit_value_eur'])}")
 

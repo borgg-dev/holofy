@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import (
+    SCAN_QUOTA_KEY,
     get_current_user,
     get_rate_limiter,
     get_scan_service,
@@ -29,8 +30,6 @@ from app.services.scan import ScanService
 
 router = APIRouter(tags=["scan"])
 
-_SCAN_QUOTA_KEY = "scan:{user_id}"
-
 
 @router.post("/scan", response_model=ScanResponse, status_code=status.HTTP_200_OK)
 async def scan(
@@ -43,7 +42,7 @@ async def scan(
 ) -> ScanResponse:
     # Charge quota before spending a recognition credit so abuse can't drive COGS.
     window = await limiter.check_and_consume(
-        _SCAN_QUOTA_KEY.format(user_id=user.id), limit=settings.free_tier_daily_scans
+        SCAN_QUOTA_KEY.format(user_id=user.id), limit=settings.free_tier_daily_scans
     )
     if not window.allowed:
         raise QuotaExceededError(

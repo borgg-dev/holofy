@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 
 from app.api import (
     authenticity,
+    batch_scan,
     collection,
     consent,
     health,
@@ -172,6 +173,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(scan.router)
+    app.include_router(batch_scan.router)
     app.include_router(pregrade.router)
     app.include_router(authenticity.router)
     app.include_router(collection.router)
