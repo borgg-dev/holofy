@@ -12,7 +12,7 @@ export default function Confirm() {
 
   // Reachable only with an in-hand needs_confirmation result.
   if (scan.status !== "ready" || scan.result.outcome !== "needs_confirmation") {
-    return <Redirect href="/" />;
+    return <Redirect href="/scan" />;
   }
 
   return (
@@ -23,7 +23,7 @@ export default function Confirm() {
         confirmChoice(choice);
         router.replace("/reveal");
       }}
-      onBack={() => router.replace("/")}
+      onBack={() => router.replace("/scan")}
     />
   );
 }

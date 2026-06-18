@@ -85,7 +85,7 @@ export const tokens = {
         "accentHover": "#8C5DEC",
         "accentPressed": "#5A2EC4",
         "reward": "#FF4FD8",
-        "lock": "#23D5C7",
+        "lock": "#6C3CE0",
         "focusRing": "#A985F2"
       },
       "light": {
@@ -103,7 +103,7 @@ export const tokens = {
         "accentHover": "#6C3CE0",
         "accentPressed": "#48249E",
         "reward": "#E635BE",
-        "lock": "#0F8C83",
+        "lock": "#5A2EC4",
         "focusRing": "#8C5DEC"
       }
     }
@@ -112,7 +112,7 @@ export const tokens = {
     "foilSweep": "conic-gradient(from var(--foil-angle, 210deg) at 50% 50%, #6C3CE0 0deg, #23D5C7 72deg, #FF4FD8 150deg, #6C3CE0 230deg, #23D5C7 300deg, #FF4FD8 360deg)",
     "foilSheen": "linear-gradient(115deg, transparent 0%, rgba(255,255,255,0.0) 38%, rgba(255,255,255,0.55) 50%, rgba(255,255,255,0.0) 62%, transparent 100%)",
     "vaultDepth": "radial-gradient(120% 100% at 50% -10%, #1A1530 0%, #0B0B12 60%)",
-    "lockGlow": "radial-gradient(60% 60% at 50% 50%, rgba(35,213,199,0.28) 0%, rgba(35,213,199,0) 70%)"
+    "lockGlow": "radial-gradient(60% 60% at 50% 50%, rgba(108,60,224,0.28) 0%, rgba(108,60,224,0) 70%)"
   },
   "typography": {
     "family": {

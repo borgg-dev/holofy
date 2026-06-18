@@ -37,12 +37,12 @@ export default function RapidReview() {
           AccessibilityInfo.announceForAccessibility(
             `${ADDED_TOAST} — ${added} ${added === 1 ? "card" : "cards"}`
           );
-          router.replace("/vault");
+          router.replace("/");
         }
       }}
       // Grading / authenticity can't happen from a flip — re-enter the single guided scanner.
-      onGrade={() => router.replace("/")}
-      onRecapture={() => router.replace("/")}
+      onGrade={() => router.replace("/scan")}
+      onRecapture={() => router.replace("/scan")}
     />
   );
 }

@@ -12,7 +12,7 @@ export default function Rapid() {
 
   return (
     <RapidScanScreen
-      onBack={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+      onBack={() => (router.canGoBack() ? router.back() : router.replace("/scan"))}
       onReview={async (captureRefs) => {
         // Kick the batch off and move on — the review renders the loading state while it lands,
         // and the flow holds the result so a back-nav never re-runs recognition.

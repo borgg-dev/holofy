@@ -134,21 +134,23 @@ export function PregradeGaugeScreen({
   );
 }
 
-const VERDICT_TONE_COLOR: Record<VerdictTone, "lock" | "primary"> = {
-  worth: "lock",
+// The band prefix ("Likely 8–9 ·") stays neutral; only the recommendation word carries the
+// value hue, so the line reads as one statement with one colored verb.
+const VERDICT_TONE_COLOR: Record<VerdictTone, "primary"> = {
+  worth: "primary",
   borderline: "primary",
   hold: "primary",
 };
 
-// The verdict reads as one display line; the recommendation phrase is colored (teal for
-// worth) but always carries the word too — color is never the sole signal. Borderline and
-// hold use amber/neutral via an inline color, never red.
+// The verdict reads as one display line; the recommendation phrase is colored (vault teal for
+// "worth" — a positive-value cue) but always carries the word too — color is never the sole
+// signal. Borderline and hold use amber/neutral via an inline color, never red.
 function VerdictLine({ range }: { range: PregradeEstimate["range"] }) {
   const theme = useTheme();
   const verdict = verdictFor(range);
   const recColor =
     verdict.tone === "worth"
-      ? theme.color.lock
+      ? theme.color.vaultTeal
       : verdict.tone === "borderline"
         ? theme.color.amber
         : theme.color.textSecondary;

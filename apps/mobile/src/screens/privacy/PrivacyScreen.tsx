@@ -25,8 +25,8 @@ type LoadState =
   | { status: "ready"; consent: TrainingConsent };
 
 // The privacy / training-consent screen. A money-and-trust surface, so it reads Vault-calm:
-// the explanation stated plainly in full, then one bespoke switch that lights the teal "lock"
-// hue when on. The setting is its own thing — separate from agreeing to use the app — and OFF
+// the explanation stated plainly in full, then one bespoke switch that lights the brand-violet
+// "lock" hue when on. The setting is its own thing — separate from agreeing to use the app — OFF
 // until the collector chooses it. Loading / error / save-error are all real states; a failed
 // save rolls the toggle back rather than leaving it lying.
 export function PrivacyScreen({ onBack }: Props) {

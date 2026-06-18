@@ -13,8 +13,8 @@ type Props = {
 
 // A bespoke consent switch — deliberately not the platform <Switch>, whose stock chrome is
 // the exact "generic" tell the Vault avoids. Off reads as a calm inset well; on lights the
-// vault-teal "lock" hue, the same cue the scan-frame uses for a deliberate, trusted state.
-// The knob eases across; reduced-motion snaps it. 52pt wide / full tap target tall.
+// brand-violet "lock" hue, the same active cue the scan-frame and shutter use for a
+// deliberate, engaged state. The knob eases across; reduced-motion snaps it. 52pt wide.
 const TRACK_WIDTH = 52;
 const TRACK_HEIGHT = 32;
 const KNOB = 24;

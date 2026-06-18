@@ -21,12 +21,17 @@ export default function Pregrade() {
     router.replace("/pregrade-capture");
   };
 
+  // Return to whichever card surface launched this — the reveal or the Vault card detail —
+  // since pre-grade is reachable from both. The capture screen replaced itself with this
+  // result, so the card screen is still directly beneath in the stack.
+  const toCard = () => (router.canGoBack() ? router.back() : router.replace("/reveal"));
+
   switch (pregrade.status) {
     case "assessing":
       return <PregradeComputing />;
     case "error":
       // Re-running needs a fresh capture ref; sending back to capture re-arms the flow.
-      return <PregradeError onRetry={reScan} onBack={() => router.replace("/reveal")} />;
+      return <PregradeError onRetry={reScan} onBack={toCard} />;
     case "ready":
       return pregrade.result.status === "estimated" ? (
         <PregradeGaugeScreen
@@ -37,14 +42,10 @@ export default function Pregrade() {
           onWhatAffects={() => {
             // P2.3 — the per-axis explainer sheet.
           }}
-          onBack={() => router.replace("/reveal")}
+          onBack={toCard}
         />
       ) : (
-        <RetakeScreen
-          retake={pregrade.result}
-          onRescan={reScan}
-          onBack={() => router.replace("/reveal")}
-        />
+        <RetakeScreen retake={pregrade.result} onRescan={reScan} onBack={toCard} />
       );
     default:
       // Idle / cold land — no assessment in flight, send back to the card.

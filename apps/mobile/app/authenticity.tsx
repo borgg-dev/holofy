@@ -22,7 +22,8 @@ export default function Authenticity() {
     router.replace("/authenticity-capture");
   };
 
-  const toCard = () => router.replace("/reveal");
+  // Return to whichever card surface launched this — the reveal or the Vault card detail.
+  const toCard = () => (router.canGoBack() ? router.back() : router.replace("/reveal"));
 
   switch (authenticity.status) {
     case "screening":

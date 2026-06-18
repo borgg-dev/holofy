@@ -20,9 +20,10 @@ type Props = {
   refuseSignal?: number;
 };
 
-// Not a round shutter button — a thin teal-outlined pill that fills teal on lock.
-// At rest it reads "Hold steady" (disabled); locked it becomes "Capture". An early
-// tap doesn't fail silently: the pill shakes ±4px twice so the refusal is felt.
+// Not a round shutter button — a thin violet-outlined pill that fills with the brand
+// violet on lock (the capture/interactive hue). At rest it reads "Hold steady" (disabled);
+// locked it becomes "Capture". An early tap doesn't fail silently: the pill shakes ±4px
+// twice so the refusal is felt.
 export function Shutter({ locked, label, onPress, refuseSignal = 0 }: Props) {
   const theme = useTheme();
   const reduceMotion = useReduceMotion();

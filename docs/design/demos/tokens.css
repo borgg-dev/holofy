@@ -68,7 +68,7 @@
   --color-semantic-dark-accent-hover: #8C5DEC;
   --color-semantic-dark-accent-pressed: #5A2EC4;
   --color-semantic-dark-reward: #FF4FD8;
-  --color-semantic-dark-lock: #23D5C7;
+  --color-semantic-dark-lock: #6C3CE0;
   --color-semantic-dark-focus-ring: #A985F2;
   --color-semantic-light-bg: #FBFAFF;
   --color-semantic-light-bg-elevated: #FFFFFF;
@@ -84,12 +84,12 @@
   --color-semantic-light-accent-hover: #6C3CE0;
   --color-semantic-light-accent-pressed: #48249E;
   --color-semantic-light-reward: #E635BE;
-  --color-semantic-light-lock: #0F8C83;
+  --color-semantic-light-lock: #5A2EC4;
   --color-semantic-light-focus-ring: #8C5DEC;
   --gradient-foil-sweep: conic-gradient(from var(--foil-angle, 210deg) at 50% 50%, #6C3CE0 0deg, #23D5C7 72deg, #FF4FD8 150deg, #6C3CE0 230deg, #23D5C7 300deg, #FF4FD8 360deg);
   --gradient-foil-sheen: linear-gradient(115deg, transparent 0%, rgba(255,255,255,0.0) 38%, rgba(255,255,255,0.55) 50%, rgba(255,255,255,0.0) 62%, transparent 100%);
   --gradient-vault-depth: radial-gradient(120% 100% at 50% -10%, #1A1530 0%, #0B0B12 60%);
-  --gradient-lock-glow: radial-gradient(60% 60% at 50% 50%, rgba(35,213,199,0.28) 0%, rgba(35,213,199,0) 70%);
+  --gradient-lock-glow: radial-gradient(60% 60% at 50% 50%, rgba(108,60,224,0.28) 0%, rgba(108,60,224,0) 70%);
   --typography-family-display: 'Clash Display', 'Manrope', system-ui, sans-serif;
   --typography-family-text: 'Manrope', system-ui, -apple-system, sans-serif;
   --typography-family-mono: 'Manrope', ui-monospace, monospace;
@@ -204,6 +204,6 @@
   --color-semantic-dark-accent-hover: #6C3CE0;
   --color-semantic-dark-accent-pressed: #48249E;
   --color-semantic-dark-reward: #E635BE;
-  --color-semantic-dark-lock: #0F8C83;
+  --color-semantic-dark-lock: #5A2EC4;
   --color-semantic-dark-focus-ring: #8C5DEC;
 }

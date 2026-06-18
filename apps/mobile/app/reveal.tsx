@@ -22,8 +22,8 @@ export default function Reveal() {
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState(false);
 
-  // Land directly without a scan (deep link / refresh) → send back to the scanner.
-  if (!revealChoice) return <Redirect href="/" />;
+  // Land directly without a scan (deep link / refresh) → send to the scanner tab.
+  if (!revealChoice) return <Redirect href="/scan" />;
 
   const showPrompt = !consentPromptSeen && !trainingConsent;
 
@@ -40,12 +40,12 @@ export default function Reveal() {
           setBusy(false);
           if (ok) {
             setAdded(true);
-            router.replace("/vault");
+            router.replace("/");
           }
         }}
         onGrade={() => router.push("/pregrade-capture")}
         onAuthenticity={() => router.push("/authenticity-capture")}
-        onBack={() => router.replace("/")}
+        onBack={() => router.replace("/scan")}
       />
       {showPrompt ? (
         <FirstCapturePrompt

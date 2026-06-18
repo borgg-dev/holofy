@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AccessibilityInfo, FlatList, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, FlatList, Pressable, StyleSheet, View } from "react-native";
 
 import {
   Button,
@@ -18,6 +18,7 @@ import {
   type Portfolio,
   type PortfolioChange,
 } from "@/api";
+import { ChevronRight } from "@/components/icons";
 import { useTheme } from "@/theme";
 import { withAlpha } from "@/theme/color";
 import { conditionLabel, identitySubline } from "../shared/format";
@@ -26,11 +27,12 @@ import { TrendPill } from "../shared/TrendPill";
 type Props = {
   /** Bumped by the flow on each Add → triggers a refetch so the Vault reflects it. */
   revision?: number;
+  /** Start a single guided scan (the Scan tab) — used by the empty state's CTA. */
   onScan?: () => void;
   /** Open the rapid/stack scanner to flip a pile of cards in one pass. */
   onRapidScan?: () => void;
-  /** Open the privacy / training-consent screen. */
-  onPrivacy?: () => void;
+  /** Open a holding's detail screen — its value, history, and pre-grade / authenticity actions. */
+  onOpenCard?: (id: string) => void;
 };
 
 type LoadState =
@@ -42,7 +44,7 @@ type LoadState =
 // counts up, the change since the last snapshot, the holding count, then the list with
 // each card's current € contribution. This is a "money" surface — calm, near-black, the
 // foil restrained to the total's glow header. Loading / empty / error are all real states.
-export function VaultScreen({ revision = 0, onScan, onRapidScan, onPrivacy }: Props) {
+export function VaultScreen({ revision = 0, onScan, onRapidScan, onOpenCard }: Props) {
   const theme = useTheme();
   const api = useApi();
   const [state, setState] = useState<LoadState>({ status: "loading" });
@@ -108,24 +110,20 @@ export function VaultScreen({ revision = 0, onScan, onRapidScan, onPrivacy }: Pr
             count={items.reduce((n, it) => n + it.quantity, 0)}
           />
         }
-        renderItem={({ item }) => <HoldingRow item={item} />}
+        renderItem={({ item }) => (
+          <HoldingRow item={item} onPress={onOpenCard ? () => onOpenCard(item.id) : undefined} />
+        )}
         ItemSeparatorComponent={() => <View style={{ height: theme.space["3"] }} />}
         contentContainerStyle={{ paddingBottom: theme.space["10"] }}
         ListEmptyComponent={<EmptyVault onScan={onScan} onRapidScan={onRapidScan} />}
         ListFooterComponent={
-          <View style={{ marginTop: theme.space["7"], gap: theme.space["2"] }}>
-            {empty ? null : (
-              <>
-                <Button label="Scan a card" tier="secondary" onPress={onScan} />
-                {onRapidScan ? (
-                  <Button label="Rapid scan a stack" tier="tertiary" onPress={onRapidScan} />
-                ) : null}
-              </>
-            )}
-            {onPrivacy ? (
-              <Button label="Privacy & training" tier="tertiary" onPress={onPrivacy} />
-            ) : null}
-          </View>
+          // Scan lives in the tab bar now, so the Vault footer only carries the stack shortcut —
+          // the one capture path the bottom bar doesn't already surface.
+          empty || !onRapidScan ? null : (
+            <View style={{ marginTop: theme.space["7"] }}>
+              <Button label="Rapid scan a stack" tier="secondary" onPress={onRapidScan} />
+            </View>
+          )
         }
       />
     </Screen>
@@ -180,7 +178,7 @@ function VaultHeader({
   );
 }
 
-function HoldingRow({ item }: { item: CollectionItem }) {
+function HoldingRow({ item, onPress }: { item: CollectionItem; onPress?: () => void }) {
   const theme = useTheme();
   const value = itemValue(item);
   const a11y = `${item.identity.name}, ${conditionLabel(item.condition)}${
@@ -191,9 +189,9 @@ function HoldingRow({ item }: { item: CollectionItem }) {
       : "no recent euro sales"
   }`;
 
-  return (
+  const inner = (
     <FoilSurface level="raised" padded={false} style={[styles.row, { padding: theme.space["5"] }]}>
-      <View accessibilityLabel={a11y} style={[styles.rowInner, { gap: theme.space["4"] }]}>
+      <View style={[styles.rowInner, { gap: theme.space["4"] }]}>
         {/* Card chit — a small near-black tile standing in for the captured thumbnail. */}
         <View
           style={[
@@ -213,7 +211,7 @@ function HoldingRow({ item }: { item: CollectionItem }) {
             {item.quantity > 1 ? ` · ×${item.quantity}` : ""}
           </Text>
         </View>
-        <View style={styles.rowValue}>
+        <View style={[styles.rowValue, { gap: theme.space["2"] }]}>
           {value != null ? (
             <ValueText amount={value} variant="titleMd" />
           ) : (
@@ -221,9 +219,25 @@ function HoldingRow({ item }: { item: CollectionItem }) {
               No € comp
             </Text>
           )}
+          {onPress ? <ChevronRight color={theme.color.textTertiary} /> : null}
         </View>
       </View>
     </FoilSurface>
+  );
+
+  if (!onPress) {
+    return <View accessibilityLabel={a11y}>{inner}</View>;
+  }
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={a11y}
+      accessibilityHint="Opens this card's detail, value history, and grading actions."
+      style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
+    >
+      {inner}
+    </Pressable>
   );
 }
 

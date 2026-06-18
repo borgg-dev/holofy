@@ -26,9 +26,9 @@ const STROKE_LOCKED = 2.5;
 
 // The capture target: four corner brackets, never a full rectangle — lighter,
 // more instrument than viewfinder. Searching it breathes (1.0→1.015) with a
-// dashed neutral stroke; on lock it snaps (1.04→1.0 spring) to a solid teal
-// stroke and a teal aura fades in. Reduced motion keeps the color/glow change
-// (state legibility) but drops the breathe and the scale snap.
+// dashed neutral stroke; on lock it snaps (1.04→1.0 spring) to a solid violet
+// stroke (the brand capture hue) and a violet aura fades in. Reduced motion keeps
+// the color/glow change (state legibility) but drops the breathe and the scale snap.
 export function ScanFrame({ locked, widthPct = 0.62 }: Props) {
   const theme = useTheme();
   const reduceMotion = useReduceMotion();

@@ -30,8 +30,9 @@ type Props = {
 const CHIP_ORDER: (keyof QualitySignals)[] = ["focus", "glare", "frame"];
 
 // The scan-frame screen (spec: packages/design-tokens/screens/scan-frame.md).
-// Full-bleed camera ground, a corner-bracket target that teal-locks when the
-// three live signals pass, coaching chips, and a shutter that refuses a bad shot.
+// Full-bleed camera ground, a corner-bracket target that violet-locks (the brand
+// capture hue) when the three live signals pass, coaching chips, and a shutter that
+// refuses a bad shot.
 // Quality is mock-driven here; the lock/refuse/announce wiring is the real thing.
 export function ScanScreen({ onBack, onCaptured, onStackMode }: Props) {
   const theme = useTheme();
@@ -138,9 +139,15 @@ function TopBar({ onMode, onBack }: { onMode: (m: CaptureMode) => void; onBack?:
   const theme = useTheme();
   return (
     <View style={[styles.topbar, { paddingHorizontal: theme.space["5"], paddingTop: theme.space["7"] }]}>
-      <IconButton accessibilityLabel="Back" onPress={onBack}>
-        <ChevronLeft color={theme.color.textPrimary} />
-      </IconButton>
+      {/* As a tab root there's nowhere to go back to, so the chevron only shows when a
+          handler is wired (e.g. a deep stack push) — a spacer keeps the toggle centered. */}
+      {onBack ? (
+        <IconButton accessibilityLabel="Back" onPress={onBack}>
+          <ChevronLeft color={theme.color.textPrimary} />
+        </IconButton>
+      ) : (
+        <View style={{ width: theme.tapTarget }} />
+      )}
       {/* Stack selects the rapid scanner; this frame stays "scan". */}
       <ModeToggle value="scan" onChange={onMode} />
       <IconButton accessibilityLabel="Flash off">

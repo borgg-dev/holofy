@@ -19,7 +19,7 @@ export default function PregradeCapture() {
   const { revealChoice, runPregrade } = useScanFlow();
   const [attempts, setAttempts] = useState(0);
 
-  if (!revealChoice) return <Redirect href="/" />;
+  if (!revealChoice) return <Redirect href="/scan" />;
 
   return (
     <GuidedCaptureScreen

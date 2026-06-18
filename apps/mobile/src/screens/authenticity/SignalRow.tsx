@@ -51,7 +51,7 @@ export function SignalRow({ signal }: Props) {
 // caution, a muted neutral for an unreadable signal. Red is absent by design (charter §3.5).
 function PALETTE(theme: ReturnType<typeof useTheme>): Record<SignalReadTone, { fg: string; bg: string }> {
   return {
-    consistent: { fg: theme.color.lock, bg: withAlpha(theme.color.lock, 0.14) },
+    consistent: { fg: theme.color.vaultTeal, bg: withAlpha(theme.color.vaultTeal, 0.14) },
     caution: { fg: theme.color.amber, bg: theme.color.amberSoft },
     unread: { fg: theme.color.textTertiary, bg: theme.color.bgRaised },
   };

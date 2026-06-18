@@ -13,3 +13,4 @@ export { IconButton } from "./IconButton";
 export { CoachingToast } from "./CoachingToast";
 export { ScanFrame } from "./ScanFrame";
 export { ConsentToggle } from "./ConsentToggle";
+export { TabBar } from "./TabBar";

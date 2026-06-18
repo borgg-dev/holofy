@@ -10,7 +10,7 @@ import { useReduceMotion, useTheme } from "@/theme";
 import { withAlpha } from "@/theme/color";
 import { Text } from "./Text";
 
-/** One live capture signal. "pass" reads teal; working/fail read amber — never red. */
+/** One live capture signal. "pass" reads the brand violet (a capture-met cue); working/fail read amber — never red. */
 export type ChipState = "pass" | "working" | "fail";
 
 type Props = {
@@ -28,7 +28,7 @@ export function QualityChip({ signal, label, state }: Props) {
   const reduceMotion = useReduceMotion();
   const ok = state === "pass";
 
-  const passColor = theme.color.lock; // vault teal
+  const passColor = theme.color.lock; // brand violet — capture-met
   const workColor = theme.color.amber;
   const dotColor = useSharedValue(ok ? 1 : 0);
 

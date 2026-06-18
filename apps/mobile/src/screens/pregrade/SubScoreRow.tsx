@@ -85,7 +85,7 @@ function ProvenanceTag({ sub }: { sub: SubScore }) {
   const { provenance } = sub;
   const palette =
     provenance === "measured"
-      ? { fg: theme.color.lock, bg: withAlpha(theme.color.lock, 0.14) }
+      ? { fg: theme.color.vaultTeal, bg: withAlpha(theme.color.vaultTeal, 0.14) }
       : provenance === "limited"
         ? { fg: theme.color.amber, bg: theme.color.amberSoft }
         : { fg: theme.color.textTertiary, bg: theme.color.bgRaised };

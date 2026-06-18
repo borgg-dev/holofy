@@ -26,7 +26,7 @@ export default function AuthenticityCapture() {
   const { revealChoice, runAuthenticity } = useScanFlow();
   const [attempts, setAttempts] = useState(0);
 
-  if (!revealChoice) return <Redirect href="/" />;
+  if (!revealChoice) return <Redirect href="/scan" />;
 
   return (
     <GuidedCaptureScreen
