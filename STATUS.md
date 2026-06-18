@@ -1,6 +1,11 @@
 # Holofy — Live Status
 
-**Updated:** 2026-06-18 · **Phase:** 4 COMPLETE + DEV-MODE READY → Phase 5 (productionization) · **Launch anchor:** before 2026-09-16
+**Updated:** 2026-06-18 · **Phase:** MOCK-FIRST BUILD FINISHED (Phases 0–5.1) · **Launch anchor:** before 2026-09-16
+
+## 🏁 The autonomous mock-first product is FINISHED
+All features built + audited; backend runs live (`make api-smoke`, 175 tests); mobile builds reproducibly (android+web, `make mobile-watch`, 135 tests, tsc 0); productionization scaffold authored + CI-verified. What remains to go **real/launchable** is founder-gated — see **BLOCKERS.md** (Ximilar/pricing keys, auth+billing choices, EU cloud + capture storage, Apple/Google accounts, and 2 legal gates). Phase 5 retro: `docs/PHASE_5_RETRO.md`.
+P5.2 (real Ximilar/OAuth/billing adapters) deliberately NOT built — speculative + unverifiable without keys; seams are ready. Honesty note: the sandbox has no Docker/Postgres/Redis/browser, so those run in CI, not here.
+
 
 ## DEV-MODE STATUS — HONEST (verified 2026-06-18)
 - **Backend: ✅ genuinely runs.** `make api-smoke` boots a fresh API and drives the whole product over HTTP — scan (incl. live €732.60 confirm), stack scan, collection, portfolio, pre-grade range, authenticity (no verdict), account-level consent — mock-first, no keys. 170 tests. Verified by running it.
