@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, StyleSheet, View } from "react-native";
-import * as Haptics from "expo-haptics";
+
+import { impactLight } from "@/lib/haptics";
 
 import {
   CoachingToast,
@@ -52,7 +53,7 @@ export function GuidedCaptureScreen({ onBack, onComplete }: Props) {
   // One haptic on the searching→locked edge so the readiness is felt, not just seen.
   useEffect(() => {
     if (locked && !wasLocked.current) {
-      if (!reduceMotion) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (!reduceMotion) impactLight();
       setToast(null);
     }
     wasLocked.current = locked;

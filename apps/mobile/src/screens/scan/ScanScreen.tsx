@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, StyleSheet, View } from "react-native";
-import * as Haptics from "expo-haptics";
+
+import { impactMedium } from "@/lib/haptics";
 
 import {
   CoachingToast,
@@ -54,7 +55,7 @@ export function ScanScreen({ onBack, onCaptured, onStackMode }: Props) {
   // Fire one haptic + a polite SR announcement on the searching→locked edge.
   useEffect(() => {
     if (locked && !wasLocked.current) {
-      if (!reduceMotion) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      if (!reduceMotion) impactMedium();
       AccessibilityInfo.announceForAccessibility(LOCK_ANNOUNCE);
       setToast(null);
     }

@@ -22,6 +22,10 @@ mobile-test: ## Run the mobile test suite
 mobile-typecheck: ## Strict TypeScript check on the mobile app
 	cd apps/mobile && npx tsc --noEmit
 
+# EXPO_USE_METRO_WORKSPACE_ROOT=1 makes Metro serve from the monorepo root — without it the
+# web dev server emits a `/../../node_modules/...` bundle URL that 404s -> blank page.
+export EXPO_USE_METRO_WORKSPACE_ROOT=1
+
 mobile-build: ## Bundle the app for native (proves it actually compiles, not just typechecks)
 	cd apps/mobile && npx expo export --platform android --output-dir dist
 

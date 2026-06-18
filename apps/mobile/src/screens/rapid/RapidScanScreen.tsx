@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, StyleSheet, View } from "react-native";
-import * as Haptics from "expo-haptics";
+
+import { impactLight, impactMedium, notifyWarning } from "@/lib/haptics";
 
 import { Button, IconButton, ScanFrame, Screen, Text } from "@/components";
 import { ChevronLeft } from "@/components/icons";
@@ -76,11 +77,11 @@ export function RapidScanScreen({ onBack, onReview }: Props) {
     // (you felt it land *again*), a light warning for a miss.
     if (!reduceMotion) {
       if (applied.entry.read.kind === "unreadable") {
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        notifyWarning();
       } else if (applied.effect === "merged") {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        impactLight();
       } else {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        impactMedium();
       }
     }
 
