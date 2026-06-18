@@ -63,6 +63,7 @@ class AuthBackend(StrEnum):
 
 class RateLimitBackend(StrEnum):
     MEMORY = "memory"
+    REDIS = "redis"
 
 
 class Settings(BaseSettings):
@@ -115,6 +116,9 @@ class Settings(BaseSettings):
     # same RateLimiter Protocol for the multi-instance gateway.
     rate_limit_provider: RateLimitBackend = RateLimitBackend.MEMORY
     free_tier_daily_scans: int = 8
+    # Only consulted when rate_limit_provider == redis — the shared counter store the whole
+    # fleet's limiter reads/writes so the daily quota holds across instances.
+    redis_url: str = "redis://localhost:6379/0"
 
     # Only consulted when pricing_provider == tcgdex. No key required — TCGdex is open.
     tcgdex_api_root: str = "https://api.tcgdex.net/v2"

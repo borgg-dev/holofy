@@ -15,3 +15,12 @@ def build_rate_limiter(settings: Settings) -> RateLimiter:
     match settings.rate_limit_provider:
         case RateLimitBackend.MEMORY:
             return InMemoryRateLimiter()
+        case RateLimitBackend.REDIS:
+            # Imported lazily so the in-memory default never requires the redis client.
+            from redis.asyncio import Redis
+
+            from app.ratelimit.redis import RedisRateLimiter
+
+            return RedisRateLimiter(Redis.from_url(settings.redis_url))
+        case _:
+            raise ValueError(f"unsupported rate_limit_provider: {settings.rate_limit_provider}")

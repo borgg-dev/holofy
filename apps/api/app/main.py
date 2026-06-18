@@ -86,6 +86,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     finally:
         if pricing_client is not None:
             await pricing_client.aclose()
+        # The Redis limiter holds a connection pool; the in-memory one has no aclose.
+        if (closer := getattr(app.state.rate_limiter, "aclose", None)) is not None:
+            await closer()
         await engine.dispose()
 
 

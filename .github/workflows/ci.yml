@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: holofy
+          POSTGRES_PASSWORD: holofy
+          POSTGRES_DB: holofy
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U holofy -d holofy"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Unit + integration tests (sqlite)
+        run: python -m pytest -q
+      - name: Migrations + live smoke on REAL Postgres + Redis
+        env:
+          HOLOFY_DATABASE_URL: postgresql+asyncpg://holofy:holofy@localhost:5432/holofy
+          HOLOFY_RATE_LIMIT_PROVIDER: redis
+          HOLOFY_REDIS_URL: redis://localhost:6379/0
+        run: |
+          python -m alembic upgrade head
+          python -m alembic check
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8099 --log-level warning &
+          SERVER=$!
+          curl -s --retry 30 --retry-all-errors --retry-delay 1 -o /dev/null http://127.0.0.1:8099/health
+          HOLOFY_SMOKE_BASE_URL=http://127.0.0.1:8099 python scripts/smoke_journey.py
+          kill $SERVER
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install (workspace root)
+        working-directory: .
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - run: npm test
+      - name: Build native + web bundles (the real compile)
+        run: |
+          npx expo export --platform android --output-dir dist
+          npx expo export --platform web --output-dir dist-web
+      - name: Render screenshots of the running app
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          node scripts/render_check.mjs dist-web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-screenshots
+          path: /tmp/holofy_shot_*.png
+          if-no-files-found: warn

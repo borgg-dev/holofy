@@ -1,0 +1,51 @@
+# Holofy local full stack: API against real Postgres + Redis (the prod-shaped runtime).
+# NOTE: not run in the dev sandbox (no Docker there) — this is exercised in CI and on any
+# Docker host. `docker compose up` then drive it with `apps/api/scripts/smoke_journey.py`
+# pointed at http://127.0.0.1:8099 (HOLOFY_SMOKE_BASE_URL).
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: holofy
+      POSTGRES_PASSWORD: holofy
+      POSTGRES_DB: holofy
+    ports:
+      - "5432:5432"
+    volumes:
+      - holofy_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U holofy -d holofy"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./apps/api
+    environment:
+      # `local` so the dev-token auth seam boots without a real secret; still runs the
+      # prod-shaped Postgres + Redis paths below.
+      HOLOFY_ENVIRONMENT: local
+      HOLOFY_DATABASE_URL: postgresql+asyncpg://holofy:holofy@db:5432/holofy
+      HOLOFY_RATE_LIMIT_PROVIDER: redis
+      HOLOFY_REDIS_URL: redis://redis:6379/0
+      HOLOFY_DATA_REGION: eu-central-1
+    ports:
+      - "8099:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  holofy_pgdata:
