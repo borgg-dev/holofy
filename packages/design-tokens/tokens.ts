@@ -61,9 +61,13 @@ export const tokens = {
     "support": {
       "amber": "#F5B43C",
       "amberSoft": "#5C4216",
+      "onAmber": "#FBE9C6",
       "red": "#E5484D",
       "redSoft": "#4A1A1C",
       "green": "#23D5C7"
+    },
+    "vault": {
+      "glow": "#1A1530"
     },
     "semantic": {
       "dark": {

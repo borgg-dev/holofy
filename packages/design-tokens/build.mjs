@@ -1,6 +1,12 @@
-// Generates tokens.ts and tokens.css from tokens.json.
-// One source of truth in, two consumable artifacts out. Run: node build.mjs
-import { readFileSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
+// Generates tokens.ts, tokens.css, and a compiled dist/ from tokens.json.
+// One source of truth in, consumable artifacts out. Run: node build.mjs
+//
+// Why a dist/: TS/RN consumers need real JS + .d.ts, not a raw .ts on `main`
+// (Metro and tsc would choke on importing the source). We emit:
+//   dist/index.js   — ESM, the resolved token tree
+//   dist/index.cjs  — CommonJS, for require() call sites
+//   dist/index.d.ts — types, so `tokens.color…` autocompletes downstream
+import { readFileSync, writeFileSync, existsSync, copyFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -123,4 +129,47 @@ if (existsSync(demoDir)) {
   copyFileSync(join(here, "tokens.css"), join(demoDir, "tokens.css"));
 }
 
-console.log(`Wrote tokens.ts and tokens.css from ${leaves.length} tokens.`);
+// ---- dist/ : compiled, importable artifacts (the package's runtime entry) ----
+// The .ts is the editing convenience; the dist is what `main`/`exports` resolve to,
+// so a consumer never imports raw TypeScript.
+const dist = join(here, "dist");
+mkdirSync(dist, { recursive: true });
+
+const treeJson = JSON.stringify(nest(), null, 2);
+
+writeFileSync(
+  join(dist, "index.js"),
+  HEADER + "export const tokens = " + treeJson + ";\nexport default tokens;\n"
+);
+writeFileSync(
+  join(dist, "index.cjs"),
+  HEADER + "const tokens = " + treeJson + ";\nmodule.exports = tokens;\nmodule.exports.tokens = tokens;\n"
+);
+
+// The .d.ts re-uses the authored tokens.ts `as const` literal so types stay exact
+// (each color is its own string-literal type, not a widened `string`).
+writeFileSync(
+  join(dist, "index.d.ts"),
+  HEADER +
+    "export declare const tokens: " +
+    typeLiteral(nest()) +
+    ";\nexport type Tokens = typeof tokens;\nexport default tokens;\n"
+);
+
+// Emit a structural .d.ts from the resolved tree: object shapes preserved, leaves
+// narrowed to their literal type so downstream code gets real autocomplete.
+function typeLiteral(node, indent = 0) {
+  const pad = "  ".repeat(indent + 1);
+  const close = "  ".repeat(indent);
+  if (node && typeof node === "object" && !Array.isArray(node)) {
+    const entries = Object.entries(node).map(
+      ([k, v]) => `${pad}${JSON.stringify(k)}: ${typeLiteral(v, indent + 1)}`
+    );
+    return "{\n" + entries.join(";\n") + ";\n" + close + "}";
+  }
+  if (typeof node === "string") return JSON.stringify(node);
+  if (typeof node === "number") return String(node);
+  return "unknown";
+}
+
+console.log(`Wrote tokens.ts, tokens.css, and dist/ from ${leaves.length} tokens.`);

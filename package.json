@@ -1,0 +1,13 @@
+{
+  "name": "holofy",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Holofy — EU-first card scanner. Monorepo root.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "tokens": "node packages/design-tokens/build.mjs"
+  }
+}

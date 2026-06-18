@@ -11,9 +11,10 @@ Holofy handles money and trust, so its default state is calm: deep near-black **
 | File | Role |
 |------|------|
 | `tokens.json` | **Edit this.** The authored source. Supports `{color.x.y}` aliases and a `comment` per token. |
-| `tokens.ts` | Generated. Typed, nested `tokens` object for TS/React Native consumers. |
+| `tokens.ts` | Generated. Typed, nested `tokens` object — the editing-convenience source. |
 | `tokens.css` | Generated. CSS custom properties under `:root`, plus a `[data-theme="light"]` block. |
-| `build.mjs` | Resolves aliases and emits the two artifacts. `node build.mjs`. |
+| `dist/` | Generated. The package's runtime entry: `index.js` (ESM), `index.cjs` (CJS), `index.d.ts`. `main`/`exports` resolve here so consumers import real JS, never raw `.ts`. |
+| `build.mjs` | Resolves aliases and emits all artifacts. `node build.mjs`. |
 | `screens/` | Implementation-ready specs for the three signature screens. |
 
 Regenerate after editing the JSON:

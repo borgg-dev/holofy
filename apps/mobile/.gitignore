@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+.DS_Store
+
+# Native build outputs (Expo prebuild / EAS)
+/ios
+/android
+
+# Fonts are fetched at setup, not committed (OFL — see README "Fonts").
+assets/fonts/*.ttf
+assets/fonts/*.otf

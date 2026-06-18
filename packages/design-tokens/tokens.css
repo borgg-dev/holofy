@@ -49,9 +49,11 @@
   --color-neutral-1000: #FFFFFF;
   --color-support-amber: #F5B43C;
   --color-support-amber-soft: #5C4216;
+  --color-support-on-amber: #FBE9C6;
   --color-support-red: #E5484D;
   --color-support-red-soft: #4A1A1C;
   --color-support-green: #23D5C7;
+  --color-vault-glow: #1A1530;
   --color-semantic-dark-bg: #0B0B12;
   --color-semantic-dark-bg-elevated: #16161F;
   --color-semantic-dark-bg-raised: #1C1C28;
