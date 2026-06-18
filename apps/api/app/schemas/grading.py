@@ -95,6 +95,11 @@ class PregradeRequest(BaseModel):
     capture_ref: str = Field(min_length=1, max_length=512)
     card_id: str | None = Field(default=None, description="Catalog card id this capture is of, if known.")
 
+    # How many angles the capture bundle holds, mirroring the scan contract's ``image_count``.
+    # The grading provider reasons about it (surface/holo defects need multiple angles), so a
+    # single-frame capture caps what corners/edges/surface can claim. Defaults to one.
+    image_count: int = Field(default=1, ge=1)
+
     # An at-capture opt-in — the first-capture prompt's "yes". Defaults off (GDPR, §3.5) and
     # carries no per-record meaning on its own: when set, the server grants the *account*, and
     # this pre-grade (and every future capture) then inherits that standing consent. The

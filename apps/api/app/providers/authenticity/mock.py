@@ -26,11 +26,12 @@ from __future__ import annotations
 from app.providers.base import AuthenticityCapture
 from app.schemas.authenticity import (
     AuthenticitySignal,
+    SignalDetail,
     SignalKind,
     SignalObservation,
 )
 
-_Read = tuple[SignalObservation, float, str]
+_Read = tuple[SignalObservation, float, SignalDetail]
 
 # capture_ref → per-signal (observation, confidence, detail) for the four *visual* signals.
 _FIXTURES: dict[str, dict[SignalKind, _Read]] = {
@@ -38,66 +39,66 @@ _FIXTURES: dict[str, dict[SignalKind, _Read]] = {
         SignalKind.PRINT_PATTERN: (
             SignalObservation.CONSISTENT,
             0.93,
-            "CMYK rosette spacing and dot gain match the reference print run.",
+            SignalDetail.PRINT_MATCHES_REFERENCE,
         ),
         SignalKind.HOLO_SIGNATURE: (
             SignalObservation.CONSISTENT,
             0.90,
-            "Foil reflectance shifts across the captured tilt angles as expected.",
+            SignalDetail.HOLO_MATCHES_REFERENCE,
         ),
         SignalKind.FONT_LAYOUT: (
             SignalObservation.CONSISTENT,
             0.95,
-            "Typography weight, kerning and element placement match the reference layout.",
+            SignalDetail.LAYOUT_MATCHES_REFERENCE,
         ),
         SignalKind.CARDSTOCK: (
             SignalObservation.CONSISTENT,
             0.88,
-            "Edge cross-section and surface texture are consistent with genuine stock.",
+            SignalDetail.STOCK_MATCHES_REFERENCE,
         ),
     },
     "capture-mixed": {
         SignalKind.PRINT_PATTERN: (
             SignalObservation.DEVIATION,
             0.86,
-            "Dot pattern is coarser than the reference — characteristic of a rescreened print.",
+            SignalDetail.PRINT_DIFFERS_FROM_REFERENCE,
         ),
         SignalKind.HOLO_SIGNATURE: (
             SignalObservation.CONSISTENT,
             0.84,
-            "Foil behaviour across angles is within the genuine range.",
+            SignalDetail.HOLO_MATCHES_REFERENCE,
         ),
         SignalKind.FONT_LAYOUT: (
             SignalObservation.INCONCLUSIVE,
             0.70,
-            "Typography is close to reference; minor differences fall within capture tolerance.",
+            SignalDetail.LAYOUT_WITHIN_TOLERANCE,
         ),
         SignalKind.CARDSTOCK: (
             SignalObservation.DEVIATION,
             0.82,
-            "Edge whitening and texture diverge from the reference stock.",
+            SignalDetail.STOCK_DIFFERS_FROM_REFERENCE,
         ),
     },
     "capture-poor": {
         SignalKind.PRINT_PATTERN: (
             SignalObservation.UNREADABLE,
             0.22,
-            "Capture lacks the magnification to resolve the dot pattern.",
+            SignalDetail.PRINT_TOO_COARSE_TO_READ,
         ),
         SignalKind.HOLO_SIGNATURE: (
             SignalObservation.UNREADABLE,
             0.18,
-            "Only one angle captured — foil behaviour can't be read.",
+            SignalDetail.HOLO_NEEDS_MORE_ANGLES,
         ),
         SignalKind.FONT_LAYOUT: (
             SignalObservation.INCONCLUSIVE,
             0.30,
-            "Glare obscures part of the text; layout can't be compared confidently.",
+            SignalDetail.LAYOUT_OBSCURED,
         ),
         SignalKind.CARDSTOCK: (
             SignalObservation.UNREADABLE,
             0.20,
-            "Edges are out of frame — stock and texture can't be assessed.",
+            SignalDetail.STOCK_OUT_OF_FRAME,
         ),
     },
 }

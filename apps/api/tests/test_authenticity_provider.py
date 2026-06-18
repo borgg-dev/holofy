@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 import pytest
@@ -9,7 +10,7 @@ import pytest
 from app.config import AuthenticityBackend, Settings
 from app.providers.authenticity.mock import MockAuthenticityProvider
 from app.providers.factory import build_authenticity_provider
-from app.schemas.authenticity import SignalKind, SignalObservation
+from app.schemas.authenticity import SignalDetail, SignalKind, SignalObservation
 
 
 @dataclass
@@ -61,6 +62,56 @@ async def test_poor_fixture_is_unreadable_at_low_confidence() -> None:
 async def test_unknown_capture_defaults_to_the_poor_case() -> None:
     signals = await MockAuthenticityProvider().analyze(_Capture("anything-else"))
     assert all(s.confidence < 0.4 for s in signals)
+
+
+# Accusatory / verdict-shaped language the per-signal detail must never carry — the §3.5 gate
+# at the sentence level. A real provider can only *select* from ``SignalDetail``, so banning
+# these tokens from the whole vocabulary makes an accusatory sentence physically impossible.
+_BANNED_DETAIL_TOKENS = (
+    "fake",
+    "faked",
+    "counterfeit",
+    "genuine",
+    "authentic",
+    "real",
+    "replica",
+    "bootleg",
+    "knockoff",
+    "knock-off",
+    "forgery",
+    "forged",
+    "fraud",
+)
+
+
+def test_signal_detail_vocabulary_carries_no_accusatory_tokens() -> None:
+    # ``detail`` is a closed vocabulary, not free text: assert no member can voice an
+    # accusation or a verdict, so no provider (mock or real) can emit one through this seam.
+    # Matched on word boundaries — "professional authentication" (the honest next step) is
+    # fine; a bare "authentic"/"counterfeit" claim about the card is not.
+    for member in SignalDetail:
+        phrase = member.value.lower()
+        for token in _BANNED_DETAIL_TOKENS:
+            assert not re.search(rf"\b{re.escape(token)}\b", phrase), (
+                f"{member.name} contains banned token {token!r}"
+            )
+
+
+def test_signal_detail_is_a_closed_set_not_free_text() -> None:
+    # The field rejects any string outside the reviewed vocabulary — the structural guarantee
+    # that a future real provider physically can't author an accusatory sentence.
+    from pydantic import ValidationError
+
+    from app.schemas.authenticity import AuthenticitySignal
+
+    accusatory: object = "This card is a counterfeit."
+    with pytest.raises(ValidationError):
+        AuthenticitySignal(
+            kind=SignalKind.PRINT_PATTERN,
+            observation=SignalObservation.DEVIATION,
+            confidence=0.9,
+            detail=accusatory,
+        )
 
 
 def test_factory_defaults_to_mock_authenticity_backend() -> None:

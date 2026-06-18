@@ -41,6 +41,7 @@ from app.schemas.authenticity import (
     AuthenticitySignal,
     AuthenticityStatus,
     RiskBand,
+    SignalDetail,
     SignalKind,
     SignalObservation,
 )
@@ -158,20 +159,18 @@ def _catalog_signal(existence: CatalogExistence) -> AuthenticitySignal:
     )
 
 
-_CATALOG_OBSERVATION: dict[CatalogExistence, tuple[SignalObservation, str]] = {
+_CATALOG_OBSERVATION: dict[CatalogExistence, tuple[SignalObservation, SignalDetail]] = {
     CatalogExistence.CONFIRMED: (
         SignalObservation.CONSISTENT,
-        "This set, number and variant matches a printing in the reference catalog.",
+        SignalDetail.CATALOG_PRINTING_CONFIRMED,
     ),
     CatalogExistence.NOT_IN_CATALOG: (
         SignalObservation.DEVIATION,
-        "No printing of this set and number was ever issued in this variant — a strong "
-        "reason to seek professional authentication.",
+        SignalDetail.CATALOG_PRINTING_NOT_FOUND,
     ),
     CatalogExistence.UNVERIFIABLE: (
         SignalObservation.INCONCLUSIVE,
-        "The reference catalog has no coverage to confirm this printing — this is a gap in "
-        "our data, not a finding about the card.",
+        SignalDetail.CATALOG_NO_COVERAGE,
     ),
 }
 

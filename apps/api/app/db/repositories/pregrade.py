@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.enums import PregradeStatus
 from app.db.models.pregrade import PreGradeRecord
+from app.db.repositories._flush import flush_or_conflict
 from app.db.types import utcnow
 from app.schemas.grading import PregradeResponse
 
@@ -52,7 +53,7 @@ class PreGradeRepository:
             consent_note=consent_note,
         )
         self._session.add(record)
-        await self._session.flush()
+        await flush_or_conflict(self._session)
         return record
 
     async def revoke_training_consent_for_user(self, user_id: uuid.UUID) -> int:

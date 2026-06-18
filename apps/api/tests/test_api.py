@@ -77,3 +77,54 @@ def test_scan_rejects_blank_bundle_id_with_error_envelope(client) -> None:  # no
 def test_request_id_is_echoed_back(client) -> None:  # noqa: ANN001
     response = client.get("/health", headers={"X-Request-ID": "trace-123"})
     assert response.headers["X-Request-ID"] == "trace-123"
+
+
+# The test app is configured with a single allowed origin (conftest).
+_ALLOWED_ORIGIN = "https://app.holofy.test"
+
+
+def test_cors_allows_the_configured_origin_without_wildcarding(client) -> None:  # noqa: ANN001
+    preflight = client.options(
+        "/scan",
+        headers={
+            "Origin": _ALLOWED_ORIGIN,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "authorization,content-type",
+        },
+    )
+
+    assert preflight.status_code == 200
+    # The origin is echoed back exactly — never reflected as "*", which is incompatible with
+    # credentialed requests anyway.
+    assert preflight.headers["access-control-allow-origin"] == _ALLOWED_ORIGIN
+    assert preflight.headers["access-control-allow-credentials"] == "true"
+    allowed_methods = preflight.headers["access-control-allow-methods"]
+    assert "*" not in allowed_methods
+    assert "POST" in allowed_methods
+
+
+def test_cors_rejects_an_unconfigured_origin(client) -> None:  # noqa: ANN001
+    preflight = client.options(
+        "/scan",
+        headers={
+            "Origin": "https://evil.example",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+
+    # Deny-by-default: an unlisted origin gets no allow-origin grant.
+    assert "access-control-allow-origin" not in preflight.headers
+
+
+def test_cors_does_not_grant_an_unused_method(client) -> None:  # noqa: ANN001
+    # DELETE isn't a verb the API serves, so it isn't in the allow-list (no wildcard).
+    preflight = client.options(
+        "/scan",
+        headers={
+            "Origin": _ALLOWED_ORIGIN,
+            "Access-Control-Request-Method": "DELETE",
+        },
+    )
+
+    allowed = preflight.headers.get("access-control-allow-methods", "")
+    assert "DELETE" not in allowed

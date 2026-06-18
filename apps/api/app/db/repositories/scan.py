@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.enums import ScanOutcome
 from app.db.models.scan import ScanRecord
+from app.db.repositories._flush import flush_or_conflict
 from app.db.types import utcnow
 
 
@@ -44,7 +45,7 @@ class ScanRepository:
             consent_note=consent_note,
         )
         self._session.add(scan)
-        await self._session.flush()
+        await flush_or_conflict(self._session)
         return scan
 
     async def get(self, scan_id: uuid.UUID) -> ScanRecord | None:

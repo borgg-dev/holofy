@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.card import Card
 from app.db.models.enums import Variant
+from app.db.repositories._flush import flush_or_conflict
 
 
 class CardRepository:
@@ -53,5 +54,7 @@ class CardRepository:
             variant=variant,
         )
         self._session.add(card)
-        await self._session.flush()
+        # A racing insert of the same canonical id hits the unique guard; surface it as a
+        # typed conflict rather than a 500.
+        await flush_or_conflict(self._session)
         return card

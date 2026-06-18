@@ -19,6 +19,7 @@ from app.schemas.authenticity import (
     AuthenticitySignal,
     AuthenticityStatus,
     RiskBand,
+    SignalDetail,
     SignalKind,
     SignalObservation,
 )
@@ -36,12 +37,28 @@ class _Capture:
     image_count: int = 1
 
 
+# The stub feeds only visual signals; map each observation to a representative print detail
+# from the closed vocabulary so the fixtures construct (``detail`` is no longer a free string).
+_STUB_DETAIL = {
+    SignalObservation.CONSISTENT: SignalDetail.PRINT_MATCHES_REFERENCE,
+    SignalObservation.DEVIATION: SignalDetail.PRINT_DIFFERS_FROM_REFERENCE,
+    SignalObservation.INCONCLUSIVE: SignalDetail.LAYOUT_WITHIN_TOLERANCE,
+    SignalObservation.UNREADABLE: SignalDetail.PRINT_TOO_COARSE_TO_READ,
+}
+
+
+def _stub_detail(observation: SignalObservation) -> SignalDetail:
+    return _STUB_DETAIL[observation]
+
+
 class _StubProvider:
     """Returns fixed visual signals, independent of the capture."""
 
     def __init__(self, *signals: tuple[SignalKind, SignalObservation, float]) -> None:
         self._signals = [
-            AuthenticitySignal(kind=kind, observation=obs, confidence=conf, detail="stub")
+            AuthenticitySignal(
+                kind=kind, observation=obs, confidence=conf, detail=_stub_detail(obs)
+            )
             for kind, obs, conf in signals
         ]
 

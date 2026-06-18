@@ -81,6 +81,19 @@ class InvalidCredentialError(HolofyError):
     code = "invalid_credential"
 
 
+class ConstraintViolationError(HolofyError):
+    """A write violated a database constraint (a unique key, check, or foreign key).
+
+    Surfaced as a 409 so a constraint collision — e.g. re-recording a price point that
+    already exists for that ``(card, source, basis, instant)`` — reads as a typed conflict
+    the client can reason about, not an opaque 500. The repositories translate the driver's
+    ``IntegrityError`` into this so a constraint is never leaked as an internal error.
+    """
+
+    status_code = 409
+    code = "constraint_violation"
+
+
 class QuotaExceededError(HolofyError):
     """The caller has spent its plan's quota for the window — a freemium boundary, not a
     fault. ``details`` carries the limit and the seconds until it resets so the client can

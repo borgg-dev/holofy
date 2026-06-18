@@ -11,10 +11,13 @@ cheap one (``echo-12``, ~€24) falls below it.
 
 from __future__ import annotations
 
+from app.api.dependencies import get_authenticity_provider
 from app.db.models import AuthenticityRecord
 from app.db.models.enums import Variant
 from app.db.repositories import AuthenticityRepository, CardRepository, UserRepository
-from app.schemas.authenticity import AuthenticityStatus, RiskBand
+from app.providers.base import AuthenticityCapture
+from app.providers.authenticity.mock import MockAuthenticityProvider
+from app.schemas.authenticity import AuthenticitySignal, AuthenticityStatus, RiskBand
 from tests.conftest import auth_header
 
 
@@ -165,6 +168,87 @@ def test_authenticity_rejects_blank_capture_ref_with_error_envelope(client) -> N
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "validation_error"
+
+
+def test_authenticity_free_tier_quota_returns_429_past_the_daily_limit(client) -> None:  # noqa: ANN001
+    # /authenticity draws on the same free-tier budget as /scan and /pregrade — the ninth
+    # screen of the day is refused, mirroring the scan-flow quota gate, and a refused screen
+    # costs no screening credit and logs no record.
+    _land_card(client, canonical_id="origins-12")
+    headers = auth_header("heavy-authenticator")
+    for _ in range(8):
+        ok = client.post(
+            "/authenticity",
+            json={"capture_ref": "capture-authentic", "card_id": "origins-12"},
+            headers=headers,
+        )
+        assert ok.status_code == 200
+
+    refused = client.post(
+        "/authenticity",
+        json={"capture_ref": "capture-authentic", "card_id": "origins-12"},
+        headers=headers,
+    )
+    assert refused.status_code == 429
+    body = refused.json()["error"]
+    assert body["code"] == "quota_exceeded"
+    assert body["details"]["limit"] == 8
+    assert body["details"]["reset_seconds"] > 0
+
+    # The refused screen left no record: only the 8 allowed screens persisted.
+    assert len(_screens_for(client, "heavy-authenticator")) == 8
+
+
+def test_authenticity_quota_is_shared_with_scans(client) -> None:  # noqa: ANN001
+    # The shared "scan:{user_id}" key can't be sidestepped by hopping endpoints: spending the
+    # budget on /scan leaves /authenticity refused for the same user.
+    _land_card(client, canonical_id="origins-12")
+    headers = auth_header("budget-hopper")
+    for _ in range(8):
+        client.post("/scan", json={"bundle_id": "mock-high-confidence"}, headers=headers)
+
+    refused = client.post(
+        "/authenticity",
+        json={"capture_ref": "capture-authentic", "card_id": "origins-12"},
+        headers=headers,
+    )
+    assert refused.status_code == 429
+    assert refused.json()["error"]["code"] == "quota_exceeded"
+
+
+class _ImageCountSpyProvider:
+    """Wraps the mock provider, recording the ``image_count`` the endpoint threaded through."""
+
+    def __init__(self) -> None:
+        self._inner = MockAuthenticityProvider()
+        self.seen_image_count: int | None = None
+
+    async def analyze(self, capture: AuthenticityCapture) -> list[AuthenticitySignal]:
+        self.seen_image_count = capture.image_count
+        return await self._inner.analyze(capture)
+
+
+def test_authenticity_threads_the_request_image_count_to_the_provider(client) -> None:  # noqa: ANN001
+    # The holo signature needs multiple tilt angles; the multi-angle count must reach the
+    # provider rather than being hardcoded to one.
+    _land_card(client, canonical_id="origins-12")
+    spy = _ImageCountSpyProvider()
+    client.app.dependency_overrides[get_authenticity_provider] = lambda: spy
+    try:
+        response = client.post(
+            "/authenticity",
+            json={
+                "capture_ref": "capture-authentic",
+                "card_id": "origins-12",
+                "image_count": 3,
+            },
+            headers=auth_header(),
+        )
+    finally:
+        client.app.dependency_overrides.pop(get_authenticity_provider, None)
+
+    assert response.status_code == 200
+    assert spy.seen_image_count == 3
 
 
 def test_authenticity_persists_the_result_against_the_user(client) -> None:  # noqa: ANN001

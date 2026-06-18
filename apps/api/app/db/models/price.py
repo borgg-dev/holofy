@@ -50,8 +50,10 @@ class PriceObservation(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=new_uuid)
 
+    # No standalone index on ``card_id``: the composite ``(card_id, observed_at)`` below has
+    # it as its leading column, so a lone index would be redundant write overhead.
     card_id: Mapped[uuid.UUID] = mapped_column(
-        GUID, ForeignKey("cards.id", ondelete="CASCADE"), index=True
+        GUID, ForeignKey("cards.id", ondelete="CASCADE")
     )
 
     value_eur: Mapped[Decimal] = mapped_column(Numeric(12, 2))

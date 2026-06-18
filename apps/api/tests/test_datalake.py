@@ -187,6 +187,7 @@ async def test_consented_authenticity_emits_one_and_non_consented_emits_zero(
         AuthenticitySignal,
         AuthenticityStatus as ApiAuthStatus,
         RiskBand,
+        SignalDetail,
         SignalKind,
         SignalObservation,
     )
@@ -201,7 +202,7 @@ async def test_consented_authenticity_emits_one_and_non_consented_emits_zero(
                     kind=SignalKind.PRINT_PATTERN,
                     observation=SignalObservation.CONSISTENT,
                     confidence=0.8,
-                    detail="CMYK rosette consistent with a genuine reference.",
+                    detail=SignalDetail.PRINT_MATCHES_REFERENCE,
                 )
             ],
             recommend_authentication=False,

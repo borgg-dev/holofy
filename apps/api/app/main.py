@@ -142,12 +142,16 @@ def _register_middleware(app: FastAPI, settings: Settings) -> None:
         response.headers[_REQUEST_ID_HEADER] = request_id
         return response
 
+    # Deny-by-default origins (only the configured app origins), and — with credentials on —
+    # no wildcard methods/headers: a browser may only use the verbs the API actually serves
+    # (GET, POST, plus the OPTIONS preflight) and send the headers it actually reads. The
+    # request-id correlation header is both accepted inbound and exposed outbound.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allow_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", _REQUEST_ID_HEADER],
         expose_headers=[_REQUEST_ID_HEADER],
     )
 

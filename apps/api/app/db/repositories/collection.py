@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.db.models.collection import CollectionItem
 from app.db.models.enums import CardCondition
+from app.db.repositories._flush import flush_or_conflict
 
 
 class CollectionRepository:
@@ -35,7 +36,9 @@ class CollectionRepository:
             acquired_on=acquired_on,
         )
         self._session.add(item)
-        await self._session.flush()
+        # A duplicate (user, card, condition) or a non-positive quantity violates a constraint;
+        # surface it as a typed conflict rather than a 500.
+        await flush_or_conflict(self._session)
         return item
 
     async def list_for_user(self, user_id: uuid.UUID) -> list[CollectionItem]:

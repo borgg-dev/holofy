@@ -5,9 +5,11 @@ synthetic capture store against an in-memory database.
 
 from __future__ import annotations
 
+from app.api.dependencies import get_grading_provider
 from app.db.models import PreGradeRecord
 from app.db.repositories import PreGradeRepository, UserRepository
-from app.schemas.grading import PregradeStatus
+from app.providers.base import GradingCapture
+from app.schemas.grading import GradingAxis, PregradeStatus, SubScore
 from tests.conftest import auth_header
 
 
@@ -77,6 +79,52 @@ def test_pregrade_rejects_blank_capture_ref_with_error_envelope(client) -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "validation_error"
+
+
+class _ImageCountSpyGrader:
+    """A grader that records the ``image_count`` the endpoint threaded onto the capture."""
+
+    def __init__(self) -> None:
+        self.seen_image_count: int | None = None
+
+    async def grade(self, capture: GradingCapture) -> list[SubScore]:
+        self.seen_image_count = capture.image_count
+        return [
+            SubScore(axis=GradingAxis.CORNERS, score=9.0, confidence=0.9),
+            SubScore(axis=GradingAxis.EDGES, score=9.0, confidence=0.9),
+            SubScore(axis=GradingAxis.SURFACE, score=9.0, confidence=0.9),
+        ]
+
+
+def test_pregrade_threads_the_request_image_count_to_the_grader(client) -> None:  # noqa: ANN001
+    # The multi-angle count from the capture bundle must reach the provider — a single-frame
+    # capture caps what surface/holo can claim, so it can't be hardcoded to one.
+    spy = _ImageCountSpyGrader()
+    client.app.dependency_overrides[get_grading_provider] = lambda: spy
+    try:
+        response = client.post(
+            "/pregrade",
+            json={"capture_ref": "capture-centered", "image_count": 4},
+            headers=auth_header(),
+        )
+    finally:
+        client.app.dependency_overrides.pop(get_grading_provider, None)
+
+    assert response.status_code == 200
+    assert spy.seen_image_count == 4
+
+
+def test_pregrade_image_count_defaults_to_one_when_omitted(client) -> None:  # noqa: ANN001
+    spy = _ImageCountSpyGrader()
+    client.app.dependency_overrides[get_grading_provider] = lambda: spy
+    try:
+        client.post(
+            "/pregrade", json={"capture_ref": "capture-centered"}, headers=auth_header()
+        )
+    finally:
+        client.app.dependency_overrides.pop(get_grading_provider, None)
+
+    assert spy.seen_image_count == 1
 
 
 def test_pregrade_persists_the_result_against_the_user(client) -> None:  # noqa: ANN001

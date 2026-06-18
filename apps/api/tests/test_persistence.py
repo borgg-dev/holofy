@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import ConstraintViolationError
 from app.db.erasure import plan_erasure
 from app.db.models import (
     CardCondition,
@@ -289,9 +290,12 @@ async def test_duplicate_price_snapshot_is_rejected(session: AsyncSession) -> No
     await prices.record(**args)
     await session.commit()
 
-    # The repository flushes on write, so the uniqueness violation surfaces there.
-    with pytest.raises(IntegrityError):
+    # The repository translates the driver's IntegrityError into a typed domain conflict, so a
+    # constraint violation reads as a 409 envelope downstream rather than a raw 500.
+    with pytest.raises(ConstraintViolationError) as caught:
         await prices.record(**args)
+    assert caught.value.status_code == 409
+    assert caught.value.code == "constraint_violation"
 
 
 @pytest.mark.asyncio
@@ -361,6 +365,28 @@ async def test_collection_item_constraints(session: AsyncSession) -> None:
     )
     with pytest.raises(IntegrityError):
         await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_duplicate_collection_item_maps_to_a_domain_conflict(
+    session: AsyncSession,
+) -> None:
+    # A second add of the same (user, card, condition) hits the unique guard; the repository
+    # maps it to the typed conflict rather than letting the raw IntegrityError reach the
+    # catch-all handler as a 500.
+    user = await UserRepository(session).create()
+    card = await _emberwyrm(session)
+    collection = CollectionRepository(session)
+    await collection.add(
+        user_id=user.id, card_id=card.id, condition=CardCondition.NEAR_MINT
+    )
+    await session.commit()
+
+    with pytest.raises(ConstraintViolationError) as caught:
+        await collection.add(
+            user_id=user.id, card_id=card.id, condition=CardCondition.NEAR_MINT
+        )
+    assert caught.value.status_code == 409
 
 
 @pytest.mark.asyncio

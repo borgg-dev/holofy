@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.enums import PriceBasis, PriceSource
 from app.db.models.price import PriceObservation
+from app.db.repositories._flush import flush_or_conflict
 
 
 class PriceRepository:
@@ -35,7 +36,9 @@ class PriceRepository:
             observed_at=observed_at,
         )
         self._session.add(observation)
-        await self._session.flush()
+        # Re-ingesting the same (card, source, basis, instant) hits the unique guard; surface
+        # it as a typed conflict rather than a 500.
+        await flush_or_conflict(self._session)
         return observation
 
     async def latest(

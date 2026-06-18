@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.user import User
+from app.db.repositories._flush import flush_or_conflict
 from app.db.types import utcnow
 
 
@@ -23,7 +24,9 @@ class UserRepository:
         """
         user = User(auth_provider=auth_provider, auth_subject=auth_subject)
         self._session.add(user)
-        await self._session.flush()
+        # A racing provision of the same identity hits the (provider, subject) unique guard;
+        # surface it as a typed conflict rather than a 500.
+        await flush_or_conflict(self._session)
         return user
 
     async def get(self, user_id: uuid.UUID) -> User | None:

@@ -91,7 +91,9 @@ async def pregrade(
             details={"capture_ref": request.capture_ref},
         ) from exc
 
-    capture = _GradingCaptureRef(capture_ref=request.capture_ref, image_count=1)
+    capture = _GradingCaptureRef(
+        capture_ref=request.capture_ref, image_count=request.image_count
+    )
     result = await service.pregrade(capture, image=image)
 
     # Each capture inherits the account's standing consent — never the wire flag directly.

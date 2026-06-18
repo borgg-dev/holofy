@@ -61,6 +61,60 @@ class SignalObservation(StrEnum):
     UNREADABLE = "unreadable"
 
 
+class SignalDetail(StrEnum):
+    """The closed vocabulary a per-signal ``detail`` may carry — neutral phrases only.
+
+    The defamation guardrail (§3.5) blocks an accusatory *band* structurally, but a free-text
+    ``detail`` could still smuggle an accusatory *sentence* past the type system ("this is a
+    counterfeit"). So ``detail`` is not a free string: it is one of these reviewed phrases.
+    A real provider (a CV ensemble) can only *select* from this set — it physically cannot
+    author an accusation, because there is no value here that asserts a card is fake.
+
+    Each phrase describes what was *observed against the reference* and, where adverse, frames
+    the next step as "worth professional authentication" — never a determination. The members
+    are grouped by signal so a provider's read maps to one option per (kind, observation).
+    """
+
+    # Print pattern (CMYK rosette / dot gain vs the reference print run).
+    PRINT_MATCHES_REFERENCE = "Print pattern is consistent with the reference for this card."
+    PRINT_DIFFERS_FROM_REFERENCE = (
+        "Print pattern differs from the reference — worth a closer look by a professional."
+    )
+    PRINT_TOO_COARSE_TO_READ = "The capture can't resolve the print pattern closely enough to compare."
+
+    # Holo signature (foil reflectance across tilt angles).
+    HOLO_MATCHES_REFERENCE = "Foil behaviour across angles is consistent with the reference."
+    HOLO_DIFFERS_FROM_REFERENCE = (
+        "Foil behaviour differs from the reference — worth a closer look by a professional."
+    )
+    HOLO_NEEDS_MORE_ANGLES = "Too few tilt angles were captured to read the foil behaviour."
+
+    # Font / layout (typography weight, kerning, element placement vs the reference).
+    LAYOUT_MATCHES_REFERENCE = "Typography and layout are consistent with the reference."
+    LAYOUT_DIFFERS_FROM_REFERENCE = (
+        "Typography or layout differs from the reference — worth a closer look by a professional."
+    )
+    LAYOUT_WITHIN_TOLERANCE = "Typography is close to the reference; any differences are within capture tolerance."
+    LAYOUT_OBSCURED = "Glare or framing obscures the text, so the layout can't be compared confidently."
+
+    # Cardstock (edge cross-section, surface texture, stock).
+    STOCK_MATCHES_REFERENCE = "Edge and surface texture are consistent with the reference stock."
+    STOCK_DIFFERS_FROM_REFERENCE = (
+        "Edge or surface texture differs from the reference stock — worth a closer look by a professional."
+    )
+    STOCK_OUT_OF_FRAME = "The card edges are out of frame, so the stock and texture can't be assessed."
+
+    # Catalog cross-check (the resolved set/number/variant tuple vs the reference catalog).
+    CATALOG_PRINTING_CONFIRMED = "This set, number and variant matches a printing in the reference catalog."
+    CATALOG_PRINTING_NOT_FOUND = (
+        "No printing of this set and number was issued in this variant — worth professional authentication."
+    )
+    CATALOG_NO_COVERAGE = (
+        "The reference catalog has no coverage to confirm this printing — a gap in our data, "
+        "not a finding about the card."
+    )
+
+
 class RiskBand(StrEnum):
     """The composite authenticity read — a band, deliberately never a boolean.
 
@@ -101,8 +155,9 @@ class AuthenticitySignal(BaseModel):
     kind: SignalKind
     observation: SignalObservation
     confidence: float = Field(ge=0.0, le=1.0)
-    # Human-facing note for the owner — what was looked at, never an accusation.
-    detail: str
+    # Human-facing note for the owner, drawn from a closed, reviewed vocabulary — never a
+    # free string a provider could author an accusation in (§3.5). See ``SignalDetail``.
+    detail: SignalDetail
 
 
 class AuthenticityRequest(BaseModel):
@@ -116,6 +171,11 @@ class AuthenticityRequest(BaseModel):
 
     capture_ref: str = Field(min_length=1, max_length=512)
     card_id: str = Field(min_length=1, description="Catalog card id this capture was resolved to.")
+
+    # How many angles the capture bundle holds, mirroring the scan contract's ``image_count``.
+    # The provider reasons about it (the holo signature needs multiple tilt angles), so a
+    # single-frame capture caps what that signal can claim. Defaults to one.
+    image_count: int = Field(default=1, ge=1)
 
     # An at-capture opt-in — the first-capture prompt's "yes". Defaults off (GDPR, §3.5) and
     # carries no per-record meaning on its own: when set, the server grants the *account*, and

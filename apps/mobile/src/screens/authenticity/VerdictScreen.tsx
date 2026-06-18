@@ -136,7 +136,7 @@ export function VerdictScreen({ assessment, onAuthenticate, onRescan, onBack }: 
             {EVIDENCE_HEADING}
           </Text>
           <EvidenceMeter percent={quality.percent} />
-          <Text variant="caption" tone="tertiary" style={styles.evidenceLine}>
+          <Text variant="caption" tone="tertiary" tabular style={styles.evidenceLine}>
             {evidenceQualityLine(quality)}
           </Text>
         </View>
@@ -191,7 +191,7 @@ function RecommendationCard({
       ]}
     >
       {valueLine ? (
-        <Text variant="bodySm" tone="secondary">
+        <Text variant="bodySm" tone="secondary" tabular>
           {valueLine}
         </Text>
       ) : null}

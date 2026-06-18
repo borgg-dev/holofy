@@ -120,7 +120,9 @@ async def assess_authenticity(
             details={"capture_ref": request.capture_ref},
         ) from exc
 
-    capture = _AuthenticityCaptureRef(capture_ref=request.capture_ref, image_count=1)
+    capture = _AuthenticityCaptureRef(
+        capture_ref=request.capture_ref, image_count=request.image_count
+    )
     result = await service.assess(
         capture,
         card=CardTuple(

@@ -14,6 +14,7 @@ import { ChevronLeft } from "@/components/icons";
 import { consentedTotal, useApi, type TrainingConsent } from "@/api";
 import { useTheme } from "@/theme";
 import { withAlpha } from "@/theme/color";
+import { consentToggleA11y } from "./consent";
 import { CONSENT_COPY_VERSION, privacyCopy as copy } from "./copy";
 
 type Props = { onBack?: () => void };
@@ -166,7 +167,7 @@ function ControlCard({
           value={consent.granted}
           disabled={saving}
           onChange={onToggle}
-          accessibilityLabel={consent.granted ? copy.toggleA11yOn : copy.toggleA11yOff}
+          accessibilityLabel={consentToggleA11y(consent.granted).label}
         />
       </View>
       <Text
