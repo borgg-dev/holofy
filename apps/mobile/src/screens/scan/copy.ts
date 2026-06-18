@@ -42,8 +42,5 @@ export function refuseMessage(reason: keyof QualitySignals | null): string {
 export const SHUTTER_REST = "Hold steady";
 export const SHUTTER_LOCKED = "Capture";
 
-/** Stack mode is value-only; the caption sets that expectation honestly up front. */
-export const STACK_NOTICE = "Fast mode — value only, no grade";
-
 export const LOCK_ANNOUNCE = "Card locked — ready to capture";
 export const EMPTY_HINT = "Lay the card on a flat, dark surface";

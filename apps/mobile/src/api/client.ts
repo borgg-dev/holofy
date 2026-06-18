@@ -7,6 +7,7 @@ import { authHeader, type TokenProvider } from "./auth";
 import { ApiError, type ApiErrorCode } from "./errors";
 import {
   authenticityFixtureFor,
+  batchScanFixture,
   fixtureAddToCollection,
   fixtureCollection,
   fixtureNoteConsentedAuthenticity,
@@ -20,6 +21,7 @@ import {
 } from "./fixtures";
 import {
   mapAuthenticity,
+  mapBatchScan,
   mapCollectionItem,
   mapConsent,
   mapPortfolio,
@@ -28,6 +30,7 @@ import {
 } from "./mapping";
 import type {
   Authenticity,
+  BatchScan,
   CollectionItem,
   Condition,
   Portfolio,
@@ -37,6 +40,7 @@ import type {
 } from "./models";
 import type {
   WireAuthenticityResponse,
+  WireBatchScanResponse,
   WireCollectionItem,
   WireConsentState,
   WireErrorResponse,
@@ -50,6 +54,11 @@ export type ScanRequest = {
   imageCount?: number;
   /** Opt this capture into the training lake. Off unless explicitly set (GDPR, charter §3.5). */
   trainingConsent?: boolean;
+};
+
+export type BatchScanRequest = {
+  /** One bundle ref per detected card, in flip order. Capped server-side (MAX_BATCH_ITEMS=50). */
+  items: { bundleId: string; imageCount?: number }[];
 };
 
 export type AddToCollectionRequest = {
@@ -86,6 +95,11 @@ export type SetConsentRequest = {
 
 export interface HolofyClient {
   scan(req: ScanRequest): Promise<ScanResult>;
+  /**
+   * Stack mode: a pile of captures in, deduped per-card results out. ID + value only —
+   * the response carries no grade/authenticity, and the quota block reports the COGS.
+   */
+  batchScan(req: BatchScanRequest): Promise<BatchScan>;
   addToCollection(req: AddToCollectionRequest): Promise<CollectionItem>;
   listCollection(): Promise<CollectionItem[]>;
   portfolio(): Promise<Portfolio>;
@@ -157,6 +171,19 @@ export function createHttpClient(config: HttpClientConfig): HolofyClient {
         }),
       });
       return mapScanResponse(wire);
+    },
+
+    async batchScan({ items }) {
+      const wire = await request<WireBatchScanResponse>("/scan/batch", {
+        method: "POST",
+        body: JSON.stringify({
+          items: items.map((it) => ({
+            bundle_id: it.bundleId,
+            ...(it.imageCount == null ? {} : { image_count: it.imageCount }),
+          })),
+        }),
+      });
+      return mapBatchScan(wire);
     },
 
     async addToCollection({ canonicalId, condition, quantity, acquiredPriceEur }) {
@@ -278,6 +305,12 @@ export function createFixtureClient(config: FixtureClientConfig = {}): HolofyCli
       await wait();
       if (trainingConsent) fixtureNoteConsentedScan();
       return mapScanResponse(scanFixtureFor(bundleId));
+    },
+    async batchScan() {
+      // A stack settles a touch slower than a single scan — the server recognizes each
+      // capture — so give the review's "Reading the stack…" state a beat to be seen.
+      await new Promise<void>((resolve) => setTimeout(resolve, latency * 2));
+      return mapBatchScan(batchScanFixture());
     },
     async addToCollection({ canonicalId, condition, quantity }) {
       await wait();

@@ -245,6 +245,61 @@ export type WireConsentUpdate = {
   note?: string | null;
 };
 
+// Stack / batch scan: a pile of captures in, deduped per-card results out. Mirrors
+// apps/api/app/schemas/batch_scan.py field-for-field. Stack mode is ID + value only —
+// there is intentionally no grade/authenticity anywhere in this contract. Each item
+// carries a `count` (how many captures deduped onto it) and the `capture_refs` that
+// merged there; the response also reports how the day's scan budget was spent.
+
+/** apps/api/app/schemas/batch_scan.py :: BatchItemOutcome. */
+export type WireBatchItemOutcome =
+  | "resolved"
+  | "needs_confirmation"
+  | "unrecognized"
+  | "quota_exceeded";
+
+/**
+ * apps/api/app/schemas/batch_scan.py :: BatchScanItem. One deduped entry in a stack.
+ * `outcome` keys the payload: `resolved` carries `card`; `needs_confirmation` carries
+ * `choices` + `price_delta`; `unrecognized` / `quota_exceeded` carry neither.
+ */
+export type WireBatchScanItem = {
+  outcome: WireBatchItemOutcome;
+  /** ≥1 — captures that deduped onto a card, or every capture that hit the daily wall. */
+  count: number;
+  capture_refs: string[];
+  card: WireScannedCard | null;
+  choices: WireConfirmationChoice[] | null;
+  price_delta: string | null;
+};
+
+/** apps/api/app/schemas/batch_scan.py :: BatchScanQuota. How the day's budget was applied. */
+export type WireBatchScanQuota = {
+  limit: number;
+  /** Captures that consumed a unit — i.e. were recognized (the honest COGS of this batch). */
+  charged: number;
+  remaining: number;
+  /** Captures the budget couldn't cover, skipped before recognition (the quota_exceeded count). */
+  rejected: number;
+};
+
+/** apps/api/app/schemas/batch_scan.py :: BatchScanResponse. */
+export type WireBatchScanResponse = {
+  items: WireBatchScanItem[];
+  quota: WireBatchScanQuota;
+};
+
+/** A capture bundle ref the client sends per detected card. apps/api :: CaptureBundleRef. */
+export type WireBatchScanRequestItem = {
+  bundle_id: string;
+  image_count?: number;
+};
+
+/** apps/api/app/schemas/batch_scan.py :: BatchScanRequest (body for POST /scan/batch). */
+export type WireBatchScanRequest = {
+  items: WireBatchScanRequestItem[];
+};
+
 /** apps/api/app/core/errors.py :: ErrorResponse envelope. */
 export type WireErrorResponse = {
   error: {

@@ -10,6 +10,7 @@
 
 import type {
   WireAuthenticityResponse,
+  WireBatchScanResponse,
   WireCardIdentity,
   WireCollectionItem,
   WireConsentState,
@@ -328,6 +329,73 @@ export function authenticityFixtureFor(captureRef: string): WireAuthenticityResp
   if (captureRef.includes("inconclusive")) return AUTHENTICITY_INCONCLUSIVE;
   if (captureRef.includes("elevated")) return AUTHENTICITY_ELEVATED;
   return AUTHENTICITY_STRONG;
+}
+
+// Stack / batch scan fixture — the realistic mixed pile rapid mode has to render
+// honestly. It exercises every per-item outcome the review screen branches on:
+//   • a resolved card the user flipped past *twice* (count 2 — the dedupe case)
+//   • a second resolved card (count 1) for a bulk-add list with more than one row
+//   • a needs_confirmation pair — the two Emberwyrm printings ~€733 apart, end-of-stack
+//   • an unrecognized capture (a glared flip) the user can re-shoot
+//   • a quota_exceeded item folding the captures the free tier's daily wall skipped
+// The quota block tells the honest COGS story: 8/day limit, charged what was recognized,
+// remaining 0, and the rejected count equal to the quota_exceeded item's count.
+
+const UNRECOGNIZED_REF = "stack-cap-7";
+
+export const STACK_BATCH: WireBatchScanResponse = {
+  items: [
+    {
+      outcome: "resolved",
+      count: 2,
+      // The same card flipped past twice — both bundles deduped onto one entry.
+      capture_refs: ["stack-cap-1", "stack-cap-4"],
+      card: { identity: TIDECALLER_ORIGINS, confidence: 0.96, price: PRICES["origins-8"] },
+      choices: null,
+      price_delta: null,
+    },
+    {
+      outcome: "resolved",
+      count: 1,
+      capture_refs: ["stack-cap-2"],
+      card: { identity: GROVEKEEPER_WILDGROWTH, confidence: 0.94, price: PRICES["wild-15"] },
+      choices: null,
+      price_delta: null,
+    },
+    {
+      outcome: "needs_confirmation",
+      count: 1,
+      capture_refs: ["stack-cap-3"],
+      card: null,
+      choices: [
+        { identity: EMBERWYRM_ORIGINS, confidence: 0.6, price: PRICES["origins-12"] },
+        { identity: EMBERWYRM_ECHO, confidence: 0.56, price: PRICES["echo-12"] },
+      ],
+      price_delta: "732.60",
+    },
+    {
+      outcome: "unrecognized",
+      count: 1,
+      capture_refs: [UNRECOGNIZED_REF],
+      card: null,
+      choices: null,
+      price_delta: null,
+    },
+    {
+      outcome: "quota_exceeded",
+      count: 2,
+      capture_refs: ["stack-cap-9", "stack-cap-10"],
+      card: null,
+      choices: null,
+      price_delta: null,
+    },
+  ],
+  quota: { limit: 8, charged: 6, remaining: 0, rejected: 2 },
+};
+
+/** The stack fixture. On device the result is the service's, keyed off the real captures. */
+export function batchScanFixture(): WireBatchScanResponse {
+  return STACK_BATCH;
 }
 
 // A starter Vault — two confidently-owned holdings, so the portfolio reads as a real

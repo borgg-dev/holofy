@@ -19,6 +19,7 @@ export default function Index() {
   return (
     <ScanScreen
       onBack={() => (router.canGoBack() ? router.back() : undefined)}
+      onStackMode={() => router.push("/rapid")}
       onCaptured={async () => {
         const bundleId = BUNDLES[captures % BUNDLES.length]!;
         setCaptures((n) => n + 1);

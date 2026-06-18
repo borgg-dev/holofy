@@ -10,6 +10,8 @@ import type {
   Authenticity,
   AuthenticitySignal,
   AxisProvenance,
+  BatchScan,
+  BatchScanItem,
   CardIdentity,
   CollectionItem,
   GradingAxis,
@@ -26,6 +28,8 @@ import type {
 import type {
   WireAuthenticityResponse,
   WireAuthenticitySignal,
+  WireBatchScanItem,
+  WireBatchScanResponse,
   WireCardIdentity,
   WireCollectionItem,
   WireConfirmationChoice,
@@ -104,6 +108,49 @@ export function mapScanResponse(w: WireScanResponse): ScanResult {
     outcome: "needs_confirmation",
     choices: choices.map(mapChoice),
     priceDelta: parseMoney(w.price_delta),
+  };
+}
+
+// ── Stack / batch scan ───────────────────────────────────────────────────────
+
+function mapBatchItem(w: WireBatchScanItem): BatchScanItem {
+  const base = { count: w.count, captureRefs: w.capture_refs };
+  switch (w.outcome) {
+    case "resolved": {
+      if (!w.card) throw new MappingError("Batch item resolved without a card.");
+      const c = mapChoice(w.card);
+      return { outcome: "resolved", ...base, identity: c.identity, confidence: c.confidence, price: c.price };
+    }
+    case "needs_confirmation": {
+      const choices = w.choices ?? [];
+      if (choices.length < 2) throw new MappingError("Batch confirmation needs two choices.");
+      return {
+        outcome: "needs_confirmation",
+        ...base,
+        choices: choices.map(mapChoice),
+        priceDelta: parseMoney(w.price_delta),
+      };
+    }
+    case "unrecognized":
+      return { outcome: "unrecognized", ...base };
+    case "quota_exceeded":
+      return { outcome: "quota_exceeded", ...base };
+    default:
+      // The server added an outcome the client doesn't model yet — fail loudly at the
+      // boundary rather than silently dropping a card the user flipped.
+      throw new MappingError(`Unknown batch outcome: ${(w as WireBatchScanItem).outcome}`);
+  }
+}
+
+export function mapBatchScan(w: WireBatchScanResponse): BatchScan {
+  return {
+    items: w.items.map(mapBatchItem),
+    quota: {
+      limit: w.quota.limit,
+      charged: w.quota.charged,
+      remaining: w.quota.remaining,
+      rejected: w.quota.rejected,
+    },
   };
 }
 

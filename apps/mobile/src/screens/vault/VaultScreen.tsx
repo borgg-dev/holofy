@@ -27,6 +27,8 @@ type Props = {
   /** Bumped by the flow on each Add → triggers a refetch so the Vault reflects it. */
   revision?: number;
   onScan?: () => void;
+  /** Open the rapid/stack scanner to flip a pile of cards in one pass. */
+  onRapidScan?: () => void;
   /** Open the privacy / training-consent screen. */
   onPrivacy?: () => void;
 };
@@ -40,7 +42,7 @@ type LoadState =
 // counts up, the change since the last snapshot, the holding count, then the list with
 // each card's current € contribution. This is a "money" surface — calm, near-black, the
 // foil restrained to the total's glow header. Loading / empty / error are all real states.
-export function VaultScreen({ revision = 0, onScan, onPrivacy }: Props) {
+export function VaultScreen({ revision = 0, onScan, onRapidScan, onPrivacy }: Props) {
   const theme = useTheme();
   const api = useApi();
   const [state, setState] = useState<LoadState>({ status: "loading" });
@@ -109,10 +111,17 @@ export function VaultScreen({ revision = 0, onScan, onPrivacy }: Props) {
         renderItem={({ item }) => <HoldingRow item={item} />}
         ItemSeparatorComponent={() => <View style={{ height: theme.space["3"] }} />}
         contentContainerStyle={{ paddingBottom: theme.space["10"] }}
-        ListEmptyComponent={<EmptyVault onScan={onScan} />}
+        ListEmptyComponent={<EmptyVault onScan={onScan} onRapidScan={onRapidScan} />}
         ListFooterComponent={
           <View style={{ marginTop: theme.space["7"], gap: theme.space["2"] }}>
-            {empty ? null : <Button label="Scan a card" tier="secondary" onPress={onScan} />}
+            {empty ? null : (
+              <>
+                <Button label="Scan a card" tier="secondary" onPress={onScan} />
+                {onRapidScan ? (
+                  <Button label="Rapid scan a stack" tier="tertiary" onPress={onRapidScan} />
+                ) : null}
+              </>
+            )}
             {onPrivacy ? (
               <Button label="Privacy & training" tier="tertiary" onPress={onPrivacy} />
             ) : null}
@@ -218,7 +227,7 @@ function HoldingRow({ item }: { item: CollectionItem }) {
   );
 }
 
-function EmptyVault({ onScan }: { onScan?: () => void }) {
+function EmptyVault({ onScan, onRapidScan }: { onScan?: () => void; onRapidScan?: () => void }) {
   const theme = useTheme();
   return (
     <View style={[styles.empty, { gap: theme.space["4"], paddingTop: theme.space["11"] }]}>
@@ -229,6 +238,9 @@ function EmptyVault({ onScan }: { onScan?: () => void }) {
         Scan your first card to see what your collection is worth.
       </Text>
       <Button label="Scan a card" tier="primary" onPress={onScan} />
+      {onRapidScan ? (
+        <Button label="Got a stack? Rapid scan" tier="tertiary" onPress={onRapidScan} />
+      ) : null}
     </View>
   );
 }

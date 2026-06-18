@@ -10,26 +10,20 @@ import {
   ScanFrame,
   Screen,
   Shutter,
-  Text,
   type CaptureMode,
 } from "@/components";
 import { ChevronLeft, FlashOff } from "@/components/icons";
 import { useReduceMotion, useTheme } from "@/theme";
 import { withAlpha } from "@/theme/color";
 import { CameraPreview } from "./CameraPreview";
-import {
-  LOCK_ANNOUNCE,
-  SHUTTER_LOCKED,
-  SHUTTER_REST,
-  STACK_NOTICE,
-  chipFor,
-  refuseMessage,
-} from "./copy";
+import { LOCK_ANNOUNCE, SHUTTER_LOCKED, SHUTTER_REST, chipFor, refuseMessage } from "./copy";
 import { useMockCaptureQuality, type QualitySignals } from "./useMockCaptureQuality";
 
 type Props = {
   onBack?: () => void;
   onCaptured?: () => void;
+  /** Selecting Stack mode leaves the single frame for the rapid/stack scanner. */
+  onStackMode?: () => void;
 };
 
 const CHIP_ORDER: (keyof QualitySignals)[] = ["focus", "glare", "frame"];
@@ -38,11 +32,18 @@ const CHIP_ORDER: (keyof QualitySignals)[] = ["focus", "glare", "frame"];
 // Full-bleed camera ground, a corner-bracket target that teal-locks when the
 // three live signals pass, coaching chips, and a shutter that refuses a bad shot.
 // Quality is mock-driven here; the lock/refuse/announce wiring is the real thing.
-export function ScanScreen({ onBack, onCaptured }: Props) {
+export function ScanScreen({ onBack, onCaptured, onStackMode }: Props) {
   const theme = useTheme();
   const reduceMotion = useReduceMotion();
 
-  const [mode, setMode] = useState<CaptureMode>("scan");
+  // Selecting Stack hands off to the rapid scanner (a different screen with a different
+  // promise); this frame stays the single guided one. Without a handoff the toggle is inert.
+  const onMode = useCallback(
+    (next: CaptureMode) => {
+      if (next === "stack") onStackMode?.();
+    },
+    [onStackMode]
+  );
   const { signals, locked, firstFailing } = useMockCaptureQuality();
 
   const [toast, setToast] = useState<string | null>(null);
@@ -95,7 +96,7 @@ export function ScanScreen({ onBack, onCaptured }: Props) {
         ]}
       />
 
-      <TopBar mode={mode} onMode={setMode} onBack={onBack} />
+      <TopBar onMode={onMode} onBack={onBack} />
 
       <View style={styles.frameZone} pointerEvents="none">
         <ScanFrame locked={locked} />
@@ -113,14 +114,6 @@ export function ScanScreen({ onBack, onCaptured }: Props) {
         ]}
       >
         <CoachingToast message={toast} />
-
-        {mode === "stack" ? (
-          <View style={styles.stackNotice}>
-            <Text variant="caption" tone="secondary">
-              {STACK_NOTICE}
-            </Text>
-          </View>
-        ) : null}
 
         <View style={[styles.chips, { gap: theme.space["3"] }]} accessibilityRole="summary">
           {CHIP_ORDER.map((key) => {
@@ -140,22 +133,15 @@ export function ScanScreen({ onBack, onCaptured }: Props) {
   );
 }
 
-function TopBar({
-  mode,
-  onMode,
-  onBack,
-}: {
-  mode: CaptureMode;
-  onMode: (m: CaptureMode) => void;
-  onBack?: () => void;
-}) {
+function TopBar({ onMode, onBack }: { onMode: (m: CaptureMode) => void; onBack?: () => void }) {
   const theme = useTheme();
   return (
     <View style={[styles.topbar, { paddingHorizontal: theme.space["5"], paddingTop: theme.space["7"] }]}>
       <IconButton accessibilityLabel="Back" onPress={onBack}>
         <ChevronLeft color={theme.color.textPrimary} />
       </IconButton>
-      <ModeToggle value={mode} onChange={onMode} />
+      {/* Stack selects the rapid scanner; this frame stays "scan". */}
+      <ModeToggle value="scan" onChange={onMode} />
       <IconButton accessibilityLabel="Flash off">
         <FlashOff color={theme.color.textPrimary} />
       </IconButton>
@@ -200,8 +186,5 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
-  },
-  stackNotice: {
-    alignItems: "center",
   },
 });

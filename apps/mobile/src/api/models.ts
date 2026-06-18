@@ -62,6 +62,70 @@ export type NeedsConfirmationScan = {
 
 export type ScanResult = ResolvedScan | NeedsConfirmationScan;
 
+// ── Stack / batch scan ───────────────────────────────────────────────────────
+//
+// Rapid mode's contract, app-side. The user flips through a pile while the client
+// samples a bundle per detected card; the batch comes back as one deduped entry per
+// card. It is **ID + value only** — there is no grade or authenticity in this shape,
+// by design (master plan §7). Each item is a discriminated union so the review screen
+// `switch`es on `outcome` and the compiler proves the right fields are present.
+//
+// `count` is how many captures collapsed onto a card (≥1) — the quantity the review
+// pre-fills; `captureRefs` are the flips that merged there, in arrival order.
+
+/** A confidently identified, priced card in a stack — review's bulk-add happy path. */
+export type BatchResolved = {
+  outcome: "resolved";
+  count: number;
+  captureRefs: string[];
+  identity: CardIdentity;
+  confidence: number;
+  price: PriceQuote | null;
+};
+
+/** Two close variants whose € values diverge — confirmed at end of stack, never mid-flip. */
+export type BatchNeedsConfirmation = {
+  outcome: "needs_confirmation";
+  count: number;
+  captureRefs: string[];
+  choices: ScanChoice[];
+  /** Absolute € gap between the two choices, when both are priced. */
+  priceDelta: number | null;
+};
+
+/** No card read from these captures — surfaced so the user can re-capture them. */
+export type BatchUnrecognized = {
+  outcome: "unrecognized";
+  count: number;
+  captureRefs: string[];
+};
+
+/** Captures past the day's scan budget — skipped before recognition, so no value was lost. */
+export type BatchQuotaExceeded = {
+  outcome: "quota_exceeded";
+  count: number;
+  captureRefs: string[];
+};
+
+export type BatchScanItem =
+  | BatchResolved
+  | BatchNeedsConfirmation
+  | BatchUnrecognized
+  | BatchQuotaExceeded;
+
+/** How the day's scan budget was spent on a batch — the free tier's honest COGS picture. */
+export type BatchQuota = {
+  limit: number;
+  charged: number;
+  remaining: number;
+  rejected: number;
+};
+
+export type BatchScan = {
+  items: BatchScanItem[];
+  quota: BatchQuota;
+};
+
 export type CollectionItem = {
   id: string;
   identity: CardIdentity;

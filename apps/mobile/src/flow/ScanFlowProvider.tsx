@@ -10,6 +10,7 @@ import {
 import {
   useApi,
   type Authenticity,
+  type BatchScan,
   type CardIdentity,
   type Condition,
   type Pregrade,
@@ -47,6 +48,16 @@ type AuthenticityState =
   | { status: "ready"; result: Authenticity }
   | { status: "error" };
 
+// The rapid/stack sub-flow. The user flips a pile in RapidScanScreen, then the review screen
+// reads the authoritative batch result a back-navigation preserves. Kept here, alongside the
+// single scan, so the review route never re-runs the batch on a back-nav and the bulk-add can
+// reuse the same Vault-revision signal the single add bumps.
+type BatchState =
+  | { status: "idle" }
+  | { status: "scanning" }
+  | { status: "ready"; result: BatchScan }
+  | { status: "error" };
+
 type ScanFlowValue = {
   scan: ScanState;
   /**
@@ -62,6 +73,20 @@ type ScanFlowValue = {
   addToVault: (identity: CardIdentity, condition?: Condition) => Promise<boolean>;
   /** Monotonic counter bumped on every successful add — Vault screens refetch on change. */
   vaultRevision: number;
+  /** The in-flight / settled rapid-stack batch the review screen renders. */
+  batch: BatchState;
+  /** Run POST /scan/batch on a session's flipped capture refs; stores the deduped result. */
+  runBatchScan: (captureRefs: string[]) => Promise<BatchScan | null>;
+  /** Clear the batch back to idle — e.g. on leaving the review for a fresh stack. */
+  resetBatch: () => void;
+  /**
+   * Commit a set of reviewed cards to the Vault in one pass. Returns how many landed; bumps
+   * the Vault revision once so the list refetches a single time, not per card.
+   */
+  bulkAddToVault: (
+    additions: { canonicalId: string; quantity: number }[],
+    condition?: Condition
+  ) => Promise<number>;
   /** The in-flight / settled pre-grade for the card the user is grading. */
   pregrade: PregradeState;
   /** Run the pre-grade on a captured multi-angle bundle; stores the estimated/retake result. */
@@ -96,6 +121,7 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
   const [scan, setScan] = useState<ScanState>({ status: "idle" });
   const [revealChoice, setRevealChoice] = useState<ScanChoice | null>(null);
   const [vaultRevision, setVaultRevision] = useState(0);
+  const [batch, setBatch] = useState<BatchState>({ status: "idle" });
   const [pregrade, setPregrade] = useState<PregradeState>({ status: "idle" });
   const [authenticity, setAuthenticity] = useState<AuthenticityState>({ status: "idle" });
   // Off by default — the only honest default for personal-data consent (charter §3.5).
@@ -144,6 +170,46 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
   );
 
   const confirmChoice = useCallback((choice: ScanChoice) => setRevealChoice(choice), []);
+
+  const runBatchScan = useCallback(
+    async (captureRefs: string[]) => {
+      setBatch({ status: "scanning" });
+      try {
+        const result = await api.batchScan({ items: captureRefs.map((bundleId) => ({ bundleId })) });
+        setBatch({ status: "ready", result });
+        return result;
+      } catch {
+        setBatch({ status: "error" });
+        return null;
+      }
+    },
+    [api]
+  );
+
+  const resetBatch = useCallback(() => setBatch({ status: "idle" }), []);
+
+  // Bulk add commits the reviewed stack and bumps the Vault revision *once* so the Vault list
+  // refetches a single time. A per-card failure is counted out rather than aborting the lot —
+  // the user sees how many of their keepers landed.
+  const bulkAddToVault = useCallback(
+    async (
+      additions: { canonicalId: string; quantity: number }[],
+      condition: Condition = "near_mint"
+    ) => {
+      const results = await Promise.all(
+        additions.map((a) =>
+          api
+            .addToCollection({ canonicalId: a.canonicalId, condition, quantity: a.quantity })
+            .then(() => true)
+            .catch(() => false)
+        )
+      );
+      const added = results.filter(Boolean).length;
+      if (added > 0) setVaultRevision((n) => n + 1);
+      return added;
+    },
+    [api]
+  );
 
   const runPregrade = useCallback(
     async (captureRef: string) => {
@@ -196,6 +262,7 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
     setRevealChoice(null);
     setPregrade({ status: "idle" });
     setAuthenticity({ status: "idle" });
+    setBatch({ status: "idle" });
   }, []);
 
   const value = useMemo<ScanFlowValue>(
@@ -206,6 +273,10 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
       confirmChoice,
       addToVault,
       vaultRevision,
+      batch,
+      runBatchScan,
+      resetBatch,
+      bulkAddToVault,
       pregrade,
       runPregrade,
       resetPregrade,
@@ -225,6 +296,10 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
       confirmChoice,
       addToVault,
       vaultRevision,
+      batch,
+      runBatchScan,
+      resetBatch,
+      bulkAddToVault,
       pregrade,
       runPregrade,
       resetPregrade,

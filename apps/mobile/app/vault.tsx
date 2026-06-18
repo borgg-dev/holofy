@@ -13,6 +13,7 @@ export default function Vault() {
     <VaultScreen
       revision={vaultRevision}
       onScan={() => router.replace("/")}
+      onRapidScan={() => router.push("/rapid")}
       onPrivacy={() => router.push("/privacy")}
     />
   );
