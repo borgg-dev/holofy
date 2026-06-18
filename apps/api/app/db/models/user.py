@@ -1,0 +1,58 @@
+"""The account a collection, scans and portfolio history hang off.
+
+Minimal by design: auth (Supabase/Clerk) is a later slice, so this carries only the
+internal id and audit timestamps. The seam for it is ``auth_provider`` /
+``auth_subject`` — nullable now, uniquely paired when linkage lands — so adding federated
+identity is an additive migration, not a reshape.
+
+Erasure note (GDPR right-to-erasure): deleting a ``User`` cascades to every owned
+row — collection, scans, portfolio snapshots — via ``ON DELETE CASCADE`` at the FK and
+``cascade="all, delete-orphan"`` on the relationships. ``Card`` and ``PriceObservation``
+are catalog/market reference data, not personal data, and are intentionally *not* owned by
+the user. See ``app/db/erasure.py`` for the data-lake propagation strategy.
+"""
+
+from __future__ import annotations
+
+import uuid
+from typing import TYPE_CHECKING
+
+from sqlalchemy import String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base import Base, TimestampMixin
+from app.db.types import GUID, new_uuid
+
+if TYPE_CHECKING:
+    from app.db.models.collection import CollectionItem
+    from app.db.models.portfolio import PortfolioSnapshot
+    from app.db.models.scan import ScanRecord
+
+
+class User(TimestampMixin, Base):
+    __tablename__ = "users"
+    __table_args__ = (
+        UniqueConstraint("auth_provider", "auth_subject"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=new_uuid)
+
+    # Auth linkage seam — both null until the auth slice lands, then set together.
+    auth_provider: Mapped[str | None] = mapped_column(String(32))
+    auth_subject: Mapped[str | None] = mapped_column(String(255))
+
+    collection_items: Mapped[list["CollectionItem"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    scans: Mapped[list["ScanRecord"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    portfolio_snapshots: Mapped[list["PortfolioSnapshot"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

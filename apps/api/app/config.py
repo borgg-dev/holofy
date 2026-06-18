@@ -51,6 +51,12 @@ class Settings(BaseSettings):
     # surfaced in the health payload so deployment region drift is observable, not silent.
     data_region: str = "eu-central-1"
 
+    # Async SQLAlchemy URL. Postgres (asyncpg) is the prod target and must sit in the EU
+    # region above; the local default is an aiosqlite file so the app runs with no DB
+    # server. Tests override this with an in-memory SQLite URL.
+    database_url: str = "sqlite+aiosqlite:///./holofy.db"
+    database_echo: bool = False
+
     # Deny-by-default. Populate per environment with the exact mobile/web origins.
     cors_allow_origins: list[str] = Field(default_factory=list)
 
