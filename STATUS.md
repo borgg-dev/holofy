@@ -2,8 +2,9 @@
 
 **Updated:** 2026-06-18 · **Phase:** 4 COMPLETE + DEV-MODE READY → Phase 5 (productionization) · **Launch anchor:** before 2026-09-16
 
-## ✅ DEV-MODE READY (proven live, not just unit-green)
-`make api-smoke` boots a fresh API and drives the whole product over HTTP — scan (incl. live €732.60 confirm), stack scan, collection, portfolio, pre-grade range, authenticity (no verdict), account-level consent — mock-first, no keys. Runbook: `docs/DEV_RUNBOOK.md`; one-command targets in the top-level `Makefile`. Mobile: strict TS clean, all suites green, every screen renders (fixture-backed; HTTP seam points at the local API).
+## DEV-MODE STATUS — HONEST (verified 2026-06-18)
+- **Backend: ✅ genuinely runs.** `make api-smoke` boots a fresh API and drives the whole product over HTTP — scan (incl. live €732.60 confirm), stack scan, collection, portfolio, pre-grade range, authenticity (no verdict), account-level consent — mock-first, no keys. 170 tests. This is verified by running it.
+- **Mobile: ❌ DOES NOT BUILD yet.** tsc is clean and 135 logic/unit tests pass, but the RN app had never been bundled — `npx expo export` FAILS. Real defects found: (1) missing transitive dep @react-native/virtualized-lists (now installed; install integrity needs repair), (2) `src/theme/fonts.ts` requires `assets/fonts/*.otf` that aren't in the repo. tsc/unit-tests do NOT prove the app builds or renders. **Prior claims of "every screen renders" were code-level, never run — corrected.** See task #23 (P0).
 
 The autonomous **mock-first roadmap is essentially complete**: full MVP (scan/value/portfolio/pre-grade/anti-fake/data-loop) + stack scanning, all behind swappable seams. Next steps split into autonomous productionization vs founder-gated mocks→real activation.
 
