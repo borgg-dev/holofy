@@ -1,14 +1,21 @@
 export type {
+  AxisProvenance,
   CardIdentity,
   CollectionItem,
   Condition,
+  GradeProbabilityRange,
+  GradingAxis,
   Portfolio,
   PortfolioSnapshot,
+  Pregrade,
+  PregradeEstimate,
+  PregradeRetake,
   PriceQuote,
   ResolvedScan,
   NeedsConfirmationScan,
   ScanChoice,
   ScanResult,
+  SubScore,
   Variant,
 } from "./models";
 export {
@@ -16,6 +23,7 @@ export {
   createHttpClient,
   type AddToCollectionRequest,
   type HolofyClient,
+  type PregradeRequest,
   type ScanRequest,
 } from "./client";
 export { ApiProvider, useApi } from "./ApiProvider";

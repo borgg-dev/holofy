@@ -111,6 +111,56 @@ export type WirePortfolio = {
   previous: WirePortfolioSnapshot | null;
 };
 
+// Pre-grade: the honest, probabilistic grading screen's contract. Mirrors
+// apps/api/app/schemas/grading.py exactly. The deliberate shape — a range, not a
+// number; a typed `retake` instead of a confident wrong answer — is load-bearing,
+// so the wire types reproduce it field-for-field.
+
+/** apps/api/app/schemas/grading.py :: GradingAxis. The four PSA sub-grades. */
+export type WireGradingAxis = "centering" | "corners" | "edges" | "surface";
+
+/** apps/api/app/schemas/grading.py :: PregradeStatus. */
+export type WirePregradeStatus = "estimated" | "retake";
+
+/** apps/api/app/schemas/grading.py :: SubScore. score 1–10, confidence 0–1. */
+export type WireSubScore = {
+  axis: WireGradingAxis;
+  score: number;
+  confidence: number;
+};
+
+/**
+ * apps/api/app/schemas/grading.py :: GradeProbabilityRange.
+ * A likely grade *band* plus P(grade ≥ at_least) — there is intentionally no
+ * single `grade` field, and the client never synthesizes one.
+ */
+export type WireGradeProbabilityRange = {
+  likely_low: number;
+  likely_high: number;
+  at_least: number;
+  p_at_least: number;
+};
+
+/** apps/api/app/schemas/grading.py :: CaptureBundleRef-style request body. */
+export type WirePregradeRequest = {
+  capture_ref: string;
+  card_id?: string | null;
+};
+
+/**
+ * apps/api/app/schemas/grading.py :: PregradeResponse.
+ * `status` keys the payload: `estimated` carries probability + sub_scores +
+ * confidence; `retake` carries human-facing `reasons`. `disclaimer` is always present.
+ */
+export type WirePregradeResponse = {
+  status: WirePregradeStatus;
+  disclaimer: string;
+  probability: WireGradeProbabilityRange | null;
+  sub_scores: WireSubScore[] | null;
+  confidence: number | null;
+  reasons: string[] | null;
+};
+
 /** apps/api/app/core/errors.py :: ErrorResponse envelope. */
 export type WireErrorResponse = {
   error: {

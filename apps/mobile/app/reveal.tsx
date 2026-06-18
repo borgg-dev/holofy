@@ -30,9 +30,7 @@ export default function Reveal() {
           router.replace("/vault");
         }
       }}
-      onGrade={() => {
-        // P2 routes into the guided multi-angle pre-grade capture.
-      }}
+      onGrade={() => router.push("/pregrade-capture")}
       onBack={() => router.replace("/")}
     />
   );

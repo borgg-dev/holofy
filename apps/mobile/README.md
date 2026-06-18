@@ -22,6 +22,8 @@ app/                     expo-router routes
   index.tsx              → ScanScreen (the app's front door); capture → scan → route
   reveal.tsx             → RevealScreen (the foil reveal payoff)
   confirm.tsx            → ConfirmScreen (low-confidence top-2 + € delta)
+  pregrade-capture.tsx   → GuidedCaptureScreen (multi-angle grade-quality capture)
+  pregrade.tsx           → gauge / retake / computing / error by pre-grade state
   vault.tsx              → VaultScreen (the portfolio)
 src/
   theme/                 tokens → RN theme (dark default + light), type, motion
@@ -33,6 +35,8 @@ src/
   screens/scan/          the scan-frame screen, its copy, and mock capture state
   screens/reveal/        the foil value reveal + its copy
   screens/confirm/       the variant disambiguation chooser
+  screens/pregrade/      guided capture + the gauge (range band + sub-scores),
+                         gauge view-logic, capture plan, retake/computing/error
   screens/vault/         the portfolio screen
   screens/shared/        cross-screen formatting (identity/trend) + TrendPill
 ```
@@ -52,6 +56,17 @@ route screens stay thin and a `CardIdentity` never serializes through URL params
 - **Confirm** (low-confidence): renders `/scan` `needs_confirmation` as the top-2
   candidates with each price and the **€ delta** called out — the reason to ask.
   A real radiogroup; Confirm required before Add (trust over speed).
+- **Pre-grade** (`screens/pregrade/`, spec `pre-grade-gauge.md`): reached from the
+  reveal's *Pre-grade this card* action. **Guided capture** walks four angles — a
+  square-on front/back for the geometric axes, two raking-light passes for surface —
+  because skew is the dominant failure and glare hides the holo; each angle coaches the
+  one thing that ruins it. The **gauge** then renders an honest answer as a *range band*
+  over 1–10 (never a needle, never a single grade), four provenance-tagged sub-scores
+  (centering `measured`, the rest `estimated`, a poorly-read axis `limited`), an overall
+  confidence, and a persistent PSA/CGC/Nintendo non-affiliation disclaimer. The verdict
+  is teal / amber / neutral, **never red**. States: computing (staged skeleton, no fake
+  bar), estimated, **retake** (coaching reasons → straight back into guided capture, not
+  failure), error (credit not consumed). Reduced motion renders the band + meters settled.
 - **Vault**: total € value (count-up, foil glow), change vs last snapshot, card count,
   and the holdings list with each card's current € contribution. Loading / empty /
   error are all real states; refetches when the flow signals a new Add.

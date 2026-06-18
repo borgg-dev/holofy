@@ -11,6 +11,7 @@ import {
   useApi,
   type CardIdentity,
   type Condition,
+  type Pregrade,
   type ScanChoice,
   type ScanResult,
 } from "@/api";
@@ -25,6 +26,15 @@ type ScanState =
   | { status: "scanning"; bundleId: string }
   | { status: "ready"; bundleId: string; result: ScanResult }
   | { status: "error"; bundleId: string; message: string };
+
+// The pre-grade sub-flow runs after the user captures a multi-angle bundle. It's kept in
+// the same provider as the scan so the gauge route can read the result a back-navigation
+// preserves, and so the card the pre-grade is *of* (the reveal choice) is already to hand.
+type PregradeState =
+  | { status: "idle" }
+  | { status: "assessing" }
+  | { status: "ready"; result: Pregrade }
+  | { status: "error" };
 
 type ScanFlowValue = {
   scan: ScanState;
@@ -41,6 +51,12 @@ type ScanFlowValue = {
   addToVault: (identity: CardIdentity, condition?: Condition) => Promise<boolean>;
   /** Monotonic counter bumped on every successful add — Vault screens refetch on change. */
   vaultRevision: number;
+  /** The in-flight / settled pre-grade for the card the user is grading. */
+  pregrade: PregradeState;
+  /** Run the pre-grade on a captured multi-angle bundle; stores the estimated/retake result. */
+  runPregrade: (captureRef: string) => Promise<Pregrade | null>;
+  /** Clear the pre-grade back to idle — e.g. on leaving the gauge for a fresh re-scan. */
+  resetPregrade: () => void;
   reset: () => void;
 };
 
@@ -51,6 +67,7 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
   const [scan, setScan] = useState<ScanState>({ status: "idle" });
   const [revealChoice, setRevealChoice] = useState<ScanChoice | null>(null);
   const [vaultRevision, setVaultRevision] = useState(0);
+  const [pregrade, setPregrade] = useState<PregradeState>({ status: "idle" });
 
   const runScan = useCallback(
     async (bundleId: string) => {
@@ -95,14 +112,57 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
 
   const confirmChoice = useCallback((choice: ScanChoice) => setRevealChoice(choice), []);
 
+  const runPregrade = useCallback(
+    async (captureRef: string) => {
+      setPregrade({ status: "assessing" });
+      try {
+        const result = await api.pregrade({
+          captureRef,
+          cardId: revealChoice?.identity.canonicalId ?? null,
+        });
+        setPregrade({ status: "ready", result });
+        return result;
+      } catch {
+        setPregrade({ status: "error" });
+        return null;
+      }
+    },
+    [api, revealChoice]
+  );
+
+  const resetPregrade = useCallback(() => setPregrade({ status: "idle" }), []);
+
   const reset = useCallback(() => {
     setScan({ status: "idle" });
     setRevealChoice(null);
+    setPregrade({ status: "idle" });
   }, []);
 
   const value = useMemo<ScanFlowValue>(
-    () => ({ scan, revealChoice, runScan, confirmChoice, addToVault, vaultRevision, reset }),
-    [scan, revealChoice, runScan, confirmChoice, addToVault, vaultRevision, reset]
+    () => ({
+      scan,
+      revealChoice,
+      runScan,
+      confirmChoice,
+      addToVault,
+      vaultRevision,
+      pregrade,
+      runPregrade,
+      resetPregrade,
+      reset,
+    }),
+    [
+      scan,
+      revealChoice,
+      runScan,
+      confirmChoice,
+      addToVault,
+      vaultRevision,
+      pregrade,
+      runPregrade,
+      resetPregrade,
+      reset,
+    ]
   );
 
   return <ScanFlowContext.Provider value={value}>{children}</ScanFlowContext.Provider>;

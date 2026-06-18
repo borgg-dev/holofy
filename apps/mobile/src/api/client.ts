@@ -9,23 +9,27 @@ import {
   fixtureAddToCollection,
   fixtureCollection,
   fixturePortfolio,
+  pregradeFixtureFor,
   scanFixtureFor,
 } from "./fixtures";
 import {
   mapCollectionItem,
   mapPortfolio,
+  mapPregrade,
   mapScanResponse,
 } from "./mapping";
 import type {
   CollectionItem,
   Condition,
   Portfolio,
+  Pregrade,
   ScanResult,
 } from "./models";
 import type {
   WireCollectionItem,
   WireErrorResponse,
   WirePortfolio,
+  WirePregradeResponse,
   WireScanResponse,
 } from "./types";
 
@@ -41,11 +45,20 @@ export type AddToCollectionRequest = {
   acquiredPriceEur?: number | null;
 };
 
+export type PregradeRequest = {
+  /** Reference to the already-uploaded multi-angle capture bundle. */
+  captureRef: string;
+  /** Catalog card this capture is of, when a scan already resolved it. */
+  cardId?: string | null;
+};
+
 export interface HolofyClient {
   scan(req: ScanRequest): Promise<ScanResult>;
   addToCollection(req: AddToCollectionRequest): Promise<CollectionItem>;
   listCollection(): Promise<CollectionItem[]>;
   portfolio(): Promise<Portfolio>;
+  /** Honest pre-grade: an `estimated` range + sub-scores, or a `retake` with reasons. */
+  pregrade(req: PregradeRequest): Promise<Pregrade>;
 }
 
 // ── HTTP implementation ──────────────────────────────────────────────────────
@@ -122,6 +135,14 @@ export function createHttpClient(config: HttpClientConfig): HolofyClient {
       const wire = await request<WirePortfolio>("/portfolio");
       return mapPortfolio(wire);
     },
+
+    async pregrade({ captureRef, cardId }) {
+      const wire = await request<WirePregradeResponse>("/pregrade", {
+        method: "POST",
+        body: JSON.stringify({ capture_ref: captureRef, card_id: cardId ?? null }),
+      });
+      return mapPregrade(wire);
+    },
   };
 }
 
@@ -193,6 +214,12 @@ export function createFixtureClient(config: FixtureClientConfig = {}): HolofyCli
     async portfolio() {
       await wait();
       return mapPortfolio(fixturePortfolio());
+    },
+    async pregrade({ captureRef }) {
+      // Pre-grade assesses four factors — give it a beat longer than a price lookup so
+      // the staged "Assessing…" copy is visible rather than a flash.
+      await new Promise<void>((resolve) => setTimeout(resolve, latency * 2));
+      return mapPregrade(pregradeFixtureFor(captureRef));
     },
   };
 }

@@ -84,3 +84,58 @@ export type Portfolio = {
   latest: PortfolioSnapshot;
   previous: PortfolioSnapshot | null;
 };
+
+// ── Pre-grade ────────────────────────────────────────────────────────────────
+//
+// The honest grading contract, app-side. The headline is a *band* (likelyLow–
+// likelyHigh), never a number; `pAtLeast` is the decision figure ("70% chance
+// it's a 9 or better"). A capture too poor to grade is a `retake` outcome, not a
+// confident wrong answer — kept as a discriminated union so a screen switches on
+// `status` and the compiler proves the right fields are present.
+
+export type GradingAxis = "centering" | "corners" | "edges" | "surface";
+
+/**
+ * How an axis was assessed. Centering is built in-house (pixel-level), so it's
+ * `measured`; corners/edges/surface are bought, so `estimated`; `limited` flags an
+ * axis the capture couldn't read well (e.g. surface under incomplete raking light).
+ */
+export type AxisProvenance = "measured" | "estimated" | "limited";
+
+export type SubScore = {
+  axis: GradingAxis;
+  /** 1–10 estimate for this axis. */
+  score: number;
+  /** 0–1 — how trustworthy *this measurement* is, independent of how good the score is. */
+  confidence: number;
+  provenance: AxisProvenance;
+};
+
+/** The honest headline: a likely grade band, never a single number. */
+export type GradeProbabilityRange = {
+  likelyLow: number;
+  likelyHigh: number;
+  /** The floor the `pAtLeast` probability is measured against. */
+  atLeast: number;
+  /** P(true grade ≥ atLeast) — the figure a collector actually decides on. */
+  pAtLeast: number;
+};
+
+/** Capture good enough to estimate: the band, four sub-scores, overall confidence. */
+export type PregradeEstimate = {
+  status: "estimated";
+  range: GradeProbabilityRange;
+  subScores: SubScore[];
+  /** 0–1 overall confidence across the four axes. */
+  confidence: number;
+  disclaimer: string;
+};
+
+/** Capture too poor to grade honestly: coaching reasons to re-capture, never a grade. */
+export type PregradeRetake = {
+  status: "retake";
+  reasons: string[];
+  disclaimer: string;
+};
+
+export type Pregrade = PregradeEstimate | PregradeRetake;

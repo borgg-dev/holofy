@@ -12,9 +12,14 @@ import type {
   WireCardIdentity,
   WireCollectionItem,
   WirePortfolio,
+  WirePregradeResponse,
   WirePriceQuote,
   WireScanResponse,
 } from "./types";
+
+const PREGRADE_DISCLAIMER =
+  "Pre-screen estimate, not an official grade. This is decision support to help you " +
+  "decide whether a card is worth submitting — it is not a PSA, CGC or BGS grade.";
 
 const AS_OF = "2026-06-18T00:00:00Z";
 
@@ -90,6 +95,49 @@ export const NEEDS_CONFIRMATION_SCAN: WireScanResponse = {
 export function scanFixtureFor(bundleId: string): WireScanResponse {
   if (bundleId === "mock-high-confidence") return RESOLVED_SCAN;
   return NEEDS_CONFIRMATION_SCAN;
+}
+
+// Pre-grade fixtures, mirroring apps/api's grading mock. The `estimated` case is the
+// canonical surface-limited one (the raking-light pass couldn't fully read the holo):
+// it exercises the widened range + the `limited` provenance + the amber caveat, which
+// is the screen's whole reason for existing. The `retake` case is the refuse-to-grade
+// path: a skewed, glared capture that we won't put a confident wrong number on.
+
+/** A clean, gradeable capture → an 8–9 band with a surface-limited axis (default). */
+export const PREGRADE_ESTIMATED: WirePregradeResponse = {
+  status: "estimated",
+  disclaimer: PREGRADE_DISCLAIMER,
+  probability: { likely_low: 8, likely_high: 9, at_least: 9, p_at_least: 0.62 },
+  sub_scores: [
+    { axis: "centering", score: 9.0, confidence: 0.93 },
+    { axis: "corners", score: 8.5, confidence: 0.81 },
+    { axis: "edges", score: 8.8, confidence: 0.84 },
+    // Low confidence → surfaces as `limited`; the holo couldn't be fully read.
+    { axis: "surface", score: 7.0, confidence: 0.42 },
+  ],
+  confidence: 0.78,
+  reasons: null,
+};
+
+/** A skewed/glared capture too poor to grade honestly → coaching, never a number. */
+export const PREGRADE_RETAKE: WirePregradeResponse = {
+  status: "retake",
+  disclaimer: PREGRADE_DISCLAIMER,
+  probability: null,
+  sub_scores: null,
+  confidence: null,
+  reasons: [
+    "The card is tilted — shoot straight down so the borders stay parallel.",
+    "Glare across the holo is hiding the surface. Angle away from the light.",
+  ],
+};
+
+/**
+ * Map a capture ref to a pre-grade fixture, mirroring apps/api's grading mock keys.
+ * A ref containing "retake" returns the refuse-to-grade path; everything else estimates.
+ */
+export function pregradeFixtureFor(captureRef: string): WirePregradeResponse {
+  return captureRef.includes("retake") ? PREGRADE_RETAKE : PREGRADE_ESTIMATED;
 }
 
 // A starter Vault — two confidently-owned holdings, so the portfolio reads as a real
