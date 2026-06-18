@@ -1,6 +1,25 @@
 # Holofy — Live Status
 
-**Updated:** 2026-06-18 · **Phase:** 2 COMPLETE → entering Phase 3 (Anti-fake + data loop) · **Launch anchor:** before 2026-09-16
+**Updated:** 2026-06-18 · **Phase:** 3 COMPLETE → hardening pass, then Phase 4 (stack scanning) · **Launch anchor:** before 2026-09-16
+
+## MVP feature set: COMPLETE (mock-first) ✅
+The full market-fit MVP runs end-to-end on mocks: scan → identify → € value (Cardmarket-native) → confirm low-confidence variants → portfolio → pre-grade (range+confidence) → authenticity (risk band, no verdict) → consented data loop. All behind swappable provider seams. The BLOCKERS (legal price-display clearance, Ximilar/aggregator keys, dev accounts, billing, OAuth, Redis, expo-camera) gate only the mocks→real switch, not the build.
+
+## Phase 3 — Anti-fake + data loop: COMPLETE ✅ (retro: docs/PHASE_3_RETRO.md)
+| Unit | What | Status |
+|------|------|--------|
+| P3.1 | Authenticity risk-score service (no binary verdict; catalog cross-check; value-gated) | ✅ done (130 tests) |
+| P3.3 | Consented data loop: DataLakeSink + account-level consent UX (single emit gate) | ✅ done (148/73) |
+| P3.2 | Mobile authenticity verdict (shield/amber, separated evidence-quality) | ✅ done (106 tests) |
+
+Hard gates held: no-verdict/defamation (4-layer structural) + privacy/consent (single gate, default off).
+
+## Next: hardening pass (P3.h) → Phase 4 (stack scanning)
+| Unit | What | Status |
+|------|------|--------|
+| P3.h | Clear accumulated audit debt (#11): signal.detail content contract, image_count, CORS, indexes, error mapping, consent-UI tests | next |
+| P4.1 | Backend stack/batch scan (dedupe + confirm-at-end) | after P3.h |
+| P4.2 | Mobile rapid scan mode (filmstrip + bulk add) | blocked by P4.1 |
 
 ## Phase 2 — Pre-grade v1: COMPLETE ✅ (retro: docs/PHASE_2_RETRO.md)
 | Unit | What | Status |
