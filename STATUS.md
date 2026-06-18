@@ -1,6 +1,24 @@
 # Holofy — Live Status
 
-**Updated:** 2026-06-18 · **Phase:** 1 COMPLETE → entering Phase 2 (Pre-grade v1) · **Launch anchor:** before 2026-09-16
+**Updated:** 2026-06-18 · **Phase:** 2 COMPLETE → entering Phase 3 (Anti-fake + data loop) · **Launch anchor:** before 2026-09-16
+
+## Phase 2 — Pre-grade v1: COMPLETE ✅ (retro: docs/PHASE_2_RETRO.md)
+| Unit | What | Status |
+|------|------|--------|
+| P2.1 | Pre-grade backend: in-house centering + mocked grading seam → grade probability range + confidence; /pregrade; refuse-on-bad-capture | ✅ done (99 tests) |
+| P2.2 | Mobile: guided multi-angle capture + bespoke SVG range-band gauge + retake | ✅ done (64 tests) |
+| P2.cleanup | Mobile compiles clean under tsc --strict (7→0) | ✅ done |
+
+Honest-framing enforced structurally (no `grade` field anywhere; range + P(≥X) + confidence; worst-axis gating; refuse-on-bad-capture; amber-never-red). Verified by adversarial audit sweep.
+
+## Phase 3 — Anti-fake v1 + data loop (next)
+| Unit | What | Status |
+|------|------|--------|
+| P3.1 | Authenticity risk-score service (mock-first; never binary "FAKE") | next |
+| P3.2 | Mobile authenticity verdict flow (shield/amber, never red FAKE) | blocked by P3.1 |
+| P3.3 | Data loop: consent UX + capture→data-lake seam (the moat) | next (parallel-ok) |
+
+
 
 ## Phase 1 — core scan loop: COMPLETE ✅ (retro: docs/PHASE_1_RETRO.md)
 | Unit | What | Status |
