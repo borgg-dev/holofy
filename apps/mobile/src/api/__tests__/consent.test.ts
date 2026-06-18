@@ -75,6 +75,7 @@ describe("http client — consent never sent implicitly", () => {
     card: {
       identity: {
         canonical_id: "origins-8",
+        game: "pokemon",
         name: "Tidecaller Leviath",
         set_name: "Origins Vault",
         collector_number: "8/120",

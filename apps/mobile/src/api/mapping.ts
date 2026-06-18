@@ -54,6 +54,7 @@ export function parseMoney(raw: string | null): number | null {
 export function mapIdentity(w: WireCardIdentity): CardIdentity {
   return {
     canonicalId: w.canonical_id,
+    game: w.game,
     name: w.name,
     setName: w.set_name,
     collectorNumber: w.collector_number,

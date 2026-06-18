@@ -20,9 +20,14 @@ export type WireCondition =
 /** apps/api/app/schemas/scan.py :: ScanOutcome */
 export type WireScanOutcome = "resolved" | "needs_confirmation";
 
+/** apps/api/app/schemas/cards.py :: GameId — the TCG a card belongs to. */
+export type WireGameId = "pokemon" | "lorcana";
+
 /** apps/api/app/schemas/cards.py :: CardIdentity */
 export type WireCardIdentity = {
   canonical_id: string;
+  /** Which TCG this card belongs to — the Vault groups holdings by it. */
+  game: WireGameId;
   name: string;
   set_name: string;
   collector_number: string;

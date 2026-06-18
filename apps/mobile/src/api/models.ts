@@ -5,13 +5,46 @@
 // are a discriminated union so a screen `switch`es on `outcome` and the compiler proves
 // the right fields are present. Nothing here knows about HTTP.
 
-import type { WireCondition, WireVariant } from "./types";
+import type { WireCondition, WireGameId, WireVariant } from "./types";
 
 export type Variant = WireVariant;
 export type Condition = WireCondition;
 
+/** The TCGs Holofy catalogs. New games slot in here and in the GAMES registry below. */
+export type GameId = WireGameId;
+
+/**
+ * A trading-card game as a first-class catalog entity. `accent` is a theme brand-color
+ * *key* (not a literal hex) so the Vault's per-game glyph stays token-driven and reads
+ * right in both light and dark — the screen resolves it against the active theme.
+ */
+export type Game = {
+  id: GameId;
+  /** Nominative label shown in the Vault section header — e.g. "Pokémon". */
+  name: string;
+  /** Single-letter mark for the generic glyph — never an official logo. */
+  initial: string;
+  /** Theme brand-color key the glyph and subtotal tint draw from. */
+  accent: "holoViolet" | "vaultTeal" | "foilMagenta" | "amber";
+};
+
+// The game registry — the one place a TCG is described. Labels are nominative (fair use);
+// the glyph mark is an original initial chip, never the game's logo. Accents are pulled
+// from the existing brand palette so two games never introduce an off-system colour.
+export const GAMES: Record<GameId, Game> = {
+  pokemon: { id: "pokemon", name: "Pokémon", initial: "P", accent: "vaultTeal" },
+  lorcana: { id: "lorcana", name: "Lorcana", initial: "L", accent: "foilMagenta" },
+};
+
+/** The game a card belongs to, with a defensive fallback if the registry ever lags the wire. */
+export function gameOf(id: GameId): Game {
+  return GAMES[id] ?? GAMES.pokemon;
+}
+
 export type CardIdentity = {
   canonicalId: string;
+  /** Which TCG this card belongs to — the Vault groups holdings by it. */
+  game: GameId;
   name: string;
   setName: string;
   /** Already in "12/120" form from recognition. */

@@ -11,10 +11,12 @@ import {
   ValueText,
 } from "@/components";
 import {
+  groupByGame,
   itemValue,
   portfolioChange,
   useApi,
   type CollectionItem,
+  type GameGroup,
   type Portfolio,
   type PortfolioChange,
 } from "@/api";
@@ -23,6 +25,7 @@ import { useTheme } from "@/theme";
 import { withAlpha } from "@/theme/color";
 import { conditionLabel, identitySubline } from "../shared/format";
 import { TrendPill } from "../shared/TrendPill";
+import { GameSection } from "./GameSection";
 
 type Props = {
   /** Bumped by the flow on each Add → triggers a refetch so the Vault reflects it. */
@@ -96,12 +99,14 @@ export function VaultScreen({ revision = 0, onScan, onRapidScan, onOpenCard }: P
   const { portfolio, items } = state;
   const change = portfolioChange(portfolio);
   const empty = items.length === 0;
+  // One grouping level: game → its holdings. Games lead by subtotal, cards by value.
+  const groups = groupByGame(items);
 
   return (
     <Screen ground="vault" edges={["top"]} padded>
       <FlatList
-        data={items}
-        keyExtractor={(item) => item.id}
+        data={groups}
+        keyExtractor={(group) => group.game.id}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <VaultHeader
@@ -110,10 +115,18 @@ export function VaultScreen({ revision = 0, onScan, onRapidScan, onOpenCard }: P
             count={items.reduce((n, it) => n + it.quantity, 0)}
           />
         }
-        renderItem={({ item }) => (
-          <HoldingRow item={item} onPress={onOpenCard ? () => onOpenCard(item.id) : undefined} />
+        renderItem={({ item: group }) => (
+          <GameSection group={group}>
+            {group.items.map((item) => (
+              <HoldingRow
+                key={item.id}
+                item={item}
+                onPress={onOpenCard ? () => onOpenCard(item.id) : undefined}
+              />
+            ))}
+          </GameSection>
         )}
-        ItemSeparatorComponent={() => <View style={{ height: theme.space["3"] }} />}
+        ItemSeparatorComponent={() => <View style={{ height: theme.space["7"] }} />}
         contentContainerStyle={{ paddingBottom: theme.space["10"] }}
         ListEmptyComponent={<EmptyVault onScan={onScan} onRapidScan={onRapidScan} />}
         ListFooterComponent={

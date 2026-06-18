@@ -14,6 +14,7 @@ import type {
   WireCardIdentity,
   WireCollectionItem,
   WireConsentState,
+  WireGameId,
   WirePortfolio,
   WirePregradeResponse,
   WirePriceQuote,
@@ -35,6 +36,7 @@ const AS_OF = "2026-06-18T00:00:00Z";
 
 function identity(
   canonicalId: string,
+  game: WireGameId,
   name: string,
   setName: string,
   collectorNumber: string,
@@ -42,6 +44,7 @@ function identity(
 ): WireCardIdentity {
   return {
     canonical_id: canonicalId,
+    game,
     name,
     set_name: setName,
     collector_number: collectorNumber,
@@ -70,16 +73,23 @@ function price(
   };
 }
 
-const EMBERWYRM_ORIGINS = identity("origins-12", "Emberwyrm Sovereign", "Origins Vault", "12/120", "holo");
-const EMBERWYRM_ECHO = identity("echo-12", "Emberwyrm Sovereign", "Echo Reprint", "12/95", "holo");
-const TIDECALLER_ORIGINS = identity("origins-8", "Tidecaller Leviath", "Origins Vault", "8/120", "holo");
-const GROVEKEEPER_WILDGROWTH = identity("wild-15", "Grovekeeper Thornmaw", "Wildgrowth", "15/88", "holo");
+const EMBERWYRM_ORIGINS = identity("origins-12", "pokemon", "Emberwyrm Sovereign", "Origins Vault", "12/120", "holo");
+const EMBERWYRM_ECHO = identity("echo-12", "pokemon", "Emberwyrm Sovereign", "Echo Reprint", "12/95", "holo");
+const TIDECALLER_ORIGINS = identity("origins-8", "pokemon", "Tidecaller Leviath", "Origins Vault", "8/120", "holo");
+const GROVEKEEPER_WILDGROWTH = identity("wild-15", "pokemon", "Grovekeeper Thornmaw", "Wildgrowth", "15/88", "holo");
+
+// Lorcana fixtures — Holofy's own invented cards/sets in a second game, so the Vault
+// renders as a multi-game collection. Names and sets are original (no third-party IP).
+const TIDEGLASS_HERALD = identity("ink-4", "lorcana", "Tideglass Herald", "Inkwell Tides", "4/204", "holo");
+const EMBERLOOM_ARTISAN = identity("ink-77", "lorcana", "Emberloom Artisan", "Inkwell Tides", "77/204", "normal");
 
 const PRICES = {
   "origins-12": price("origins-12", "757.10", "529.99", "100.00"),
   "echo-12": price("echo-12", "24.50", "22.10", "9.00"),
   "origins-8": price("origins-8", "289.00", "271.40", "120.00"),
   "wild-15": price("wild-15", "61.40", "58.90", "28.00"),
+  "ink-4": price("ink-4", "84.00", "79.50", "42.00"),
+  "ink-77": price("ink-77", "12.80", "11.40", "5.50"),
 } satisfies Record<string, WirePriceQuote>;
 
 /** Price for a canonical id we ship a quote for; null otherwise (no live comp). */
@@ -398,26 +408,47 @@ export function batchScanFixture(): WireBatchScanResponse {
   return STACK_BATCH;
 }
 
-// A starter Vault — two confidently-owned holdings, so the portfolio reads as a real
-// (if small) collection rather than an empty shell. The flow adds to this in memory.
-let collection: WireCollectionItem[] = [
-  {
-    id: "fixture-tidecaller",
-    identity: TIDECALLER_ORIGINS,
-    condition: "near_mint",
-    quantity: 1,
-    acquired_price_eur: "210.00",
-    price: PRICES["origins-8"],
-  },
-  {
-    id: "fixture-grovekeeper",
-    identity: GROVEKEEPER_WILDGROWTH,
-    condition: "excellent",
-    quantity: 2,
-    acquired_price_eur: "44.00",
-    price: PRICES["wild-15"],
-  },
-];
+// A starter Vault — holdings across two games, so the portfolio reads as a real (if small)
+// multi-game collection rather than an empty shell. Pokémon leads on value; Lorcana gives
+// the sectioned Vault its second game. The flow adds to this in memory.
+function starterCollection(): WireCollectionItem[] {
+  return [
+    {
+      id: "fixture-tidecaller",
+      identity: TIDECALLER_ORIGINS,
+      condition: "near_mint",
+      quantity: 1,
+      acquired_price_eur: "210.00",
+      price: PRICES["origins-8"],
+    },
+    {
+      id: "fixture-grovekeeper",
+      identity: GROVEKEEPER_WILDGROWTH,
+      condition: "excellent",
+      quantity: 2,
+      acquired_price_eur: "44.00",
+      price: PRICES["wild-15"],
+    },
+    {
+      id: "fixture-tideglass",
+      identity: TIDEGLASS_HERALD,
+      condition: "near_mint",
+      quantity: 1,
+      acquired_price_eur: "70.00",
+      price: PRICES["ink-4"],
+    },
+    {
+      id: "fixture-emberloom",
+      identity: EMBERLOOM_ARTISAN,
+      condition: "mint",
+      quantity: 3,
+      acquired_price_eur: "9.00",
+      price: PRICES["ink-77"],
+    },
+  ];
+}
+
+let collection: WireCollectionItem[] = starterCollection();
 
 export function fixtureCollection(): WireCollectionItem[] {
   return collection.map((item) => ({ ...item }));
@@ -429,9 +460,14 @@ export function fixtureAddToCollection(
   quantity = 1
 ): WireCollectionItem {
   const known =
-    [EMBERWYRM_ORIGINS, EMBERWYRM_ECHO, TIDECALLER_ORIGINS, GROVEKEEPER_WILDGROWTH].find(
-      (c) => c.canonical_id === canonicalId
-    ) ?? EMBERWYRM_ORIGINS;
+    [
+      EMBERWYRM_ORIGINS,
+      EMBERWYRM_ECHO,
+      TIDECALLER_ORIGINS,
+      GROVEKEEPER_WILDGROWTH,
+      TIDEGLASS_HERALD,
+      EMBERLOOM_ARTISAN,
+    ].find((c) => c.canonical_id === canonicalId) ?? EMBERWYRM_ORIGINS;
   const item: WireCollectionItem = {
     id: `fixture-${canonicalId}-${collection.length}`,
     identity: known,
@@ -530,22 +566,5 @@ export function resetFixtures(): void {
   consentedScans = 0;
   consentedPregrades = 0;
   consentedAuthenticity = 0;
-  collection = [
-    {
-      id: "fixture-tidecaller",
-      identity: TIDECALLER_ORIGINS,
-      condition: "near_mint",
-      quantity: 1,
-      acquired_price_eur: "210.00",
-      price: PRICES["origins-8"],
-    },
-    {
-      id: "fixture-grovekeeper",
-      identity: GROVEKEEPER_WILDGROWTH,
-      condition: "excellent",
-      quantity: 2,
-      acquired_price_eur: "44.00",
-      price: PRICES["wild-15"],
-    },
-  ];
+  collection = starterCollection();
 }

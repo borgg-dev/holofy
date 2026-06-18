@@ -16,6 +16,8 @@ export type {
   CollectionItem,
   Condition,
   ConsentCounts,
+  Game,
+  GameId,
   GradeProbabilityRange,
   GradingAxis,
   Portfolio,
@@ -49,10 +51,13 @@ export {
 export { ApiProvider, useApi } from "./ApiProvider";
 export { ApiError, isOffline, isRecognitionFailure, type ApiErrorCode } from "./errors";
 export { devTokenProvider, type TokenProvider } from "./auth";
+export { GAMES, gameOf } from "./models";
 export {
   collectionTotal,
+  groupByGame,
   itemValue,
   portfolioChange,
+  type GameGroup,
   type PortfolioChange,
 } from "./portfolio";
 export { consentedTotal } from "./mapping";

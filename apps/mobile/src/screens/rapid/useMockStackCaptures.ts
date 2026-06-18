@@ -18,7 +18,15 @@ const identity = (
   setName: string,
   collectorNumber: string,
   variant: CardIdentity["variant"]
-): CardIdentity => ({ canonicalId, name, setName, collectorNumber, language: "en", variant });
+): CardIdentity => ({
+  canonicalId,
+  game: "pokemon",
+  name,
+  setName,
+  collectorNumber,
+  language: "en",
+  variant,
+});
 
 const price = (canonicalId: string, value: number, avg30: number): PriceQuote => ({
   canonicalId,
