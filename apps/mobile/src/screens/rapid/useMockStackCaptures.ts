@@ -20,7 +20,7 @@ const identity = (
   variant: CardIdentity["variant"]
 ): CardIdentity => ({
   canonicalId,
-  game: "pokemon",
+  game: { id: "pokemon", name: "Pokémon" },
   name,
   setName,
   collectorNumber,

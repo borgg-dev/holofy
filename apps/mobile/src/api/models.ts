@@ -5,46 +5,129 @@
 // are a discriminated union so a screen `switch`es on `outcome` and the compiler proves
 // the right fields are present. Nothing here knows about HTTP.
 
-import type { WireCondition, WireGameId, WireVariant } from "./types";
+import type { WireCondition, WireVariant } from "./types";
 
 export type Variant = WireVariant;
 export type Condition = WireCondition;
 
-/** The TCGs Holofy catalogs. New games slot in here and in the GAMES registry below. */
-export type GameId = WireGameId;
-
 /**
- * A trading-card game as a first-class catalog entity. `accent` is a theme brand-color
- * *key* (not a literal hex) so the Vault's per-game glyph stays token-driven and reads
- * right in both light and dark — the screen resolves it against the active theme.
+ * The game a card belongs to, as carried on the card identity. This is an *open*
+ * category: `id` is a stable slug from recognition (e.g. "pokemon", "one_piece"),
+ * `name` its human label (e.g. "Pokémon", "One Piece"). The Vault groups on `id` and
+ * labels on `name` — it never consults a fixed list of games, so a game scanned for the
+ * first time gets its own section with no code change.
  */
-export type Game = {
-  id: GameId;
+export type CardGame = {
+  /** Stable slug from recognition — the grouping key. */
+  id: string;
   /** Nominative label shown in the Vault section header — e.g. "Pokémon". */
   name: string;
+};
+
+/**
+ * The brand-color keys a game section can tint with. These are theme color *names*
+ * (not literal hexes) so the chip resolves against the active scheme and reads right
+ * in both light and dark. The Vault derives one of these from a game's id.
+ */
+export type GameAccent =
+  | "vaultTeal"
+  | "foilMagenta"
+  | "holoViolet"
+  | "amber"
+  | "irisLavender"
+  | "roseMagenta";
+
+/**
+ * A game's *display* presentation, derived deterministically from its identity — what
+ * the Vault renders. Nothing here is authored per game: `accent` is hashed from the id
+ * (stable across sessions), `initial` is the first letter of the name. `gameDisplay`
+ * is the one place this derivation lives.
+ */
+export type GameDisplay = CardGame & {
   /** Single-letter mark for the generic glyph — never an official logo. */
   initial: string;
   /** Theme brand-color key the glyph and subtotal tint draw from. */
-  accent: "holoViolet" | "vaultTeal" | "foilMagenta" | "amber";
+  accent: GameAccent;
 };
 
-// The game registry — the one place a TCG is described. Labels are nominative (fair use);
-// the glyph mark is an original initial chip, never the game's logo. Accents are pulled
-// from the existing brand palette so two games never introduce an off-system colour.
-export const GAMES: Record<GameId, Game> = {
-  pokemon: { id: "pokemon", name: "Pokémon", initial: "P", accent: "vaultTeal" },
-  lorcana: { id: "lorcana", name: "Lorcana", initial: "L", accent: "foilMagenta" },
+// The accent palette a game's color is drawn from — on-brand keys that resolve against
+// the theme. The id is hashed onto this list, so every game gets a stable, distinct-ish
+// color with zero per-game configuration.
+const ACCENT_PALETTE: readonly GameAccent[] = [
+  "vaultTeal",
+  "foilMagenta",
+  "holoViolet",
+  "amber",
+  "irisLavender",
+  "roseMagenta",
+];
+
+// Optional cosmetic curation: a hand-picked accent for flagship games, layered over the
+// derived default. Purely a polish override — a game absent here still gets a proper
+// derived color. No code path requires a game to appear in this map.
+const CURATED_ACCENTS: Readonly<Record<string, GameAccent>> = {
+  pokemon: "vaultTeal",
+  lorcana: "foilMagenta",
 };
 
-/** The game a card belongs to, with a defensive fallback if the registry ever lags the wire. */
-export function gameOf(id: GameId): Game {
-  return GAMES[id] ?? GAMES.pokemon;
+// A small, stable string hash (FNV-1a + an xorshift finalizer). Deterministic across
+// sessions and platforms; the finalizer avalanches the low bits so short ids spread
+// across the palette instead of clustering on one slot under the modulo.
+function hashId(id: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x21f0aaad);
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x735a2d97);
+  h ^= h >>> 15;
+  return h >>> 0;
+}
+
+// The colors curation has claimed. An auto-derived game draws from the rest, so a brand-new
+// game never collides with a flagship's hand-picked tint in the Vault.
+const RESERVED = new Set(Object.values(CURATED_ACCENTS));
+const DERIVED_PALETTE: readonly GameAccent[] = ACCENT_PALETTE.filter((a) => !RESERVED.has(a));
+
+/**
+ * The accent for a game id. A curated override wins; otherwise the id is hashed onto the
+ * un-reserved palette, so every game — including one never seen before — gets a stable,
+ * distinct color with no per-game code.
+ */
+export function gameAccent(id: string): GameAccent {
+  const curated = CURATED_ACCENTS[id];
+  if (curated) return curated;
+  const palette = DERIVED_PALETTE.length > 0 ? DERIVED_PALETTE : ACCENT_PALETTE;
+  return palette[hashId(id) % palette.length]!;
+}
+
+/** The first letter of a game's name, uppercased — the glyph mark. Falls back to "?". */
+export function gameInitial(name: string): string {
+  const ch = name.trim()[0];
+  return ch ? ch.toUpperCase() : "?";
+}
+
+/**
+ * Derive a game's full display from its identity. Pure and total — works for any game,
+ * curated or not, so a never-before-seen game renders a proper section the first time
+ * one of its cards is scanned.
+ */
+export function gameDisplay(game: CardGame): GameDisplay {
+  return {
+    id: game.id,
+    name: game.name,
+    initial: gameInitial(game.name),
+    accent: gameAccent(game.id),
+  };
 }
 
 export type CardIdentity = {
   canonicalId: string;
-  /** Which TCG this card belongs to — the Vault groups holdings by it. */
-  game: GameId;
+  /** Which game this card belongs to — the Vault groups holdings by it. */
+  game: CardGame;
   name: string;
   setName: string;
   /** Already in "12/120" form from recognition. */

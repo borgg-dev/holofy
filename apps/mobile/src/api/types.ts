@@ -20,14 +20,22 @@ export type WireCondition =
 /** apps/api/app/schemas/scan.py :: ScanOutcome */
 export type WireScanOutcome = "resolved" | "needs_confirmation";
 
-/** apps/api/app/schemas/cards.py :: GameId — the TCG a card belongs to. */
-export type WireGameId = "pokemon" | "lorcana";
+/**
+ * apps/api/app/schemas/cards.py :: CardGame — the game a card belongs to.
+ * An open category sourced from recognition: a stable `id` slug plus a human `name`.
+ * Not an enum — a new game arrives as data, and the client groups on it without a code
+ * change.
+ */
+export type WireCardGame = {
+  id: string;
+  name: string;
+};
 
 /** apps/api/app/schemas/cards.py :: CardIdentity */
 export type WireCardIdentity = {
   canonical_id: string;
-  /** Which TCG this card belongs to — the Vault groups holdings by it. */
-  game: WireGameId;
+  /** Which game this card belongs to — the Vault groups holdings by it. */
+  game: WireCardGame;
   name: string;
   set_name: string;
   collector_number: string;

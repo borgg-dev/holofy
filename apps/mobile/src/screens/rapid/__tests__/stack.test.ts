@@ -16,7 +16,7 @@ import {
 
 const identity = (canonicalId: string, name = canonicalId): CardIdentity => ({
   canonicalId,
-  game: "pokemon",
+  game: { id: "pokemon", name: "Pokémon" },
   name,
   setName: "Origins Vault",
   collectorNumber: "8/120",

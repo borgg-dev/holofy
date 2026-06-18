@@ -14,7 +14,7 @@ import type { CardIdentity, PriceQuote } from "../../../api/models";
 
 const EMBERWYRM: CardIdentity = {
   canonicalId: "origins-12",
-  game: "pokemon",
+  game: { id: "pokemon", name: "Pokémon" },
   name: "Emberwyrm Sovereign",
   setName: "Origins Vault",
   collectorNumber: "12/120",

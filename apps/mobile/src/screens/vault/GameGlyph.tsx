@@ -1,12 +1,12 @@
 import { StyleSheet, View } from "react-native";
 
 import { Text } from "@/components";
-import type { Game } from "@/api";
+import type { GameDisplay } from "@/api";
 import { useTheme } from "@/theme";
 import { withAlpha } from "@/theme/color";
 
 type Props = {
-  game: Game;
+  game: GameDisplay;
   size?: number;
 };
 

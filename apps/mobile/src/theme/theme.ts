@@ -19,6 +19,10 @@ export type ThemeColors = SemanticColors & {
   foilMagenta: string;
   holoViolet: string;
   amber: string;
+  // Two further on-brand accents drawn from the ramps, so the Vault has a wider palette
+  // of distinct game tints (a lighter violet, a deeper magenta) without an off-system hue.
+  irisLavender: string;
+  roseMagenta: string;
   amberSoft: string;
   onAmber: string;
   errorRed: string;
@@ -33,6 +37,8 @@ function makeColors(scheme: ColorScheme): ThemeColors {
     foilMagenta: tokens.color.brand.foilMagenta,
     holoViolet: tokens.color.brand.holoViolet,
     amber: tokens.color.support.amber,
+    irisLavender: tokens.color.violet["300"],
+    roseMagenta: tokens.color.magenta["600"],
     amberSoft: tokens.color.support.amberSoft,
     onAmber: tokens.color.support.onAmber,
     errorRed: tokens.color.support.red,

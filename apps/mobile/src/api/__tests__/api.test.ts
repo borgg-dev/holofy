@@ -34,7 +34,7 @@ describe("mapScanResponse — resolved", () => {
     card: {
       identity: {
         canonical_id: "origins-8",
-        game: "pokemon",
+        game: { id: "pokemon", name: "Pokémon" },
         name: "Tidecaller Leviath",
         set_name: "Origins Vault",
         collector_number: "8/120",
@@ -83,7 +83,7 @@ describe("mapScanResponse — needs_confirmation", () => {
       {
         identity: {
           canonical_id: "origins-12",
-          game: "pokemon",
+          game: { id: "pokemon", name: "Pokémon" },
           name: "Emberwyrm Sovereign",
           set_name: "Origins Vault",
           collector_number: "12/120",
@@ -107,7 +107,7 @@ describe("mapScanResponse — needs_confirmation", () => {
       {
         identity: {
           canonical_id: "echo-12",
-          game: "pokemon",
+          game: { id: "pokemon", name: "Pokémon" },
           name: "Emberwyrm Sovereign",
           set_name: "Echo Reprint",
           collector_number: "12/95",
@@ -191,7 +191,7 @@ describe("collection valuation", () => {
     id: "x",
     identity: {
       canonicalId: "c",
-      game: "pokemon",
+      game: { id: "pokemon", name: "Pokémon" },
       name: "n",
       setName: "s",
       collectorNumber: "1/1",

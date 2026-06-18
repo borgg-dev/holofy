@@ -1,11 +1,11 @@
 // Derived portfolio figures — the numbers the Vault screen shows beneath the total.
 // Pure functions so the change/percent math is unit-tested without a render.
 
-import { gameOf, type CollectionItem, type Game, type Portfolio } from "./models";
+import { gameDisplay, type CardGame, type CollectionItem, type GameDisplay, type Portfolio } from "./models";
 
 /** One game's holdings, grouped for the Vault — the section the screen renders. */
 export type GameGroup = {
-  game: Game;
+  game: GameDisplay;
   /** This game's holdings, richest first. */
   items: CollectionItem[];
   /** Sum of the priced holdings in this game (euros). */
@@ -54,14 +54,18 @@ export function collectionTotal(items: CollectionItem[]): number {
  */
 export function groupByGame(items: CollectionItem[]): GameGroup[] {
   const order: string[] = [];
+  // The first card of a game settles the bucket's label — recognition is consistent
+  // per id, so its name is stable across the group.
+  const games = new Map<string, CardGame>();
   const byGame = new Map<string, CollectionItem[]>();
   for (const item of items) {
-    const id = item.identity.game;
-    let bucket = byGame.get(id);
+    const { game } = item.identity;
+    let bucket = byGame.get(game.id);
     if (!bucket) {
       bucket = [];
-      byGame.set(id, bucket);
-      order.push(id);
+      byGame.set(game.id, bucket);
+      games.set(game.id, game);
+      order.push(game.id);
     }
     bucket.push(item);
   }
@@ -70,7 +74,7 @@ export function groupByGame(items: CollectionItem[]): GameGroup[] {
     const bucket = byGame.get(id)!;
     const sorted = [...bucket].sort((a, b) => (itemValue(b) ?? 0) - (itemValue(a) ?? 0));
     return {
-      game: gameOf(id as Game["id"]),
+      game: gameDisplay(games.get(id)!),
       items: sorted,
       subtotal: collectionTotal(bucket),
       cardCount: bucket.reduce((n, it) => n + it.quantity, 0),

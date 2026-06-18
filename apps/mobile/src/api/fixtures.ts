@@ -11,15 +11,23 @@
 import type {
   WireAuthenticityResponse,
   WireBatchScanResponse,
+  WireCardGame,
   WireCardIdentity,
   WireCollectionItem,
   WireConsentState,
-  WireGameId,
   WirePortfolio,
   WirePregradeResponse,
   WirePriceQuote,
   WireScanResponse,
 } from "./types";
+
+// The games these fixtures span. `pokemon` and `lorcana` are curated; `one_piece` is
+// deliberately NOT — it proves the Vault auto-creates a polished section (derived color +
+// glyph) for a game no code knows about. Cards/sets are Holofy's own invention; only the
+// nominative game labels are real (fair use).
+const POKEMON: WireCardGame = { id: "pokemon", name: "Pokémon" };
+const LORCANA: WireCardGame = { id: "lorcana", name: "Lorcana" };
+const ONE_PIECE: WireCardGame = { id: "one_piece", name: "One Piece" };
 
 const PREGRADE_DISCLAIMER =
   "Pre-screen estimate, not an official grade. This is decision support to help you " +
@@ -36,7 +44,7 @@ const AS_OF = "2026-06-18T00:00:00Z";
 
 function identity(
   canonicalId: string,
-  game: WireGameId,
+  game: WireCardGame,
   name: string,
   setName: string,
   collectorNumber: string,
@@ -73,15 +81,20 @@ function price(
   };
 }
 
-const EMBERWYRM_ORIGINS = identity("origins-12", "pokemon", "Emberwyrm Sovereign", "Origins Vault", "12/120", "holo");
-const EMBERWYRM_ECHO = identity("echo-12", "pokemon", "Emberwyrm Sovereign", "Echo Reprint", "12/95", "holo");
-const TIDECALLER_ORIGINS = identity("origins-8", "pokemon", "Tidecaller Leviath", "Origins Vault", "8/120", "holo");
-const GROVEKEEPER_WILDGROWTH = identity("wild-15", "pokemon", "Grovekeeper Thornmaw", "Wildgrowth", "15/88", "holo");
+const EMBERWYRM_ORIGINS = identity("origins-12", POKEMON, "Emberwyrm Sovereign", "Origins Vault", "12/120", "holo");
+const EMBERWYRM_ECHO = identity("echo-12", POKEMON, "Emberwyrm Sovereign", "Echo Reprint", "12/95", "holo");
+const TIDECALLER_ORIGINS = identity("origins-8", POKEMON, "Tidecaller Leviath", "Origins Vault", "8/120", "holo");
+const GROVEKEEPER_WILDGROWTH = identity("wild-15", POKEMON, "Grovekeeper Thornmaw", "Wildgrowth", "15/88", "holo");
 
 // Lorcana fixtures — Holofy's own invented cards/sets in a second game, so the Vault
 // renders as a multi-game collection. Names and sets are original (no third-party IP).
-const TIDEGLASS_HERALD = identity("ink-4", "lorcana", "Tideglass Herald", "Inkwell Tides", "4/204", "holo");
-const EMBERLOOM_ARTISAN = identity("ink-77", "lorcana", "Emberloom Artisan", "Inkwell Tides", "77/204", "normal");
+const TIDEGLASS_HERALD = identity("ink-4", LORCANA, "Tideglass Herald", "Inkwell Tides", "4/204", "holo");
+const EMBERLOOM_ARTISAN = identity("ink-77", LORCANA, "Emberloom Artisan", "Inkwell Tides", "77/204", "normal");
+
+// One Piece fixtures — a third game with NO curated styling. The Vault must auto-create
+// its section (derived accent + glyph) indistinguishably in polish from the curated two.
+const SALTWIND_CORSAIR = identity("op-21", ONE_PIECE, "Saltwind Corsair", "Grand Current", "21/121", "holo");
+const DRIFTMARK_NAVIGATOR = identity("op-58", ONE_PIECE, "Driftmark Navigator", "Grand Current", "58/121", "normal");
 
 const PRICES = {
   "origins-12": price("origins-12", "757.10", "529.99", "100.00"),
@@ -90,6 +103,8 @@ const PRICES = {
   "wild-15": price("wild-15", "61.40", "58.90", "28.00"),
   "ink-4": price("ink-4", "84.00", "79.50", "42.00"),
   "ink-77": price("ink-77", "12.80", "11.40", "5.50"),
+  "op-21": price("op-21", "143.00", "131.20", "70.00"),
+  "op-58": price("op-58", "18.60", "17.10", "8.00"),
 } satisfies Record<string, WirePriceQuote>;
 
 /** Price for a canonical id we ship a quote for; null otherwise (no live comp). */
@@ -408,9 +423,10 @@ export function batchScanFixture(): WireBatchScanResponse {
   return STACK_BATCH;
 }
 
-// A starter Vault — holdings across two games, so the portfolio reads as a real (if small)
-// multi-game collection rather than an empty shell. Pokémon leads on value; Lorcana gives
-// the sectioned Vault its second game. The flow adds to this in memory.
+// A starter Vault — holdings across three games, so the portfolio reads as a real (if
+// small) multi-game collection rather than an empty shell. Pokémon leads on value; Lorcana
+// and One Piece give the sectioned Vault its second and third games — and One Piece, with
+// no curated styling, proves a game auto-creates its section. The flow adds to this in memory.
 function starterCollection(): WireCollectionItem[] {
   return [
     {
@@ -445,6 +461,22 @@ function starterCollection(): WireCollectionItem[] {
       acquired_price_eur: "9.00",
       price: PRICES["ink-77"],
     },
+    {
+      id: "fixture-saltwind",
+      identity: SALTWIND_CORSAIR,
+      condition: "near_mint",
+      quantity: 1,
+      acquired_price_eur: "120.00",
+      price: PRICES["op-21"],
+    },
+    {
+      id: "fixture-driftmark",
+      identity: DRIFTMARK_NAVIGATOR,
+      condition: "excellent",
+      quantity: 2,
+      acquired_price_eur: "14.00",
+      price: PRICES["op-58"],
+    },
   ];
 }
 
@@ -467,6 +499,8 @@ export function fixtureAddToCollection(
       GROVEKEEPER_WILDGROWTH,
       TIDEGLASS_HERALD,
       EMBERLOOM_ARTISAN,
+      SALTWIND_CORSAIR,
+      DRIFTMARK_NAVIGATOR,
     ].find((c) => c.canonical_id === canonicalId) ?? EMBERWYRM_ORIGINS;
   const item: WireCollectionItem = {
     id: `fixture-${canonicalId}-${collection.length}`,
