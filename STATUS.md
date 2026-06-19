@@ -28,6 +28,16 @@ fixtures onto live API.
 - **Remaining:** production fronts the live catalog with the nightly Postgres sync (same seam);
   real-photo OCR accuracy (vs synthetic) is device-validated later — capture quality is the ceiling.
 
+**Unit 4 — in-house grading GENUINELY BUILT & verified ✅ (real pixels → range):**
+- `app/grading/condition.py`: classical-CV corners/edges/surface reader — measures defect
+  *roughness* (edge whitening/fraying, surface scratches) from the detected card crop, maps
+  to 1–10 with honestly **modest** confidence (a v1 heuristic, improved by the data loop).
+- `InHouseGradingProvider` behind the standard `GradingProvider` seam; `GradingBackend.INHOUSE`
+  wired through config/factory/lifespan. Composes with the already-real centering.
+- Verified: clean card reads high, real edge/surface damage drops *that* axis; and an HTTP
+  e2e (`test_inhouse_pregrade_e2e`) — upload real card → `/pregrade` (inhouse) → estimated
+  range from real centering + real condition, honest framing intact. 212 backend tests.
+
 **Unit 1 — backend + mobile upload seam done & verified ✅ (camera UI next):**
 - New `CaptureStorage` seam (`app/storage/`) with `memory` + `local` backends holding real
   uploaded bytes; `mock` (synthetic-by-ref) stays the default for tests. Config-selected

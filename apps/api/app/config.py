@@ -49,9 +49,11 @@ class PricingBackend(StrEnum):
 
 
 class GradingBackend(StrEnum):
-    # Corners/edges/surface are bought first (Ximilar) then built; ``mock`` is the only
-    # backend wired today. Centering is in-house and not selected here.
+    # Corners/edges/surface. ``inhouse`` is our owned classical-CV condition reader (no per-
+    # scan vendor fee); ``mock`` is the deterministic fixture for tests. Centering is always
+    # in-house and not selected here.
     MOCK = "mock"
+    INHOUSE = "inhouse"
 
 
 class AuthenticityBackend(StrEnum):

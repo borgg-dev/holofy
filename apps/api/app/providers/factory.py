@@ -112,14 +112,21 @@ def build_pricing_provider(
             raise ValueError(f"unsupported pricing backend: {unknown}")
 
 
-def build_grading_provider(settings: Settings) -> GradingProvider:
-    """Return the configured grading provider for the bought corners/edges/surface scores.
+def build_grading_provider(
+    settings: Settings, capture_store: CaptureStore
+) -> GradingProvider:
+    """Return the configured grading provider for the corners/edges/surface scores.
 
-    Centering is not selected here — it is measured in-house by the pre-grade service.
+    Centering is not selected here — it is measured in-house by the pre-grade service. The
+    in-house grader reads the capture's bytes from the same store the recognizer uses.
     """
     match settings.grading_provider:
         case GradingBackend.MOCK:
             return MockGradingProvider()
+        case GradingBackend.INHOUSE:
+            from app.providers.grading.inhouse import InHouseGradingProvider
+
+            return InHouseGradingProvider(capture_store)
         case unknown:  # pragma: no cover - guards an unwired enum value
             raise ValueError(f"unsupported grading backend: {unknown}")
 
