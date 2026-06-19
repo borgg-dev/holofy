@@ -9,6 +9,16 @@ parts first, no Ximilar key yet. Five units (task backlog): (1) real capture→u
 adapter behind seam), (4) pre-grade on real input + Ximilar grading adapter, (5) mobile off
 fixtures onto live API.
 
+**Unit 3 — in-house identification core done & verified ✅ (vision/OCR reader next):**
+- New owned module `app/identify/`: collector-number parse/match (Spike-B's disambiguator —
+  full number pins a printing, numerator-only narrows → confirm), `CatalogIndex` seam +
+  `InMemoryCatalogIndex` (TCGdex sync drops in later), and `CardResolver` (read-quality-capped
+  scoring → ranked `RecognitionResult`, same-art reprints route to confirm).
+- `CardReader` seam (the visual stage) + `InHouseRecognitionProvider` composing
+  store → read → resolve behind the standard `RecognitionProvider` seam. Verified end-to-end
+  with a fake reader. **Remaining: the real OCR/CV `CardReader`** (on-device ML Kit / server
+  engine) + wire `RecognitionBackend.INHOUSE` into config/factory. 196 backend tests (+9).
+
 **Unit 1 — backend + mobile upload seam done & verified ✅ (camera UI next):**
 - New `CaptureStorage` seam (`app/storage/`) with `memory` + `local` backends holding real
   uploaded bytes; `mock` (synthetic-by-ref) stays the default for tests. Config-selected
