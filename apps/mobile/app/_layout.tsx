@@ -1,47 +1,44 @@
 import { useEffect } from "react";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ApiProvider } from "@/api";
+import { AuthProvider, useAuth, type AuthStatus } from "@/auth/AuthContext";
 import { ScanFlowProvider } from "@/flow/ScanFlowProvider";
 import { ThemeProvider, fontAssets, useTheme } from "@/theme";
 
-// Root layout: load the brand fonts, paint the Vault under the navigator before
-// first paint, and wrap the app in the theme + safe-area providers. The root stack
-// holds the (tabs) home shell plus the flow screens, which present over the tabs as
-// full-screen routes. Everything is headerless — screens own their own chrome (the
-// Foil Vault has no default nav bar).
+// Root layout: load the brand fonts, then mount the app under the theme + safe-area providers.
+// Two modes:
+//   • Demo (no EXPO_PUBLIC_API_URL): the fixture client, no auth — the whole flow runs offline.
+//   • Live (EXPO_PUBLIC_API_URL set): real accounts. AuthProvider owns the session bearer; the
+//     navigator redirects an unauthenticated session to /sign-in and back once signed in, and
+//     the app's API client reads the live token through `getToken`.
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(fontAssets);
 
   // Hold first paint until fonts resolve so headlines don't reflow from a fallback.
   if (!fontsLoaded && !fontError) return null;
 
-  // Fixture-backed by default so the whole scan→reveal→Vault flow runs with no server
-  // (make mobile-watch). Set EXPO_PUBLIC_API_URL to point the same screens at a live backend
-  // (the in-house recognizer + grader); EXPO_PUBLIC_DEV_TOKEN carries the dev bearer for it.
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-  const devToken = process.env.EXPO_PUBLIC_DEV_TOKEN ?? null;
-  const tree = (
-    <ScanFlowProvider>
-      <AppShell />
-    </ScanFlowProvider>
-  );
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
           {apiUrl ? (
-            <ApiProvider mode="http" baseUrl={apiUrl} devToken={devToken}>
-              {tree}
-            </ApiProvider>
+            <AuthProvider baseUrl={apiUrl}>
+              <LiveTree baseUrl={apiUrl} />
+            </AuthProvider>
           ) : (
-            <ApiProvider>{tree}</ApiProvider>
+            <ApiProvider>
+              <ScanFlowProvider>
+                <AppShell />
+              </ScanFlowProvider>
+            </ApiProvider>
           )}
         </ThemeProvider>
       </SafeAreaProvider>
@@ -49,16 +46,42 @@ export default function RootLayout() {
   );
 }
 
+// Live mode: the API client reads the live session token, and the shell gets the auth status
+// so it can redirect to/from the sign-in gate.
+function LiveTree({ baseUrl }: { baseUrl: string }) {
+  const { status, getToken } = useAuth();
+  return (
+    <ApiProvider mode="http" baseUrl={baseUrl} getToken={getToken}>
+      <ScanFlowProvider>
+        <AppShell authStatus={status} />
+      </ScanFlowProvider>
+    </ApiProvider>
+  );
+}
+
 // The themed navigator shell. Lives under ThemeProvider so the status-bar contrast and the
-// navigator's container fill track the active scheme — light text on the Vault in dark, dark
-// text on the pale ground in light — and re-paint the moment the appearance mode changes.
-function AppShell() {
+// navigator's container fill track the active scheme. When `authStatus` is provided (live
+// mode) it gates: an unauthenticated session is redirected to /sign-in, and a signed-in one
+// off it. In demo mode `authStatus` is undefined and nothing is gated.
+function AppShell({ authStatus }: { authStatus?: AuthStatus }) {
   const theme = useTheme();
+  const segments = useSegments();
+  const router = useRouter();
 
   useEffect(() => {
     // Paint the navigator container in the active bg so route transitions never flash.
     void SystemUI.setBackgroundColorAsync(theme.color.bg);
   }, [theme.color.bg]);
+
+  useEffect(() => {
+    if (!authStatus || authStatus === "loading") return;
+    const onSignIn = segments[0] === "sign-in";
+    if (authStatus === "unauthenticated" && !onSignIn) {
+      router.replace("/sign-in");
+    } else if (authStatus === "authenticated" && onSignIn) {
+      router.replace("/");
+    }
+  }, [authStatus, segments, router]);
 
   return (
     <>
@@ -71,6 +94,7 @@ function AppShell() {
         }}
       >
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="sign-in" />
         {/* Capture + payoff routes ride over the tabs. The card flows fade in like
             the tabs; the camera screens slide so the hand-off to capture reads as a
             deliberate move into a tool, not a tab switch. */}

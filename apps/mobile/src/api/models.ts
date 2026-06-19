@@ -124,6 +124,28 @@ export function gameDisplay(game: CardGame): GameDisplay {
   };
 }
 
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+/** The signed-in account the app holds onto — opaque id + login email. */
+export type AuthAccount = {
+  id: string;
+  email: string;
+};
+
+/** A successful register/login: the bearer to send, when it expires, and who it's for. */
+export type AuthSession = {
+  token: string;
+  /** Seconds until the token expires — used to pre-empt a stale-token call. */
+  expiresInSeconds: number;
+  user: AuthAccount;
+};
+
+/** What the sign-in form submits. */
+export type Credentials = {
+  email: string;
+  password: string;
+};
+
 export type CardIdentity = {
   canonicalId: string;
   /** Which game this card belongs to — the Vault groups holdings by it. */

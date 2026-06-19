@@ -7,8 +7,10 @@
 // the boundary, so no screen ever sees a raw string or re-parses.
 
 import type {
+  AuthAccount,
   Authenticity,
   AuthenticitySignal,
+  AuthSession,
   AxisProvenance,
   BatchScan,
   BatchScanItem,
@@ -26,6 +28,8 @@ import type {
   TrainingConsent,
 } from "./models";
 import type {
+  WireAuthTokenResponse,
+  WireAuthUser,
   WireAuthenticityResponse,
   WireAuthenticitySignal,
   WireBatchScanItem,
@@ -49,6 +53,19 @@ export function parseMoney(raw: string | null): number | null {
   if (raw == null) return null;
   const n = Number(raw);
   return Number.isFinite(n) ? n : null;
+}
+
+export function mapAuthUser(w: WireAuthUser): AuthAccount {
+  return { id: w.id, email: w.email };
+}
+
+export function mapAuthSession(w: WireAuthTokenResponse): AuthSession {
+  if (!w.access_token) throw new MappingError("Auth response carried no access token.");
+  return {
+    token: w.access_token,
+    expiresInSeconds: w.expires_in,
+    user: mapAuthUser(w.user),
+  };
 }
 
 export function mapIdentity(w: WireCardIdentity): CardIdentity {

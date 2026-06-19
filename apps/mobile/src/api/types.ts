@@ -319,6 +319,22 @@ export type WireCaptureUploadResponse = {
   image_count: number;
 };
 
+// Auth: password accounts + the session bearer. Mirrors apps/api/app/schemas/auth.py.
+
+/** apps/api/app/schemas/auth.py :: AuthUser. */
+export type WireAuthUser = {
+  id: string;
+  email: string;
+};
+
+/** apps/api/app/schemas/auth.py :: AuthTokenResponse (POST /auth/register|login). */
+export type WireAuthTokenResponse = {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  user: WireAuthUser;
+};
+
 /** apps/api/app/core/errors.py :: ErrorResponse envelope. */
 export type WireErrorResponse = {
   error: {

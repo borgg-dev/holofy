@@ -1,4 +1,7 @@
 export type {
+  AuthAccount,
+  AuthSession,
+  Credentials,
   Authenticity,
   AuthenticityAssessment,
   AuthenticityNotAssessed,

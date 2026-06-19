@@ -1,7 +1,8 @@
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 
-import { AppearanceToggle, FoilSurface, Screen, Text } from "@/components";
+import { AppearanceToggle, Button, FoilSurface, Screen, Text } from "@/components";
 import { ChevronRight } from "@/components/icons";
+import { useOptionalAuth } from "@/auth/AuthContext";
 import { useTheme, useThemeMode } from "@/theme";
 import { withAlpha } from "@/theme/color";
 import { settingsCopy as copy } from "./copy";
@@ -17,6 +18,9 @@ type Props = {
 // the foot. A money-and-trust surface, so it reads Vault-calm: no stock list chrome.
 export function SettingsScreen({ onPrivacy }: Props) {
   const theme = useTheme();
+  // Present only in live mode (no AuthProvider in the demo) — drives the real account header
+  // and the sign-out action.
+  const auth = useOptionalAuth();
 
   return (
     <Screen ground="vault" edges={["top"]} padded>
@@ -33,7 +37,7 @@ export function SettingsScreen({ onPrivacy }: Props) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: theme.space["10"], gap: theme.space["4"] }}
       >
-        <AccountCard />
+        <AccountCard email={auth?.user?.email ?? null} />
 
         <AppearanceSection />
 
@@ -49,6 +53,15 @@ export function SettingsScreen({ onPrivacy }: Props) {
             onPress={onPrivacy}
           />
         </View>
+
+        {auth ? (
+          <Button
+            label="Sign out"
+            tier="secondary"
+            onPress={() => void auth.signOut()}
+            style={{ marginTop: theme.space["2"] }}
+          />
+        ) : null}
 
         <Text
           variant="caption"
@@ -83,8 +96,11 @@ function AppearanceSection() {
 
 // The identity block. A foil-edged avatar disc with the collector's initial, name, and plan
 // status — the warmest surface on an otherwise calm screen.
-function AccountCard() {
+function AccountCard({ email }: { email: string | null }) {
   const theme = useTheme();
+  // The real signed-in email in live mode; the demo placeholder name otherwise.
+  const displayName = email ?? copy.accountName;
+  const initial = displayName.charAt(0).toUpperCase();
   return (
     <FoilSurface level="elevated" foilEdge padded>
       <View style={[styles.account, { gap: theme.space["4"] }]}>
@@ -98,12 +114,12 @@ function AccountCard() {
           ]}
         >
           <Text variant="titleLg" tone="accent">
-            {copy.accountName.charAt(0)}
+            {initial}
           </Text>
         </View>
         <View style={{ flex: 1, gap: theme.space["1"] }}>
-          <Text variant="titleMd" tone="primary">
-            {copy.accountName}
+          <Text variant="titleMd" tone="primary" numberOfLines={1}>
+            {displayName}
           </Text>
           <Text variant="caption" tone="tertiary">
             {copy.accountStatus}

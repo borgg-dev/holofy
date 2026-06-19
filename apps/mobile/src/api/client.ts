@@ -20,6 +20,8 @@ import {
   scanFixtureFor,
 } from "./fixtures";
 import {
+  mapAuthSession,
+  mapAuthUser,
   mapAuthenticity,
   mapBatchScan,
   mapCollectionItem,
@@ -29,16 +31,21 @@ import {
   mapScanResponse,
 } from "./mapping";
 import type {
+  AuthAccount,
+  AuthSession,
   Authenticity,
   BatchScan,
   CollectionItem,
   Condition,
+  Credentials,
   Portfolio,
   Pregrade,
   ScanResult,
   TrainingConsent,
 } from "./models";
 import type {
+  WireAuthTokenResponse,
+  WireAuthUser,
   WireAuthenticityResponse,
   WireBatchScanResponse,
   WireCaptureUploadResponse,
@@ -110,6 +117,12 @@ export type SetConsentRequest = {
 };
 
 export interface HolofyClient {
+  /** Create a password account and return the session (token + account). */
+  register(credentials: Credentials): Promise<AuthSession>;
+  /** Verify a password and return the session (token + account). */
+  login(credentials: Credentials): Promise<AuthSession>;
+  /** The account the current bearer resolves to — used to validate a stored token on launch. */
+  currentUser(): Promise<AuthAccount>;
   /**
    * Upload a card's stills and get back the reference the scan/pre-grade calls carry. The
    * first step of every real (non-fixture) capture: bytes go up once, here, and never ride
@@ -185,6 +198,27 @@ export function createHttpClient(config: HttpClientConfig): HolofyClient {
   }
 
   return {
+    async register({ email, password }) {
+      const wire = await request<WireAuthTokenResponse>("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      return mapAuthSession(wire);
+    },
+
+    async login({ email, password }) {
+      const wire = await request<WireAuthTokenResponse>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      return mapAuthSession(wire);
+    },
+
+    async currentUser() {
+      const wire = await request<WireAuthUser>("/auth/me");
+      return mapAuthUser(wire);
+    },
+
     async uploadCapture(images) {
       const form = new FormData();
       for (const image of images) {
@@ -347,7 +381,21 @@ export function createFixtureClient(config: FixtureClientConfig = {}): HolofyCli
   const wait = () => new Promise<void>((resolve) => setTimeout(resolve, latency));
   let captureSeq = 0;
 
+  const demoUser = { id: "demo-collector", email: "demo@holofy.app" };
   return {
+    async register({ email }) {
+      await wait();
+      return { token: "fixture-session", expiresInSeconds: 86_400, user: { ...demoUser, email } };
+    },
+    async login({ email }) {
+      await wait();
+      return { token: "fixture-session", expiresInSeconds: 86_400, user: { ...demoUser, email } };
+    },
+    async currentUser() {
+      await wait();
+      return demoUser;
+    },
+
     async uploadCapture(images) {
       // No bytes leave the device in the demo path — the fixture mints a reference so the
       // capture→upload→scan flow runs end to end offline, exactly as it will against the
