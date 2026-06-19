@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -20,8 +20,16 @@ import { ThemeProvider, fontAssets, useTheme } from "@/theme";
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(fontAssets);
 
-  // Hold first paint until fonts resolve so headlines don't reflow from a fallback.
-  if (!fontsLoaded && !fontError) return null;
+  // Hold first paint until fonts resolve so headlines don't reflow from a fallback — but never
+  // hang on it. If fonts haven't loaded (or errored) within a short window, render anyway with
+  // the system font rather than freezing on the splash forever (a font load that stalls must
+  // not brick the whole app).
+  const [fontTimedOut, setFontTimedOut] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setFontTimedOut(true), 2500);
+    return () => clearTimeout(t);
+  }, []);
+  if (!fontsLoaded && !fontError && !fontTimedOut) return null;
 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
