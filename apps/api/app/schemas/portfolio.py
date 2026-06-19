@@ -34,3 +34,16 @@ class PortfolioHistoryResponse(BaseModel):
 
     snapshots: list[PortfolioSnapshotView]
     currency: str = "EUR"
+
+
+class PortfolioView(BaseModel):
+    """The Vault header's view: the live total now, plus the prior snapshot for the delta.
+
+    ``latest`` is the collection valued *at request time* (so the header is never stale);
+    ``previous`` is the most recent pinned snapshot, or ``None`` on a fresh account with no
+    history yet — in which case the client shows no change figure rather than a fake one.
+    """
+
+    latest: PortfolioSnapshotView
+    previous: PortfolioSnapshotView | None
+    currency: str = "EUR"

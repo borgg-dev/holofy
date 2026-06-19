@@ -14,7 +14,7 @@ from decimal import Decimal
 from pydantic import BaseModel, Field
 
 from app.db.models.enums import CardCondition
-from app.schemas.cards import CardIdentity
+from app.schemas.cards import CardIdentity, PriceQuote
 
 
 class AddCollectionItemRequest(BaseModel):
@@ -35,11 +35,16 @@ class CollectionItemValuation(BaseModel):
     """
 
     id: str
-    card: CardIdentity
+    identity: CardIdentity
     condition: CardCondition
     quantity: int
     acquired_price_eur: Decimal | None
     acquired_on: date | None
+    # The full current quote for this holding (source, freshness, low/avg30) — what the card
+    # detail screen shows so a value is never a black box. ``None`` for a long-tail card with
+    # no liquid comp. ``unit_value_eur``/``line_value_eur`` are the flattened figures the
+    # Vault totals on (``unit_value_eur`` == ``price.value``).
+    price: PriceQuote | None
     unit_value_eur: Decimal | None
     line_value_eur: Decimal | None
     valued_at: datetime | None

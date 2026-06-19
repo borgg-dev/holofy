@@ -78,11 +78,12 @@ class CollectionService:
         line = unit * item.quantity if unit is not None else None
         return CollectionItemValuation(
             id=str(item.id),
-            card=_identity_of(item.card),
+            identity=_identity_of(item.card),
             condition=item.condition,
             quantity=item.quantity,
             acquired_price_eur=item.acquired_price_eur,
             acquired_on=item.acquired_on,
+            price=quote,
             unit_value_eur=unit,
             line_value_eur=line,
             valued_at=quote.as_of if quote is not None else None,

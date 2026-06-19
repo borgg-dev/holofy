@@ -26,6 +26,26 @@ class Variant(StrEnum):
     PROMO = "promo"
 
 
+class CardGame(BaseModel):
+    """The game/category a card belongs to — an *open* category, deliberately not an enum.
+
+    ``id`` is a stable slug recognition emits (``pokemon``, ``lorcana``, ``one_piece``);
+    ``name`` is its nominative label (``Pokémon``). The client groups the Vault on ``id`` and
+    never consults a fixed list, so adding a game later is a *data* change, not a code change.
+    Holofy launches Pokémon-only, so identity defaults this to Pokémon until the recognizer
+    resolves other games behind the same field.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str = "pokemon"
+    name: str = "Pokémon"
+
+
+# The launch game. A shared frozen instance is safe to reuse as a default — it is immutable.
+POKEMON = CardGame(id="pokemon", name="Pokémon")
+
+
 class CardIdentity(BaseModel):
     """A resolved card identity — the ``(set, collector number, variant)`` tuple plus the
     language that, together, disambiguate same-art reprints (see ADR 0002).
@@ -36,6 +56,9 @@ class CardIdentity(BaseModel):
     # The pricing key. For the TCGdex-backed catalog this is the ``<set>-<localId>`` id,
     # e.g. ``origins-12``. Providers must agree on this scheme; recognition emits it.
     canonical_id: str
+    # The game this card belongs to — the Vault groups on it. Defaults to Pokémon (the launch
+    # game); a multi-game recognizer sets it per card with no change to any call site.
+    game: CardGame = Field(default_factory=lambda: POKEMON)
     name: str
     set_name: str
     collector_number: str

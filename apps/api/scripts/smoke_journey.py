@@ -89,12 +89,15 @@ def main() -> int:
         )
 
         add = client.post("/collection", json={"canonical_id": "origins-8"}).json()
-        print(f"collection add: {add['card']['name']} @ {_eur(add['unit_value_eur'])}")
-
-        portfolio = client.get("/portfolio").json()
         print(
-            f"portfolio     : {portfolio['item_count']} item(s) · "
-            f"total {_eur(portfolio['total_value_eur'])}"
+            f"collection add: {add['identity']['name']} "
+            f"[{add['identity']['game']['name']}] @ {_eur(add['unit_value_eur'])}"
+        )
+
+        latest = client.get("/portfolio").json()["latest"]
+        print(
+            f"portfolio     : {latest['item_count']} item(s) · "
+            f"total {_eur(latest['total_value_eur'])}"
         )
 
         upload = client.post(

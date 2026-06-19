@@ -11,18 +11,23 @@ from fastapi import APIRouter, Depends, Query, status
 
 from app.api.dependencies import get_current_user, get_portfolio_service
 from app.db.models import User
-from app.schemas.portfolio import PortfolioHistoryResponse, PortfolioTotal
+from app.schemas.portfolio import (
+    PortfolioHistoryResponse,
+    PortfolioTotal,
+    PortfolioView,
+)
 from app.services.portfolio import PortfolioService
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
 
-@router.get("", response_model=PortfolioTotal)
+@router.get("", response_model=PortfolioView)
 async def get_portfolio(
     user: User = Depends(get_current_user),
     service: PortfolioService = Depends(get_portfolio_service),
-) -> PortfolioTotal:
-    return await service.total(user.id)
+) -> PortfolioView:
+    # latest (live total) + previous (last snapshot) so the Vault header can show the delta.
+    return await service.view(user.id)
 
 
 @router.post(

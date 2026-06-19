@@ -9,6 +9,7 @@ collection lists at" can never disagree.
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from app.db.models.enums import PriceBasis
@@ -18,6 +19,7 @@ from app.schemas.portfolio import (
     PortfolioHistoryResponse,
     PortfolioSnapshotView,
     PortfolioTotal,
+    PortfolioView,
 )
 from app.services.collection import CollectionService
 
@@ -39,6 +41,35 @@ class PortfolioService:
     async def total(self, user_id: uuid.UUID) -> PortfolioTotal:
         valued = await self._collection.list_valued(user_id)
         return _total_of(valued)
+
+    async def view(self, user_id: uuid.UUID) -> PortfolioView:
+        """The Vault header view: the live total now + the most recent prior snapshot.
+
+        ``latest`` is computed at request time so the header is never stale; ``previous`` is
+        the last pinned snapshot (or ``None`` on a fresh account), which the client diffs
+        against to show the value change.
+        """
+        total = await self.total(user_id)
+        latest = PortfolioSnapshotView(
+            captured_at=datetime.now(UTC),
+            total_value_eur=total.total_value_eur,
+            total_cost_basis_eur=total.total_cost_basis_eur,
+            item_count=total.item_count,
+            valuation_basis=total.valuation_basis,
+        )
+        history = await self._portfolio.history(user_id, limit=1)
+        previous = (
+            PortfolioSnapshotView(
+                captured_at=history[0].captured_at,
+                total_value_eur=history[0].total_value_eur,
+                total_cost_basis_eur=history[0].total_cost_basis_eur,
+                item_count=history[0].item_count,
+                valuation_basis=history[0].valuation_basis,
+            )
+            if history
+            else None
+        )
+        return PortfolioView(latest=latest, previous=previous)
 
     async def snapshot(self, user_id: uuid.UUID) -> PortfolioTotal:
         """Pin the current total into the value-over-time series and return it."""

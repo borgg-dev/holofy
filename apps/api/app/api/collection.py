@@ -14,7 +14,6 @@ from app.db.models import User
 from app.schemas.collection import (
     AddCollectionItemRequest,
     CollectionItemValuation,
-    CollectionResponse,
 )
 from app.services.collection import CollectionService
 
@@ -34,9 +33,12 @@ async def add_to_collection(
     return await service.add(user.id, request)
 
 
-@router.get("", response_model=CollectionResponse)
+@router.get("", response_model=list[CollectionItemValuation])
 async def list_collection(
     user: User = Depends(get_current_user),
     service: CollectionService = Depends(get_collection_service),
-) -> CollectionResponse:
-    return await service.list_valued(user.id)
+) -> list[CollectionItemValuation]:
+    # A bare array of valued holdings; the client groups and totals them (the server total
+    # still lives behind the portfolio endpoint, which the Vault header reads).
+    result = await service.list_valued(user.id)
+    return result.items
