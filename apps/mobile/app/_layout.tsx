@@ -21,17 +21,28 @@ export default function RootLayout() {
   // Hold first paint until fonts resolve so headlines don't reflow from a fallback.
   if (!fontsLoaded && !fontError) return null;
 
+  // Fixture-backed by default so the whole scan→reveal→Vault flow runs with no server
+  // (make mobile-watch). Set EXPO_PUBLIC_API_URL to point the same screens at a live backend
+  // (the in-house recognizer + grader); EXPO_PUBLIC_DEV_TOKEN carries the dev bearer for it.
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  const devToken = process.env.EXPO_PUBLIC_DEV_TOKEN ?? null;
+  const tree = (
+    <ScanFlowProvider>
+      <AppShell />
+    </ScanFlowProvider>
+  );
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          {/* Fixture-backed by default so the whole scan→reveal→Vault flow runs with no
-              server; pointing at staging is a `mode="http"` + baseUrl change here. */}
-          <ApiProvider>
-            <ScanFlowProvider>
-              <AppShell />
-            </ScanFlowProvider>
-          </ApiProvider>
+          {apiUrl ? (
+            <ApiProvider mode="http" baseUrl={apiUrl} devToken={devToken}>
+              {tree}
+            </ApiProvider>
+          ) : (
+            <ApiProvider>{tree}</ApiProvider>
+          )}
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

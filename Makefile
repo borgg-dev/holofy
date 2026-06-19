@@ -1,7 +1,7 @@
 # Holofy dev commands. Mock-first: everything here runs with no API keys.
 # Backend deps live in apps/api/.deps (see apps/api/README.md); mobile uses npm.
 
-.PHONY: help api-dev api-smoke api-test mobile-test mobile-typecheck tokens dev-check
+.PHONY: help api-dev api-smoke api-smoke-inhouse api-test mobile-test mobile-typecheck tokens dev-check
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-16s %s\n", $$1, $$2}'
@@ -12,6 +12,9 @@ api-dev: ## Boot the API on :8099 (mock-first, no keys)
 
 api-smoke: ## Boot a fresh API and drive the full user journey over HTTP, then tear down
 	cd apps/api && bash scripts/dev_smoke.sh
+
+api-smoke-inhouse: ## Same journey on Holofy's OWN models (in-house recognition + grading)
+	cd apps/api && bash scripts/dev_smoke_inhouse.sh
 
 api-test: ## Run the backend test suite
 	cd apps/api && PYTHONPATH=.deps:. .deps/bin/pytest -q

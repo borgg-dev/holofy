@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from app.config import (
     AuthenticityBackend,
+    CatalogBackend,
     GradingBackend,
     PricingBackend,
     RecognitionBackend,
@@ -28,6 +29,7 @@ from app.providers.base import (
     PricingProvider,
     RecognitionProvider,
 )
+from app.grading.capture_store import CaptureStore
 from app.providers.grading.mock import MockGradingProvider
 from app.providers.pricing.mock import MockPricingProvider
 from app.providers.pricing.tcgdex import TcgdexClient
@@ -35,10 +37,57 @@ from app.providers.pricing.tcgdex_provider import TcgdexPricingProvider
 from app.providers.recognition.mock import MockRecognitionProvider
 
 
-def build_recognition_provider(settings: Settings) -> RecognitionProvider:
+def build_catalog_index(settings: Settings) -> tuple["CatalogIndex", TcgdexClient | None]:
+    """Return the catalog the in-house recognizer resolves against, and the HTTP client it
+    owns (if any) for the caller to close on shutdown — mirroring ``build_pricing_provider``.
+    """
+    from app.identify.catalog import CatalogIndex, InMemoryCatalogIndex
+
+    match settings.catalog_provider:
+        case CatalogBackend.INMEMORY:
+            return InMemoryCatalogIndex(), None
+        case CatalogBackend.TCGDEX:
+            from app.identify.tcgdex_catalog import TcgdexCatalogIndex
+
+            client = TcgdexClient(
+                api_root=settings.tcgdex_api_root,
+                locale=settings.tcgdex_locale,
+                timeout_seconds=settings.tcgdex_timeout_seconds,
+            )
+            return TcgdexCatalogIndex(client, locale=settings.tcgdex_locale), client
+        case unknown:  # pragma: no cover - guards an unwired enum value
+            raise ValueError(f"unsupported catalog backend: {unknown}")
+
+
+def build_recognition_provider(
+    settings: Settings, capture_store: CaptureStore
+) -> tuple[RecognitionProvider, TcgdexClient | None]:
+    """Return the recognition provider and the catalog HTTP client it owns (if any).
+
+    The mock owns nothing (``None``); the in-house recognizer may own a TCGdex catalog client
+    the caller (app lifespan) closes on shutdown, exactly like the pricing client.
+    """
     match settings.recognition_provider:
         case RecognitionBackend.MOCK:
-            return MockRecognitionProvider()
+            return MockRecognitionProvider(), None
+        case RecognitionBackend.INHOUSE:
+            # Imported lazily: the OCR stack (onnxruntime) is only needed for this backend, so
+            # mock/test runs never pay its import cost. The provider reads the uploaded stills
+            # from the same capture store the pre-grade uses.
+            from app.identify.presence import HeuristicCardPresence
+            from app.identify.provider import InHouseRecognitionProvider
+            from app.identify.resolver import CardResolver
+            from app.identify.vision.ocr import RapidOcrEngine
+            from app.identify.vision.reader import VisionCardReader
+
+            catalog, catalog_client = build_catalog_index(settings)
+            provider = InHouseRecognitionProvider(
+                store=capture_store,
+                reader=VisionCardReader(RapidOcrEngine()),
+                resolver=CardResolver(catalog),
+                presence=HeuristicCardPresence(),
+            )
+            return provider, catalog_client
         case unknown:  # pragma: no cover - guards an unwired enum value
             raise ValueError(f"unsupported recognition backend: {unknown}")
 
@@ -65,14 +114,21 @@ def build_pricing_provider(
             raise ValueError(f"unsupported pricing backend: {unknown}")
 
 
-def build_grading_provider(settings: Settings) -> GradingProvider:
-    """Return the configured grading provider for the bought corners/edges/surface scores.
+def build_grading_provider(
+    settings: Settings, capture_store: CaptureStore
+) -> GradingProvider:
+    """Return the configured grading provider for the corners/edges/surface scores.
 
-    Centering is not selected here — it is measured in-house by the pre-grade service.
+    Centering is not selected here — it is measured in-house by the pre-grade service. The
+    in-house grader reads the capture's bytes from the same store the recognizer uses.
     """
     match settings.grading_provider:
         case GradingBackend.MOCK:
             return MockGradingProvider()
+        case GradingBackend.INHOUSE:
+            from app.providers.grading.inhouse import InHouseGradingProvider
+
+            return InHouseGradingProvider(capture_store)
         case unknown:  # pragma: no cover - guards an unwired enum value
             raise ValueError(f"unsupported grading backend: {unknown}")
 

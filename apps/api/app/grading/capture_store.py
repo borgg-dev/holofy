@@ -18,9 +18,12 @@ from typing import Final, Protocol
 
 import numpy as np
 
+# The canonical "this reference resolves to nothing" error lives at the storage layer, where
+# a ref is actually resolved; re-exported here so existing callers (the pre-grade endpoint)
+# keep catching ``app.grading.capture_store.CaptureNotFoundError`` unchanged.
+from app.storage.base import CaptureNotFoundError
 
-class CaptureNotFoundError(Exception):
-    """The capture reference resolved to nothing — an unknown or expired upload."""
+__all__ = ["CaptureNotFoundError", "CaptureStore", "MockCaptureStore"]
 
 
 class CaptureStore(Protocol):

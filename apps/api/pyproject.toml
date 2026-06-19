@@ -3,3 +3,6 @@ asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "ocr: runs the real RapidOCR engine (slow model load; skipped if not installed)",
+]

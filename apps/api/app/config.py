@@ -30,6 +30,17 @@ class Environment(StrEnum):
 
 class RecognitionBackend(StrEnum):
     MOCK = "mock"
+    # Our owned pipeline: card detect/crop → OCR (RapidOCR, on-device-class CPU) → collector
+    # number + name → catalog resolve. No per-scan vendor fee; the rented seam is gone.
+    INHOUSE = "inhouse"
+
+
+class CatalogBackend(StrEnum):
+    # The card catalog the in-house recognizer resolves reads against. ``inmemory`` is a
+    # handful of seed cards (dev/test); ``tcgdex`` resolves the live Pokémon catalog. The
+    # nightly Postgres sync (architecture §4) drops in behind the same CatalogIndex later.
+    INMEMORY = "inmemory"
+    TCGDEX = "tcgdex"
 
 
 class PricingBackend(StrEnum):
@@ -38,9 +49,11 @@ class PricingBackend(StrEnum):
 
 
 class GradingBackend(StrEnum):
-    # Corners/edges/surface are bought first (Ximilar) then built; ``mock`` is the only
-    # backend wired today. Centering is in-house and not selected here.
+    # Corners/edges/surface. ``inhouse`` is our owned classical-CV condition reader (no per-
+    # scan vendor fee); ``mock`` is the deterministic fixture for tests. Centering is always
+    # in-house and not selected here.
     MOCK = "mock"
+    INHOUSE = "inhouse"
 
 
 class AuthenticityBackend(StrEnum):
@@ -48,6 +61,16 @@ class AuthenticityBackend(StrEnum):
     # the only backend wired today. The catalog-existence cross-check is not selected here —
     # it is a deterministic reference-DB lookup the service owns.
     MOCK = "mock"
+
+
+class CaptureStorageBackend(StrEnum):
+    # Where uploaded capture stills live. ``mock`` synthesises captures by reference (the
+    # pre-grade tests' synthetic cards, no real bytes); ``memory`` and ``local`` keep real
+    # uploaded bytes for dev (in process / on disk). The EU-region S3/GCS client drops in
+    # behind the same CaptureStorage Protocol — residency stays an infra concern.
+    MOCK = "mock"
+    MEMORY = "memory"
+    LOCAL = "local"
 
 
 class DataLakeBackend(StrEnum):
@@ -94,6 +117,9 @@ class Settings(BaseSettings):
     cors_allow_origins: list[str] = Field(default_factory=list)
 
     recognition_provider: RecognitionBackend = RecognitionBackend.MOCK
+    # Only consulted when recognition_provider == inhouse — the catalog the recognizer
+    # resolves reads against. Defaults to the in-memory seed catalog; tcgdex resolves live.
+    catalog_provider: CatalogBackend = CatalogBackend.INMEMORY
     pricing_provider: PricingBackend = PricingBackend.MOCK
     grading_provider: GradingBackend = GradingBackend.MOCK
     authenticity_provider: AuthenticityBackend = AuthenticityBackend.MOCK
@@ -102,6 +128,17 @@ class Settings(BaseSettings):
     # in-memory mock records emissions for tests; the real EU-region lake writer drops in
     # behind the same DataLakeSink Protocol with no change at the emission sites.
     datalake_sink: DataLakeBackend = DataLakeBackend.MOCK
+
+    # Capture stills storage. Defaults to the synthetic-by-reference mock so the test suite
+    # and keyless centering run with no bytes; ``memory``/``local`` keep real uploads for
+    # dev (api-smoke uses memory). ``capture_storage_dir`` is only consulted for ``local``.
+    capture_storage: CaptureStorageBackend = CaptureStorageBackend.MOCK
+    capture_storage_dir: str = "./captures"
+    # Ingress guards on the upload endpoint: a capture is a handful of stills, not an album,
+    # and a phone still is a few MB — these cap storage COGS and reject obvious abuse before
+    # any bytes are written.
+    capture_max_images: int = 8
+    capture_max_image_bytes: int = 12 * 1024 * 1024
 
     # Auth seam: the dev-token backend mints/verifies an HMAC-signed bearer that maps to a
     # seeded user, so endpoints are genuinely user-scoped with no OAuth/Clerk yet. Real

@@ -313,6 +313,12 @@ export type WireBatchScanRequest = {
   items: WireBatchScanRequestItem[];
 };
 
+/** apps/api/app/schemas/captures.py :: CaptureUploadResponse (POST /captures). */
+export type WireCaptureUploadResponse = {
+  ref: string;
+  image_count: number;
+};
+
 /** apps/api/app/core/errors.py :: ErrorResponse envelope. */
 export type WireErrorResponse = {
   error: {

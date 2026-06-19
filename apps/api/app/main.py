@@ -21,6 +21,7 @@ from fastapi.responses import JSONResponse
 from app.api import (
     authenticity,
     batch_scan,
+    captures,
     collection,
     consent,
     health,
@@ -34,7 +35,6 @@ from app.core.errors import ErrorBody, ErrorResponse, HolofyError
 from app.core.logging import bind_request_id, configure_logging, current_request_id
 from app.datalake.factory import build_datalake_sink
 from app.db.session import create_engine, create_session_factory
-from app.grading.capture_store import MockCaptureStore
 from app.providers.factory import (
     build_authenticity_provider,
     build_grading_provider,
@@ -42,6 +42,7 @@ from app.providers.factory import (
     build_recognition_provider,
 )
 from app.ratelimit.factory import build_rate_limiter
+from app.storage.factory import build_capture_store
 
 _REQUEST_ID_HEADER = "X-Request-ID"
 
@@ -51,18 +52,25 @@ logger = logging.getLogger("holofy.api")
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
-    app.state.recognition_provider = build_recognition_provider(settings)
+    # Object storage for capture stills, built first: the in-house recognizer reads the
+    # uploaded stills from it. Selected by config (synthetic mock for tests, real bytes for
+    # dev); the EU-region client drops in behind the same Protocol.
+    app.state.capture_store = build_capture_store(settings)
+    # The in-house recognizer may own a TCGdex catalog client (pooled HTTP); keep it to close
+    # on shutdown, like the pricing client. The mock owns nothing.
+    recognition_provider, catalog_client = build_recognition_provider(
+        settings, app.state.capture_store
+    )
+    app.state.recognition_provider = recognition_provider
+    app.state.catalog_client = catalog_client
     pricing_provider, pricing_client = build_pricing_provider(settings)
     app.state.pricing_provider = pricing_provider
     app.state.pricing_client = pricing_client
-    app.state.grading_provider = build_grading_provider(settings)
+    app.state.grading_provider = build_grading_provider(settings, app.state.capture_store)
     app.state.authenticity_provider = build_authenticity_provider(settings)
     # The consented-capture training lake. Built once and held on state so a single sink (and
     # for the real backend, its one connection pool) is shared across requests, like a provider.
     app.state.datalake_sink = build_datalake_sink(settings)
-    # Object storage for capture stills is mocked for now (synthetic captures by ref); the
-    # real EU-region client drops in behind the same CaptureStore Protocol.
-    app.state.capture_store = MockCaptureStore()
     app.state.auth_provider = build_auth_provider(settings)
     app.state.rate_limiter = build_rate_limiter(settings)
 
@@ -86,6 +94,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     finally:
         if pricing_client is not None:
             await pricing_client.aclose()
+        if catalog_client is not None:
+            await catalog_client.aclose()
         # The Redis limiter holds a connection pool; the in-memory one has no aclose.
         if (closer := getattr(app.state.rate_limiter, "aclose", None)) is not None:
             await closer()
@@ -175,6 +185,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     _register_error_handlers(app)
 
     app.include_router(health.router)
+    app.include_router(captures.router)
     app.include_router(scan.router)
     app.include_router(batch_scan.router)
     app.include_router(pregrade.router)

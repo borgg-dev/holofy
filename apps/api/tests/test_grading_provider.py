@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import pytest
 
 from app.config import GradingBackend, Settings
+from app.grading.capture_store import MockCaptureStore
 from app.providers.factory import build_grading_provider
 from app.providers.grading.mock import MockGradingProvider
 from app.schemas.grading import GradingAxis
@@ -58,9 +59,17 @@ async def test_unknown_capture_defaults_to_low_confidence_case() -> None:
 
 
 def test_factory_defaults_to_mock_grading_backend() -> None:
-    assert isinstance(build_grading_provider(Settings()), MockGradingProvider)
+    assert isinstance(build_grading_provider(Settings(), MockCaptureStore()), MockGradingProvider)
 
 
 def test_factory_honours_grading_backend_enum() -> None:
     settings = Settings(grading_provider=GradingBackend.MOCK)
-    assert isinstance(build_grading_provider(settings), MockGradingProvider)
+    assert isinstance(build_grading_provider(settings, MockCaptureStore()), MockGradingProvider)
+
+
+def test_factory_builds_inhouse_grader() -> None:
+    from app.providers.grading.inhouse import InHouseGradingProvider
+
+    settings = Settings(grading_provider=GradingBackend.INHOUSE)
+    provider = build_grading_provider(settings, MockCaptureStore())
+    assert isinstance(provider, InHouseGradingProvider)

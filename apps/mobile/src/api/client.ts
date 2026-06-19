@@ -41,6 +41,7 @@ import type {
 import type {
   WireAuthenticityResponse,
   WireBatchScanResponse,
+  WireCaptureUploadResponse,
   WireCollectionItem,
   WireConsentState,
   WireErrorResponse,
@@ -48,6 +49,21 @@ import type {
   WirePregradeResponse,
   WireScanResponse,
 } from "./types";
+
+/** One still to upload — the shape React Native's FormData accepts for a file part. */
+export type CaptureImage = {
+  /** Local file URI from the camera (e.g. takePictureAsync's `uri`). */
+  uri: string;
+  name: string;
+  /** MIME type — must be one the server accepts (image/jpeg | image/png | image/webp). */
+  type: string;
+};
+
+/** The reference a successful upload returns — passed back as a scan/pre-grade ref. */
+export type CaptureUpload = {
+  ref: string;
+  imageCount: number;
+};
 
 export type ScanRequest = {
   bundleId: string;
@@ -94,6 +110,12 @@ export type SetConsentRequest = {
 };
 
 export interface HolofyClient {
+  /**
+   * Upload a card's stills and get back the reference the scan/pre-grade calls carry. The
+   * first step of every real (non-fixture) capture: bytes go up once, here, and never ride
+   * along with the later recognition/grading requests (data minimization, charter §3.5).
+   */
+  uploadCapture(images: CaptureImage[]): Promise<CaptureUpload>;
   scan(req: ScanRequest): Promise<ScanResult>;
   /**
    * Stack mode: a pile of captures in, deduped per-card results out. ID + value only —
@@ -132,12 +154,15 @@ export function createHttpClient(config: HttpClientConfig): HolofyClient {
   const base = config.baseUrl.replace(/\/$/, "");
 
   async function request<T>(path: string, init?: RequestInit): Promise<T> {
+    // A multipart upload sets its own Content-Type (with the boundary); forcing JSON here
+    // would corrupt it, so the header is only defaulted for JSON bodies.
+    const isMultipart = init?.body instanceof FormData;
     let res: Response;
     try {
       res = await fetchImpl(`${base}${path}`, {
         ...init,
         headers: {
-          "Content-Type": "application/json",
+          ...(isMultipart ? {} : { "Content-Type": "application/json" }),
           ...authHeader(config.getToken),
           ...init?.headers,
         },
@@ -160,6 +185,20 @@ export function createHttpClient(config: HttpClientConfig): HolofyClient {
   }
 
   return {
+    async uploadCapture(images) {
+      const form = new FormData();
+      for (const image of images) {
+        // RN's FormData takes a `{ uri, name, type }` file part, which the DOM lib types as
+        // Blob; the cast is the standard React Native idiom for a local-file upload.
+        form.append("files", { uri: image.uri, name: image.name, type: image.type } as unknown as Blob);
+      }
+      const wire = await request<WireCaptureUploadResponse>("/captures", {
+        method: "POST",
+        body: form,
+      });
+      return { ref: wire.ref, imageCount: wire.image_count };
+    },
+
     async scan({ bundleId, imageCount = 1, trainingConsent = false }) {
       const wire = await request<WireScanResponse>("/scan", {
         method: "POST",
@@ -255,6 +294,8 @@ const KNOWN_CODES: ReadonlySet<string> = new Set<ApiErrorCode>([
   "upstream_unavailable",
   "validation_error",
   "internal_error",
+  "capture_rejected",
+  "capture_upload_unavailable",
 ]);
 
 async function toApiError(res: Response, requestId: string | null): Promise<ApiError> {
@@ -296,11 +337,25 @@ export type FixtureClientConfig = {
   latencyMs?: number;
 };
 
+// Demo references the fixture cycles through, so a sequence of captures shows both scan
+// outcomes (a confident resolve, then an ambiguous confirm) — the variety the live recognizer
+// produces from real cards. scanFixtureFor maps these to the matching fixtures.
+const _DEMO_CAPTURE_REFS = ["mock-high-confidence", "mock-needs-confirmation"] as const;
+
 export function createFixtureClient(config: FixtureClientConfig = {}): HolofyClient {
   const latency = config.latencyMs ?? 450;
   const wait = () => new Promise<void>((resolve) => setTimeout(resolve, latency));
+  let captureSeq = 0;
 
   return {
+    async uploadCapture(images) {
+      // No bytes leave the device in the demo path — the fixture mints a reference so the
+      // capture→upload→scan flow runs end to end offline, exactly as it will against the
+      // server, cycling the demo refs so both scan outcomes are reachable.
+      await wait();
+      const ref = _DEMO_CAPTURE_REFS[captureSeq++ % _DEMO_CAPTURE_REFS.length]!;
+      return { ref, imageCount: Math.max(1, images.length) };
+    },
     async scan({ bundleId, trainingConsent = false }) {
       await wait();
       if (trainingConsent) fixtureNoteConsentedScan();

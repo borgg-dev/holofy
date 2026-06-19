@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.base import AuthProvider
 from app.authenticity.reference_catalog import ReferenceCatalogExistenceChecker
 from app.config import Settings
-from app.core.errors import NotAuthenticatedError
+from app.core.errors import CaptureUploadUnavailableError, NotAuthenticatedError
 from app.datalake.base import DataLakeSink
 from app.db.models import User
 from app.db.repositories import (
@@ -40,6 +40,7 @@ from app.services.collection import CollectionService
 from app.services.portfolio import PortfolioService
 from app.services.pregrade import PregradeService
 from app.services.scan import ScanService
+from app.storage.base import CaptureStorage
 
 # The single daily scan budget both ``/scan`` and ``/scan/batch`` charge against, so a batch
 # can't be used to sidestep the per-user free-tier limit (master plan §4).
@@ -75,6 +76,22 @@ def get_authenticity_provider(request: Request) -> AuthenticityProvider:
 
 def get_capture_store(request: Request) -> CaptureStore:
     return request.app.state.capture_store
+
+
+def get_capture_storage(request: Request) -> CaptureStorage:
+    """The capture store, but only when it can accept uploads.
+
+    The synthetic mock satisfies the read-only ``CaptureStore`` (it conjures captures by
+    reference) but has no ``save`` — uploading against it is meaningless. The structural
+    check turns that misconfiguration into a clear 503 at the upload edge rather than an
+    ``AttributeError`` deeper in.
+    """
+    store = request.app.state.capture_store
+    if not isinstance(store, CaptureStorage):
+        raise CaptureUploadUnavailableError(
+            "Capture upload is unavailable with the current storage backend."
+        )
+    return store
 
 
 def get_datalake_sink(request: Request) -> DataLakeSink:

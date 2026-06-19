@@ -1,6 +1,85 @@
 # Holofy — Live Status
 
-**Updated:** 2026-06-18 · **Phase:** MOCK-FIRST BUILD FINISHED (Phases 0–5.1) · **Launch anchor:** before 2026-09-16
+**Updated:** 2026-06-19 · **Phase:** GOING REAL (Pokémon-only) — all 5 units built; device validation pending · **Launch anchor:** before 2026-09-16
+
+## Pokémon-only "make it real" build (started 2026-06-19)
+Focus narrowed to **Pokémon only** (defer multi-category; keep architecture scalable). Dev
+parts first, no Ximilar key yet. Five units (task backlog): (1) real capture→upload→storage,
+(2) "is this a Pokémon card?" guard, (3) card identification (keyless Spike-B path + Ximilar
+adapter behind seam), (4) pre-grade on real input + Ximilar grading adapter, (5) mobile off
+fixtures onto live API.
+
+**Unit 3 — in-house identification GENUINELY BUILT & verified ✅ (real pixels → identity):**
+- Owned module `app/identify/`: collector-number parse/match (Spike-B's disambiguator —
+  full number pins a printing, numerator-only narrows → confirm), `CatalogIndex` seam +
+  `InMemoryCatalogIndex`, `CardResolver` (read-quality-capped scoring → ranked result).
+- **Real vision stage** `app/identify/vision/`: numpy card detect/crop (`detect.py`) + a
+  genuine OCR engine (`ocr.py`, RapidOCR / ONNX — pure-pip, CPU, no system Tesseract, no
+  per-scan vendor fee) + `VisionCardReader` parsing number/name from located tokens.
+- `RecognitionBackend.INHOUSE` wired into config + factory + lifespan; `InHouseRecognitionProvider`
+  composes store → detect → OCR → resolve behind the standard seam.
+- **Proven end-to-end over HTTP** (`test_inhouse_scan_e2e`): upload a real card PNG → `/scan`
+  (inhouse) → OCR reads the pixels → resolves `origins-8` "Tidecaller Leviath" → priced. No
+  fixtures, no network, no Ximilar. 201 backend tests (+14); real-OCR tests marked `ocr`.
+- **Real TCGdex catalog** `app/identify/tcgdex_catalog.py`: name search → numerator pre-filter
+  → per-card detail → `CatalogCard` (set, total, variant). Selectable via `HOLOFY_CATALOG_PROVIDER`
+  (`inmemory` default | `tcgdex`); the recognizer factory returns its pooled client for the
+  lifespan to close, like pricing. Hermetic tests via `httpx.MockTransport`. 206 backend tests.
+- **Remaining:** production fronts the live catalog with the nightly Postgres sync (same seam);
+  real-photo OCR accuracy (vs synthetic) is device-validated later — capture quality is the ceiling.
+
+**Live owned-models journey ✅** — `make api-smoke-inhouse` boots the API on the in-house
+recognizer + grader and drives the whole journey over HTTP on real uploaded card images:
+presence guard rejects a non-card (422), a clean card resolves + prices from real pixels, an
+ambiguous "12" reprint routes to confirm (€757 vs €24), and a capture pre-grades to an honest
+range (centering/corners/edges/surface measured). The fast mock `api-smoke` is unchanged.
+
+**Unit 2 — Pokémon-card presence guard done & verified ✅:**
+- `app/identify/presence.py`: `CardPresenceProvider` seam + `HeuristicCardPresence` (v1 from
+  card-detection quality). Rejects a hand / table / random object / undecodable frame before
+  the recognizer spends an OCR pass; the trained Pokémon/multi-game classifier drops in behind
+  the same `assess`. Wired into `InHouseRecognitionProvider` (guard → skip OCR when absent).
+  Verified: framed card accepted, non-card rejected, OCR skipped when absent. 217 backend tests.
+
+**Unit 4 — in-house grading GENUINELY BUILT & verified ✅ (real pixels → range):**
+- `app/grading/condition.py`: classical-CV corners/edges/surface reader — measures defect
+  *roughness* (edge whitening/fraying, surface scratches) from the detected card crop, maps
+  to 1–10 with honestly **modest** confidence (a v1 heuristic, improved by the data loop).
+- `InHouseGradingProvider` behind the standard `GradingProvider` seam; `GradingBackend.INHOUSE`
+  wired through config/factory/lifespan. Composes with the already-real centering.
+- Verified: clean card reads high, real edge/surface damage drops *that* axis; and an HTTP
+  e2e (`test_inhouse_pregrade_e2e`) — upload real card → `/pregrade` (inhouse) → estimated
+  range from real centering + real condition, honest framing intact. 212 backend tests.
+
+**Unit 5 — mobile points at the live API ✅:** the root layout uses the HTTP client when
+`EXPO_PUBLIC_API_URL` is set (`EXPO_PUBLIC_DEV_TOKEN` for the bearer), else the fixture client
+(demo default). Same screens, real backend — no screen changes. tsc 0, 160 mobile tests.
+
+**Unit 1 — camera capture wired ✅ (device-runtime validation pending):**
+- `useCardCapture` hook (expo-camera `CameraView` + permissions + `takePictureAsync`) with a
+  web/demo fallback to the stand-in preview + a marker capture. `CameraPreview` renders the
+  live camera when permitted, the placeholder otherwise. Scan flow is now one genuine path:
+  **capture → `uploadCapture` → `runScan(ref)`** on device (real camera + server) and in the
+  demo (fixture mints + cycles refs so both outcomes still show). `tsc` 0, 160 mobile tests,
+  and the **web export builds** (so `make mobile-watch` is safe). Native camera runtime is the
+  one piece only a device/simulator can validate.
+
+**Unit 1 — backend + mobile upload seam done & verified ✅:**
+- New `CaptureStorage` seam (`app/storage/`) with `memory` + `local` backends holding real
+  uploaded bytes; `mock` (synthetic-by-ref) stays the default for tests. Config-selected
+  (`HOLOFY_CAPTURE_STORAGE`); EU S3/GCS drops in behind the same Protocol.
+- `POST /captures` upload endpoint (auth + ingress guards) → returns the `ref` that `/scan`
+  and `/pregrade` carry. 187 tests green (+12).
+- `make api-smoke` now uploads a real still and runs pre-grade/authenticity against the
+  stored bytes (`HOLOFY_CAPTURE_STORAGE=memory`). Pinned missing deps (python-multipart,
+  fakeredis[lua], async-timeout). Toolchain note: backend needs Python ≥3.11.
+- Mobile API client: `uploadCapture()` (multipart) on `HolofyClient` — HTTP + fixture
+  impls, typed `capture_rejected`/`capture_upload_unavailable` errors. 159 mobile tests
+  green, `tsc` 0. Toolchain note: mobile test/typecheck need Node ≥22 (`--experimental-strip-types`).
+- **Remaining for Unit 1 (own sub-slice, needs device verification):** replace the
+  `CameraPreview` placeholder with expo-camera `CameraView`, capture stills on the locked
+  shutter, call `uploadCapture`, pass the returned ref into `runScan`. Must keep
+  `make mobile-watch` (web/fixtures, no real camera) working — graceful fallback required.
 
 ## 🏁 The autonomous mock-first product is FINISHED
 All features built + audited; backend runs live (`make api-smoke`, 175 tests); mobile builds reproducibly (android+web, `make mobile-watch`, 135 tests, tsc 0); productionization scaffold authored + CI-verified. What remains to go **real/launchable** is founder-gated — see **BLOCKERS.md** (Ximilar/pricing keys, auth+billing choices, EU cloud + capture storage, Apple/Google accounts, and 2 legal gates). Phase 5 retro: `docs/PHASE_5_RETRO.md`.

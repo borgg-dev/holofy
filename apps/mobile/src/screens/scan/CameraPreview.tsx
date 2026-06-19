@@ -1,20 +1,31 @@
+import { type RefObject } from "react";
 import { StyleSheet, View } from "react-native";
+
+import { CameraView } from "expo-camera";
 
 import { useTheme } from "@/theme";
 
-// Placeholder for the live camera feed. P1.4 swaps this for expo-camera's
-// <CameraView>; until then it stands in a dim photographed surface with a card,
-// so the frame, lock, and chips can be composed and reviewed against a realistic
-// ground rather than flat black. Nothing below depends on it being mock.
-//
-// These two tones are mock *photo content* (a dark table under the card), not
-// design-system surfaces — they intentionally aren't tokens and get deleted with
-// this file when the real camera lands.
+// The live capture ground. On a real device with camera permission it's expo-camera's
+// <CameraView>; otherwise (web/demo, or before permission) it renders a stand-in dim surface
+// with a card so the frame, lock, and chips still compose against a realistic ground rather
+// than flat black. The two stand-in tones are mock *photo content* (a dark table), not design
+// tokens — they intentionally aren't tokens.
 const MOCK_TABLE_DARK = "#07060c";
 const MOCK_TABLE_LIT = "#161422";
 
-export function CameraPreview() {
+type Props = {
+  /** When true, render the real camera feed; the ref drives takePictureAsync. */
+  live?: boolean;
+  cameraRef?: RefObject<CameraView>;
+};
+
+export function CameraPreview({ live = false, cameraRef }: Props) {
   const theme = useTheme();
+
+  if (live) {
+    return <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />;
+  }
+
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <View style={[StyleSheet.absoluteFill, { backgroundColor: MOCK_TABLE_DARK }]} />

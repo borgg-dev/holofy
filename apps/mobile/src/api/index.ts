@@ -44,6 +44,8 @@ export {
   type AddToCollectionRequest,
   type AuthenticityRequest,
   type BatchScanRequest,
+  type CaptureImage,
+  type CaptureUpload,
   type HolofyClient,
   type PregradeRequest,
   type ScanRequest,
