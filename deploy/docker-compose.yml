@@ -1,0 +1,86 @@
+# Holofy testnet — the full stack on a single box (one Linode is plenty for a closed test).
+#
+#   API (real providers) + Postgres + Redis + Caddy (automatic HTTPS via Let's Encrypt).
+#
+# Caddy terminates TLS for your domain and reverse-proxies the API; it also serves the static
+# Privacy Policy and Terms pages. Card images persist to a local-disk volume. Fill in deploy/.env
+# (copy deploy/.env.example) and run deploy/deploy.sh. See deploy/README.md for the full walkthrough.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: holofy
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      POSTGRES_DB: holofy
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U holofy -d holofy"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ../apps/api
+    restart: unless-stopped
+    environment:
+      HOLOFY_ENVIRONMENT: production
+      # Signs the real session tokens a login issues. MUST be a strong random value (the app
+      # refuses to boot in production with the insecure default). Set it in deploy/.env.
+      HOLOFY_AUTH_DEV_SECRET: ${HOLOFY_AUTH_SECRET:?set HOLOFY_AUTH_SECRET in deploy/.env}
+      HOLOFY_DATABASE_URL: postgresql+asyncpg://holofy:${POSTGRES_PASSWORD}@db:5432/holofy
+      HOLOFY_RATE_LIMIT_PROVIDER: redis
+      HOLOFY_REDIS_URL: redis://redis:6379/0
+      HOLOFY_DATA_REGION: eu-central-1
+      # Real providers are the defaults (in-house OCR + TCGdex); pinned here for clarity.
+      HOLOFY_RECOGNITION_PROVIDER: inhouse
+      HOLOFY_CATALOG_PROVIDER: tcgdex
+      HOLOFY_PRICING_PROVIDER: tcgdex
+      HOLOFY_GRADING_PROVIDER: inhouse
+      HOLOFY_AUTHENTICITY_PROVIDER: inhouse
+      # Card images persist to disk on the mounted volume below (durable across redeploys).
+      HOLOFY_CAPTURE_STORAGE: local
+      HOLOFY_CAPTURE_STORAGE_DIR: /data/captures
+      # CORS only matters if you open it in a browser (Expo web); the native app sends no Origin.
+      HOLOFY_CORS_ALLOW_ORIGINS: '["https://${HOLOFY_DOMAIN}"]'
+      HOLOFY_LOG_JSON: "true"
+    volumes:
+      - captures:/data/captures
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      HOLOFY_DOMAIN: ${HOLOFY_DOMAIN:?set HOLOFY_DOMAIN in deploy/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./legal:/srv/legal:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  captures:
+  caddy_data:
+  caddy_config:

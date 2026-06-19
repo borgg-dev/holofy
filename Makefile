@@ -38,6 +38,10 @@ mobile-web: ## Export a runnable web build to apps/mobile/dist-web (open dist-we
 mobile-watch: ## WATCH THE APP in your browser with fake data (Expo web dev server)
 	cd apps/mobile && npx expo start --web
 
+mobile-watch-live: ## Run the app against a LIVE backend (real auth/scan). Pass HOLOFY_API_URL=https://...
+	@test -n "$(HOLOFY_API_URL)" || (echo "Set HOLOFY_API_URL, e.g. make mobile-watch-live HOLOFY_API_URL=https://api.yourdomain.com" && exit 1)
+	cd apps/mobile && EXPO_PUBLIC_API_URL="$(HOLOFY_API_URL)" npx expo start
+
 mobile-render-check: ## Headless screenshot of the web build (needs a browser w/ system libs)
 	cd apps/mobile && npx playwright install chromium && npx expo export --platform web --output-dir dist-web && node scripts/render_check.mjs dist-web
 

@@ -5,17 +5,16 @@ export const settingsCopy = {
   overline: "SETTINGS",
   title: "Account",
 
-  // The account block stands in for the real auth identity (Phase 1). Honest placeholder
-  // framing — never a fake email or a "John Doe", which would read as unfinished.
+  // Shown only in the demo (no signed-in account). In live mode the real email replaces it.
   accountName: "Collector",
-  accountStatus: "Free plan · sign-in arrives in the next build",
+  accountStatus: "Free during the beta",
 
   appearanceOverline: "APPEARANCE",
   appearanceHint: "System follows your device. Light and Dark override it.",
 
   planRowLabel: "Plan",
-  planRowValue: "Collector (Free)",
-  planRowHint: "Upgrade to Collector+ for unlimited scans",
+  planRowValue: "Free (beta)",
+  planRowHint: "Everything's free while Holofy is in testing.",
 
   privacyRowLabel: "Privacy & training",
   privacyRowValue: "Manage what improves Holofy",

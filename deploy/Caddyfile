@@ -1,0 +1,24 @@
+# Automatic HTTPS for your domain (Caddy fetches + renews a Let's Encrypt cert on its own).
+# Serves the Privacy Policy and Terms as static pages, and reverse-proxies everything else to
+# the API. The mobile app talks to https://YOUR_DOMAIN/… — auth, scan, collection, etc.
+
+{$HOLOFY_DOMAIN} {
+	encode gzip
+
+	# Static legal pages (Google Play needs a Privacy Policy URL; both are plain HTML).
+	handle /privacy {
+		rewrite * /privacy.html
+		root * /srv/legal
+		file_server
+	}
+	handle /terms {
+		rewrite * /terms.html
+		root * /srv/legal
+		file_server
+	}
+
+	# Everything else is the API.
+	handle {
+		reverse_proxy api:8000
+	}
+}
