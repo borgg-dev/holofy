@@ -51,7 +51,16 @@ range (centering/corners/edges/surface measured). The fast mock `api-smoke` is u
   e2e (`test_inhouse_pregrade_e2e`) — upload real card → `/pregrade` (inhouse) → estimated
   range from real centering + real condition, honest framing intact. 212 backend tests.
 
-**Unit 1 — backend + mobile upload seam done & verified ✅ (camera UI next):**
+**Unit 1 — camera capture wired ✅ (device-runtime validation pending):**
+- `useCardCapture` hook (expo-camera `CameraView` + permissions + `takePictureAsync`) with a
+  web/demo fallback to the stand-in preview + a marker capture. `CameraPreview` renders the
+  live camera when permitted, the placeholder otherwise. Scan flow is now one genuine path:
+  **capture → `uploadCapture` → `runScan(ref)`** on device (real camera + server) and in the
+  demo (fixture mints + cycles refs so both outcomes still show). `tsc` 0, 160 mobile tests,
+  and the **web export builds** (so `make mobile-watch` is safe). Native camera runtime is the
+  one piece only a device/simulator can validate.
+
+**Unit 1 — backend + mobile upload seam done & verified ✅:**
 - New `CaptureStorage` seam (`app/storage/`) with `memory` + `local` backends holding real
   uploaded bytes; `mock` (synthetic-by-ref) stays the default for tests. Config-selected
   (`HOLOFY_CAPTURE_STORAGE`); EU S3/GCS drops in behind the same Protocol.

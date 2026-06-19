@@ -337,19 +337,24 @@ export type FixtureClientConfig = {
   latencyMs?: number;
 };
 
+// Demo references the fixture cycles through, so a sequence of captures shows both scan
+// outcomes (a confident resolve, then an ambiguous confirm) — the variety the live recognizer
+// produces from real cards. scanFixtureFor maps these to the matching fixtures.
+const _DEMO_CAPTURE_REFS = ["mock-high-confidence", "mock-needs-confirmation"] as const;
+
 export function createFixtureClient(config: FixtureClientConfig = {}): HolofyClient {
   const latency = config.latencyMs ?? 450;
   const wait = () => new Promise<void>((resolve) => setTimeout(resolve, latency));
+  let captureSeq = 0;
 
   return {
     async uploadCapture(images) {
-      // No bytes leave the device in the demo path — the fixture just mints a ref so the
-      // capture→scan flow runs end to end offline, exactly as it will against the server.
+      // No bytes leave the device in the demo path — the fixture mints a reference so the
+      // capture→upload→scan flow runs end to end offline, exactly as it will against the
+      // server, cycling the demo refs so both scan outcomes are reachable.
       await wait();
-      return {
-        ref: `fixture-capture-${Math.random().toString(36).slice(2, 10)}`,
-        imageCount: Math.max(1, images.length),
-      };
+      const ref = _DEMO_CAPTURE_REFS[captureSeq++ % _DEMO_CAPTURE_REFS.length]!;
+      return { ref, imageCount: Math.max(1, images.length) };
     },
     async scan({ bundleId, trainingConsent = false }) {
       await wait();

@@ -62,6 +62,18 @@ describe("uploadCapture — fixture client", () => {
       { uri: "file:///front.jpg", name: "front.jpg", type: "image/jpeg" },
     ]);
     assert.equal(result.imageCount, 1);
-    assert.ok(result.ref.startsWith("fixture-capture-"));
+    assert.ok(result.ref.length > 0);
+  });
+
+  it("cycles demo refs so consecutive captures show both scan outcomes", async () => {
+    const client = createFixtureClient({ latencyMs: 0 });
+    const img = [{ uri: "file:///x.jpg", name: "x.jpg", type: "image/jpeg" }];
+
+    const first = await client.uploadCapture(img);
+    const second = await client.uploadCapture(img);
+
+    // First resolves, second routes to a confirm — the variety the demo needs.
+    assert.equal((await client.scan({ bundleId: first.ref })).outcome, "resolved");
+    assert.equal((await client.scan({ bundleId: second.ref })).outcome, "needs_confirmation");
   });
 });

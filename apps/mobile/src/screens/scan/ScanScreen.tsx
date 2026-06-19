@@ -17,13 +17,17 @@ import {
 import { ChevronLeft, FlashOff } from "@/components/icons";
 import { useReduceMotion, useTheme } from "@/theme";
 import { withAlpha } from "@/theme/color";
+import type { CaptureImage } from "@/api";
+
 import { CameraPreview } from "./CameraPreview";
 import { LOCK_ANNOUNCE, SHUTTER_LOCKED, SHUTTER_REST, chipFor, refuseMessage } from "./copy";
+import { useCardCapture } from "./useCardCapture";
 import { useMockCaptureQuality, type QualitySignals } from "./useMockCaptureQuality";
 
 type Props = {
   onBack?: () => void;
-  onCaptured?: () => void;
+  /** Receives the captured still to upload + scan. */
+  onCaptured?: (image: CaptureImage) => void | Promise<void>;
   /** Selecting Stack mode leaves the single frame for the rapid/stack scanner. */
   onStackMode?: () => void;
 };
@@ -49,6 +53,12 @@ export function ScanScreen({ onBack, onCaptured, onStackMode }: Props) {
     [onStackMode]
   );
   const { signals, locked, firstFailing } = useMockCaptureQuality();
+  const { cameraRef, permission, requestPermission, capture, live } = useCardCapture();
+
+  // Ask once on mount; on web/denied the preview falls back to the stand-in ground.
+  useEffect(() => {
+    if (permission && !permission.granted && permission.canAskAgain) requestPermission();
+  }, [permission, requestPermission]);
 
   const [toast, setToast] = useState<string | null>(null);
   const [refuseSignal, setRefuseSignal] = useState(0);
@@ -72,9 +82,10 @@ export function ScanScreen({ onBack, onCaptured, onStackMode }: Props) {
     []
   );
 
-  const handleShutter = useCallback(() => {
+  const handleShutter = useCallback(async () => {
     if (locked) {
-      onCaptured?.();
+      const image = await capture();
+      await onCaptured?.(image);
       return;
     }
     // Refuse-to-grade: shake the shutter, surface the specific coaching line.
@@ -82,11 +93,11 @@ export function ScanScreen({ onBack, onCaptured, onStackMode }: Props) {
     setToast(refuseMessage(firstFailing));
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2800);
-  }, [locked, firstFailing, onCaptured]);
+  }, [locked, firstFailing, onCaptured, capture]);
 
   return (
     <Screen ground="flat" edges={[]} padded={false}>
-      <CameraPreview />
+      <CameraPreview live={live} cameraRef={cameraRef} />
       {/* Edge vignette so attention falls to the frame. */}
       <View
         pointerEvents="none"
