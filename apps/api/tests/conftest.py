@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from app.auth.dev_token import mint_dev_token
 from app.config import (
+    AuthBackend,
     AuthenticityBackend,
     CaptureStorageBackend,
     CatalogBackend,
@@ -71,6 +72,9 @@ def settings() -> Settings:
         capture_storage=CaptureStorageBackend.MOCK,
         datalake_sink=DataLakeBackend.MOCK,
         rate_limit_provider=RateLimitBackend.MEMORY,
+        # The harness mints dev tokens (mint_dev_token); pin that bearer backend explicitly,
+        # since the production default is now the password-issued session token.
+        auth_provider=AuthBackend.DEV_TOKEN,
         database_url=_TEST_DATABASE_URL,
         auth_dev_secret=_DEV_SECRET,
         log_json=False,

@@ -15,17 +15,28 @@ class UserRepository:
         self._session = session
 
     async def create(
-        self, *, auth_provider: str | None = None, auth_subject: str | None = None
+        self,
+        *,
+        auth_provider: str | None = None,
+        auth_subject: str | None = None,
+        email: str | None = None,
+        password_hash: str | None = None,
     ) -> User:
-        """Provision a user, optionally linked to an external identity.
+        """Provision a user, optionally linked to an external identity or a password account.
 
         The auth pair is set together (the table's uniqueness guard requires both or
-        neither); a keyless call still yields a usable anonymous account.
+        neither); a keyless call still yields a usable anonymous account. ``email`` /
+        ``password_hash`` are set for a registered password account and left null otherwise.
         """
-        user = User(auth_provider=auth_provider, auth_subject=auth_subject)
+        user = User(
+            auth_provider=auth_provider,
+            auth_subject=auth_subject,
+            email=email,
+            password_hash=password_hash,
+        )
         self._session.add(user)
-        # A racing provision of the same identity hits the (provider, subject) unique guard;
-        # surface it as a typed conflict rather than a 500.
+        # A racing provision of the same identity (or email) hits the unique guards; surface it
+        # as a typed conflict rather than a 500.
         await flush_or_conflict(self._session)
         return user
 
@@ -36,6 +47,11 @@ class UserRepository:
         stmt = select(User).where(
             User.auth_provider == provider, User.auth_subject == subject
         )
+        return (await self._session.execute(stmt)).scalar_one_or_none()
+
+    async def get_by_email(self, email: str) -> User | None:
+        """Find a password account by its (already-normalized) email login handle."""
+        stmt = select(User).where(User.email == email)
         return (await self._session.execute(stmt)).scalar_one_or_none()
 
     async def grant_training_consent(

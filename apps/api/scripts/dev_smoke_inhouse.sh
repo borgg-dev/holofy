@@ -21,6 +21,8 @@ export HOLOFY_AUTHENTICITY_PROVIDER=inhouse
 # mock pricer that knows their prices (production defaults are the live TCGdex catalog + pricer).
 export HOLOFY_CATALOG_PROVIDER=inmemory
 export HOLOFY_PRICING_PROVIDER=mock
+# The smoke mints dev tokens; pin that bearer (production default is the session token).
+export HOLOFY_AUTH_PROVIDER=dev_token
 
 rm -f "$DB"
 "$PY" -m alembic upgrade head >/dev/null

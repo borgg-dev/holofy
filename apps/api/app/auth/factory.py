@@ -9,10 +9,15 @@ from __future__ import annotations
 
 from app.auth.base import AuthProvider
 from app.auth.dev_token import DevTokenAuthProvider
+from app.auth.session_token import SessionTokenAuthProvider
 from app.config import AuthBackend, Settings
 
 
 def build_auth_provider(settings: Settings) -> AuthProvider:
     match settings.auth_provider:
+        case AuthBackend.SESSION:
+            return SessionTokenAuthProvider(secret=settings.auth_dev_secret)
         case AuthBackend.DEV_TOKEN:
             return DevTokenAuthProvider(secret=settings.auth_dev_secret)
+        case unknown:  # pragma: no cover - guards an unwired enum value
+            raise ValueError(f"unsupported auth backend: {unknown}")

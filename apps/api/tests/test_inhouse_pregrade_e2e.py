@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw
 
-from app.config import CaptureStorageBackend, GradingBackend, PricingBackend, Settings
+from app.config import AuthBackend, CaptureStorageBackend, GradingBackend, PricingBackend, Settings
 from app.db.base import Base
 from app.main import create_app
 from tests.conftest import auth_header
@@ -34,6 +34,7 @@ def _bordered_card() -> bytes:
 @pytest.fixture
 def grading_client():
     settings = Settings(
+        auth_provider=AuthBackend.DEV_TOKEN,
         grading_provider=GradingBackend.INHOUSE,
         pricing_provider=PricingBackend.MOCK,
         capture_storage=CaptureStorageBackend.MEMORY,

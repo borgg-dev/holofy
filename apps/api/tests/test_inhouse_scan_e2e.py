@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw, ImageFont
 
 from app.config import (
+    AuthBackend,
     CaptureStorageBackend,
     CatalogBackend,
     PricingBackend,
@@ -48,6 +49,7 @@ def _rendered_card(name: str, number: str) -> bytes:
 def inhouse_client():
     pytest.importorskip("rapidocr_onnxruntime")
     settings = Settings(
+        auth_provider=AuthBackend.DEV_TOKEN,
         recognition_provider=RecognitionBackend.INHOUSE,
         # Resolve the rendered seed cards offline (the production default is live TCGdex).
         catalog_provider=CatalogBackend.INMEMORY,

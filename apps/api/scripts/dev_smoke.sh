@@ -22,6 +22,8 @@ export HOLOFY_RECOGNITION_PROVIDER=mock
 export HOLOFY_PRICING_PROVIDER=mock
 export HOLOFY_GRADING_PROVIDER=mock
 export HOLOFY_AUTHENTICITY_PROVIDER=mock
+# The smoke mints dev tokens; pin that bearer (production default is the session token).
+export HOLOFY_AUTH_PROVIDER=dev_token
 
 rm -f "$DB"
 "$PY" -m alembic upgrade head >/dev/null

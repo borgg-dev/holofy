@@ -55,6 +55,12 @@ class User(TimestampMixin, Base):
     auth_provider: Mapped[str | None] = mapped_column(String(32))
     auth_subject: Mapped[str | None] = mapped_column(String(255))
 
+    # Password-account credentials. Null for dev/federated users (which carry no password);
+    # set together for a registered account. ``email`` is the login handle (unique, lowercased
+    # at the boundary); ``password_hash`` is a self-describing scrypt digest, never plaintext.
+    email: Mapped[str | None] = mapped_column(String(320), unique=True)
+    password_hash: Mapped[str | None] = mapped_column(Text)
+
     # --- Account-level training consent: the durable source of truth for the moat. ---
     # Off by default. ``training_consent_at`` stamps when it was granted; revoking clears the
     # flag and stamps ``training_consent_revoked_at`` so a later opt-in's history is auditable.

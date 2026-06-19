@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api import (
+    auth,
     authenticity,
     batch_scan,
     captures,
@@ -114,6 +115,24 @@ def _error_response(
     return JSONResponse(status_code=status_code, content=body.model_dump(), headers=headers)
 
 
+def _jsonable_errors(exc: RequestValidationError) -> list[dict[str, object]]:
+    """Render pydantic's validation errors JSON-safely.
+
+    A custom field validator that raises ``ValueError`` leaves the original exception in the
+    error's ``ctx`` (and bytes inputs leave raw ``bytes`` there) — neither is JSON-serializable,
+    which would turn a clean 422 into a 500 inside the error handler. Stringify ``ctx`` values
+    so the field-level messages still reach the client intact.
+    """
+    rendered: list[dict[str, object]] = []
+    for error in exc.errors():
+        item = dict(error)
+        if (ctx := item.get("ctx")) is not None and isinstance(ctx, dict):
+            item["ctx"] = {key: str(value) for key, value in ctx.items()}
+        item.pop("input", None)  # may be raw bytes / not serializable; not needed by the client
+        rendered.append(item)
+    return rendered
+
+
 def _register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(HolofyError)
     async def _handle_holofy(_request: Request, exc: HolofyError) -> JSONResponse:
@@ -132,7 +151,7 @@ def _register_error_handlers(app: FastAPI) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             code="validation_error",
             message="Request failed validation.",
-            details={"errors": exc.errors()},
+            details={"errors": _jsonable_errors(exc)},
         )
 
     @app.exception_handler(Exception)
@@ -187,6 +206,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     _register_error_handlers(app)
 
     app.include_router(health.router)
+    app.include_router(auth.router)
     app.include_router(captures.router)
     app.include_router(scan.router)
     app.include_router(batch_scan.router)

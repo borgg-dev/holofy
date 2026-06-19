@@ -83,6 +83,10 @@ class DataLakeBackend(StrEnum):
 
 
 class AuthBackend(StrEnum):
+    # ``session`` is the real bearer: an expiring, HMAC-signed token a password login issues
+    # (the production default). ``dev_token`` is the forgeable-by-secret-holder dev/test bearer
+    # the harness mints directly. Both verify behind the same AuthProvider seam.
+    SESSION = "session"
     DEV_TOKEN = "dev_token"
 
 
@@ -152,10 +156,15 @@ class Settings(BaseSettings):
     # Auth seam: the dev-token backend mints/verifies an HMAC-signed bearer that maps to a
     # seeded user, so endpoints are genuinely user-scoped with no OAuth/Clerk yet. Real
     # federated identity drops in behind the same AuthProvider Protocol (see ADR 0004).
-    auth_provider: AuthBackend = AuthBackend.DEV_TOKEN
-    # Signs dev tokens. Required outside `local`; the default is dev-only and the validator
-    # below refuses to boot a deployed environment that hasn't overridden it.
+    # Real bearer by default: a password login issues an expiring, HMAC-signed session token.
+    # Tests pin ``dev_token`` (the harness mints subjects directly); the smokes do too.
+    auth_provider: AuthBackend = AuthBackend.SESSION
+    # Signs session/dev tokens. Required outside `local`; the default is dev-only and the
+    # validator below refuses to boot a deployed environment that hasn't overridden it.
     auth_dev_secret: str = INSECURE_DEV_SECRET
+    # How long an issued session token stays valid. 30 days balances "don't re-login daily"
+    # against bounding a leaked token; a refresh-token rotation is a later refinement.
+    session_token_ttl_seconds: int = 30 * 24 * 60 * 60
 
     # Freemium COGS guard: the free ("Collector") tier is 8 ID scans/day (master plan §4).
     # The memory limiter is fine for a single process; the Redis backend lands behind the

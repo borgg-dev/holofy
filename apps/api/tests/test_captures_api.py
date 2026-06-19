@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.config import (
+    AuthBackend,
     CaptureStorageBackend,
     PricingBackend,
     RecognitionBackend,
@@ -40,6 +41,7 @@ def memory_client():
     # Real uploaded bytes kept in process — unlike the synthetic default store, so an upload
     # actually resolves on a later /pregrade.
     settings = Settings(
+        auth_provider=AuthBackend.DEV_TOKEN,
         recognition_provider=RecognitionBackend.MOCK,
         pricing_provider=PricingBackend.MOCK,
         capture_storage=CaptureStorageBackend.MEMORY,
