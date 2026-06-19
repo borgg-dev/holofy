@@ -13,23 +13,33 @@ repository), and a wrong email *or* password is a single 401 — the response ne
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_current_user, get_session, get_settings
+from app.api.dependencies import (
+    get_capture_store,
+    get_current_user,
+    get_datalake_sink,
+    get_session,
+    get_settings,
+)
 from app.auth.passwords import hash_password, verify_password
 from app.auth.session_token import PROVIDER_NAME as SESSION_PROVIDER
 from app.auth.session_token import issue_session_token
 from app.config import Settings
 from app.core.errors import ConstraintViolationError, InvalidCredentialError
+from app.datalake.base import DataLakeSink
+from app.db.erasure import plan_erasure
 from app.db.models import User
 from app.db.repositories import UserRepository
+from app.grading.capture_store import CaptureStore
 from app.schemas.auth import (
     AuthTokenResponse,
     AuthUser,
     LoginRequest,
     RegisterRequest,
 )
+from app.schemas.datalake import TrainingExampleKind
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -84,6 +94,43 @@ async def login(
 async def me(user: User = Depends(get_current_user)) -> AuthUser:
     # Lets the client confirm a stored token is still valid and recover the account email.
     return AuthUser(id=str(user.id), email=user.email or "")
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_account(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+    store: CaptureStore = Depends(get_capture_store),
+    data_lake: DataLakeSink = Depends(get_datalake_sink),
+) -> Response:
+    """GDPR Art. 17 erasure: delete the account and every trace of its personal data.
+
+    Order matters (see ``app.db.erasure``): enumerate the out-of-band artifacts *before* the
+    cascade removes the rows, purge the capture images and any consented lake examples, then
+    delete the user — whose ``ON DELETE CASCADE`` removes the collection, scans, pre-grades,
+    authenticity screens and portfolio history. The request's transaction commits last, so a
+    crash can't drop the rows while their images still exist. Catalog/market data is shared
+    reference data and is intentionally never touched.
+    """
+    manifest = await plan_erasure(session, user.id)
+
+    # Capture stills in object storage — delete is idempotent, so a partial re-run is safe.
+    for capture_ref in manifest.capture_refs:
+        await store.delete(capture_ref)
+
+    # Consented examples already replicated into the training lake, per capture kind.
+    eligible = (
+        (TrainingExampleKind.SCAN, manifest.training_eligible_scan_ids),
+        (TrainingExampleKind.PREGRADE, manifest.training_eligible_pregrade_ids),
+        (TrainingExampleKind.AUTHENTICITY, manifest.training_eligible_authenticity_ids),
+    )
+    for kind, record_ids in eligible:
+        for record_id in record_ids:
+            await data_lake.purge(kind=kind, record_id=record_id)
+
+    # The cascade erases every owned row (and the credentials) when the user goes.
+    await UserRepository(session).delete(user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def _token_response(user: User, settings: Settings) -> AuthTokenResponse:

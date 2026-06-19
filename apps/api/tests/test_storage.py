@@ -60,3 +60,28 @@ async def test_local_store_rejects_a_traversal_reference(tmp_path) -> None:  # n
     store = LocalCaptureStorage(tmp_path)
     with pytest.raises(CaptureNotFoundError):
         await store.load("../../etc/passwd")
+
+
+@pytest.mark.asyncio
+async def test_memory_store_delete_erases_and_is_idempotent() -> None:
+    store = InMemoryCaptureStorage()
+    ref = await store.save([b"front-bytes"])
+    await store.delete(ref)
+    with pytest.raises(CaptureNotFoundError):
+        await store.load(ref)
+    # Idempotent: deleting an already-gone (or never-known) ref is a no-op, not an error.
+    await store.delete(ref)
+    await store.delete("never-saved")
+
+
+@pytest.mark.asyncio
+async def test_local_store_delete_removes_files_and_is_idempotent(tmp_path) -> None:  # noqa: ANN001
+    store = LocalCaptureStorage(tmp_path)
+    ref = await store.save([b"front-bytes", b"back-bytes"])
+    await store.delete(ref)
+    with pytest.raises(CaptureNotFoundError):
+        await store.load(ref)
+    assert not (tmp_path / ref).exists()
+    # Idempotent, and a malformed ref can't escape the root or raise.
+    await store.delete(ref)
+    await store.delete("../../etc/passwd")

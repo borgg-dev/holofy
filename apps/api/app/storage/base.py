@@ -38,3 +38,8 @@ class CaptureStorage(Protocol):
     async def load(self, capture_ref: str) -> bytes:
         """Return the primary still's bytes for a reference, or raise ``CaptureNotFoundError``."""
         ...
+
+    async def delete(self, capture_ref: str) -> None:
+        """Erase a capture's stored stills (GDPR erasure). Idempotent — an unknown/already-gone
+        reference is a no-op, never an error, so a re-run of an account deletion is safe."""
+        ...

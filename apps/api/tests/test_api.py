@@ -117,14 +117,15 @@ def test_cors_rejects_an_unconfigured_origin(client) -> None:  # noqa: ANN001
 
 
 def test_cors_does_not_grant_an_unused_method(client) -> None:  # noqa: ANN001
-    # DELETE isn't a verb the API serves, so it isn't in the allow-list (no wildcard).
+    # PATCH isn't a verb the API serves, so it isn't in the allow-list (no wildcard). DELETE
+    # *is* served now (account erasure), so it's a poor stand-in for "unused" — use PATCH.
     preflight = client.options(
         "/scan",
         headers={
             "Origin": _ALLOWED_ORIGIN,
-            "Access-Control-Request-Method": "DELETE",
+            "Access-Control-Request-Method": "PATCH",
         },
     )
 
     allowed = preflight.headers.get("access-control-allow-methods", "")
-    assert "DELETE" not in allowed
+    assert "PATCH" not in allowed

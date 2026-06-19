@@ -13,6 +13,8 @@ example stay one-to-one even across a retry.
 
 from __future__ import annotations
 
+import uuid
+
 from app.datalake.base import DataLakeSink
 from app.schemas.datalake import TrainingExample, TrainingExampleKind
 
@@ -28,6 +30,13 @@ class MockDataLakeSink(DataLakeSink):
                 self._examples[i] = example
                 return
         self._examples.append(example)
+
+    async def purge(self, *, kind: TrainingExampleKind, record_id: uuid.UUID) -> None:
+        # Idempotent erasure: drop the one example for this source record if present. Mirrors
+        # the real lake's right-to-be-forgotten delete so an account deletion is provable here.
+        self._examples = [
+            e for e in self._examples if not (e.kind is kind and e.record_id == record_id)
+        ]
 
     @property
     def examples(self) -> list[TrainingExample]:

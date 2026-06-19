@@ -244,3 +244,27 @@ async def test_sink_is_idempotent_on_kind_and_record_id(session: AsyncSession) -
     await emit_scan(sink, scan)
 
     assert len(sink.examples_of(TrainingExampleKind.SCAN)) == 1
+
+
+@pytest.mark.asyncio
+async def test_purge_removes_the_example_for_a_record_and_is_idempotent() -> None:
+    import uuid
+
+    from app.schemas.datalake import TrainingExample
+
+    sink = MockDataLakeSink()
+    uid = uuid.uuid4()
+    rid = uuid.uuid4()
+    other = uuid.uuid4()
+    await sink.emit(TrainingExample(kind=TrainingExampleKind.SCAN, record_id=rid, user_id=uid, capture_ref="r1"))
+    await sink.emit(TrainingExample(kind=TrainingExampleKind.SCAN, record_id=other, user_id=uid, capture_ref="r2"))
+
+    # Purge erases only the targeted record's example (right-to-be-forgotten).
+    await sink.purge(kind=TrainingExampleKind.SCAN, record_id=rid)
+    remaining = [e.record_id for e in sink.examples]
+    assert remaining == [other]
+
+    # Idempotent: re-purging, or purging a never-emitted record, is a no-op.
+    await sink.purge(kind=TrainingExampleKind.SCAN, record_id=rid)
+    await sink.purge(kind=TrainingExampleKind.PREGRADE, record_id=other)  # wrong kind, no match
+    assert [e.record_id for e in sink.examples] == [other]

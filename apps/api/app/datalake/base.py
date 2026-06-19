@@ -18,9 +18,10 @@ Two deliberate properties:
 
 from __future__ import annotations
 
+import uuid
 from typing import Protocol, runtime_checkable
 
-from app.schemas.datalake import TrainingExample
+from app.schemas.datalake import TrainingExample, TrainingExampleKind
 
 
 @runtime_checkable
@@ -33,3 +34,10 @@ class DataLakeSink(Protocol):
     """
 
     async def emit(self, example: TrainingExample) -> None: ...
+
+    async def purge(self, *, kind: TrainingExampleKind, record_id: uuid.UUID) -> None:
+        """Erase the lake example replicated from a source record (GDPR erasure / right-to-be-
+        forgotten). Idempotent — purging an example that was never emitted is a no-op. This is
+        what a user delete invokes for every training-eligible record so a consented example
+        can't outlive the account it came from."""
+        ...

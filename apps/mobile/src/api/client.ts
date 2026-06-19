@@ -123,6 +123,8 @@ export interface HolofyClient {
   login(credentials: Credentials): Promise<AuthSession>;
   /** The account the current bearer resolves to — used to validate a stored token on launch. */
   currentUser(): Promise<AuthAccount>;
+  /** Permanently erase the signed-in account and all its data (GDPR). The bearer dies with it. */
+  deleteAccount(): Promise<void>;
   /**
    * Upload a card's stills and get back the reference the scan/pre-grade calls carry. The
    * first step of every real (non-fixture) capture: bytes go up once, here, and never ride
@@ -194,6 +196,8 @@ export function createHttpClient(config: HttpClientConfig): HolofyClient {
     if (!res.ok) {
       throw await toApiError(res, requestId);
     }
+    // A 204 (e.g. account deletion) carries no body — don't try to parse one.
+    if (res.status === 204) return undefined as T;
     return (await res.json()) as T;
   }
 
@@ -217,6 +221,10 @@ export function createHttpClient(config: HttpClientConfig): HolofyClient {
     async currentUser() {
       const wire = await request<WireAuthUser>("/auth/me");
       return mapAuthUser(wire);
+    },
+
+    async deleteAccount() {
+      await request<void>("/auth/me", { method: "DELETE" });
     },
 
     async uploadCapture(images) {
@@ -394,6 +402,9 @@ export function createFixtureClient(config: FixtureClientConfig = {}): HolofyCli
     async currentUser() {
       await wait();
       return demoUser;
+    },
+    async deleteAccount() {
+      await wait();
     },
 
     async uploadCapture(images) {

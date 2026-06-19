@@ -31,6 +31,10 @@ class CaptureStore(Protocol):
         """Return the encoded image bytes for a capture reference."""
         ...
 
+    async def delete(self, capture_ref: str) -> None:
+        """Erase a capture's stored stills (GDPR erasure); idempotent on a missing reference."""
+        ...
+
 
 # capture_ref → border widths (left, right, top, bottom) of a synthetic bordered card, or
 # ``None`` for a full-bleed card with no measurable frame (the refuse-path fixture).
@@ -54,6 +58,11 @@ class MockCaptureStore:
             raise CaptureNotFoundError(capture_ref)
         borders = _FIXTURES.get(capture_ref, _FIXTURES[_DEFAULT_CAPTURE])
         return _encode_png(_render_card(borders))
+
+    async def delete(self, capture_ref: str) -> None:
+        # Captures are synthesised by reference — there are no stored bytes to erase, so an
+        # erasure is a no-op. Present so the store satisfies the same Protocol as real backends.
+        return None
 
 
 def _render_card(borders: tuple[int, int, int, int] | None) -> np.ndarray:

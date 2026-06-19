@@ -15,9 +15,14 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.base import AuthProvider
+from app.auth.session_token import PROVIDER_NAME as SESSION_PROVIDER
 from app.authenticity.reference_catalog import ReferenceCatalogExistenceChecker
 from app.config import Settings
-from app.core.errors import CaptureUploadUnavailableError, NotAuthenticatedError
+from app.core.errors import (
+    CaptureUploadUnavailableError,
+    InvalidCredentialError,
+    NotAuthenticatedError,
+)
 from app.datalake.base import DataLakeSink
 from app.db.models import User
 from app.db.repositories import (
@@ -127,11 +132,14 @@ async def get_current_user(
     auth: AuthProvider = Depends(get_auth_provider),
     session: AsyncSession = Depends(get_session),
 ) -> User:
-    """Resolve the bearer token to the persisted ``User``, provisioning on first sight.
+    """Resolve the bearer token to the persisted ``User``.
 
-    The token's identity is verified by the ``AuthProvider``; the user row is found-or-created
-    on its ``(provider, subject)`` pair, so a freshly issued token scopes to a stable user
-    without a separate signup call. A missing token is a 401, distinct from an invalid one.
+    The token's identity is verified by the ``AuthProvider``; the user row is keyed on its
+    ``(provider, subject)`` pair. A **session** account must already exist (it's created at
+    register), so a session token for a missing user — e.g. a token still in hand after the
+    account was deleted — is a 401, never a silently resurrected blank account. Other backends
+    (the dev token) provision on first sight, so the harness can mint a subject and use it
+    without a separate signup. A missing token is a 401, distinct from an invalid one.
     """
     if credentials is None or not credentials.credentials:
         raise NotAuthenticatedError("Authentication is required for this endpoint.")
@@ -140,6 +148,10 @@ async def get_current_user(
     users = UserRepository(session)
     user = await users.get_by_auth(identity.provider, identity.subject)
     if user is None:
+        if identity.provider == SESSION_PROVIDER:
+            raise InvalidCredentialError(
+                "This account no longer exists or the session is no longer valid."
+            )
         user = await users.create(
             auth_provider=identity.provider, auth_subject=identity.subject
         )

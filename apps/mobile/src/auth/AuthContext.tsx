@@ -30,6 +30,8 @@ type AuthValue = {
   signIn: (credentials: Credentials) => Promise<void>;
   register: (credentials: Credentials) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Permanently erase the account, then drop the local session. */
+  deleteAccount: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -107,9 +109,27 @@ export function AuthProvider({ baseUrl, children }: { baseUrl: string; children:
     setStatus("unauthenticated");
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    // Erase server-side first; only drop the local session once the account is actually gone,
+    // so a failed delete leaves the user signed in to retry rather than silently logged out.
+    await client.deleteAccount();
+    tokenRef.current = null;
+    setUser(null);
+    await clearToken();
+    setStatus("unauthenticated");
+  }, [client]);
+
   const value = useMemo<AuthValue>(
-    () => ({ status, user, getToken: () => tokenRef.current, signIn, register, signOut }),
-    [status, user, signIn, register, signOut]
+    () => ({
+      status,
+      user,
+      getToken: () => tokenRef.current,
+      signIn,
+      register,
+      signOut,
+      deleteAccount,
+    }),
+    [status, user, signIn, register, signOut, deleteAccount]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

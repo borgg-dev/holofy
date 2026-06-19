@@ -46,8 +46,23 @@ class LocalCaptureStorage:
         except FileNotFoundError as exc:
             raise CaptureNotFoundError(capture_ref) from exc
 
+    async def delete(self, capture_ref: str) -> None:
+        # Idempotent erasure: a malformed or already-gone ref is a no-op. The shape check also
+        # forecloses path traversal, exactly as on load — a caller ref can't escape the root.
+        if not _REF_PATTERN.match(capture_ref):
+            return
+        await asyncio.to_thread(self._remove, capture_ref)
+
     def _write(self, ref: str, images: Sequence[bytes]) -> None:
         directory = self._root / ref
         directory.mkdir(parents=True, exist_ok=True)
         for index, image in enumerate(images):
             (directory / f"{index:03d}").write_bytes(image)
+
+    def _remove(self, ref: str) -> None:
+        directory = self._root / ref
+        if not directory.is_dir():
+            return
+        for child in directory.iterdir():
+            child.unlink(missing_ok=True)
+        directory.rmdir()

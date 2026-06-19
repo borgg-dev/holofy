@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import { AppearanceToggle, Button, FoilSurface, Screen, Text } from "@/components";
 import { ChevronRight } from "@/components/icons";
@@ -55,12 +55,14 @@ export function SettingsScreen({ onPrivacy }: Props) {
         </View>
 
         {auth ? (
-          <Button
-            label="Sign out"
-            tier="secondary"
-            onPress={() => void auth.signOut()}
-            style={{ marginTop: theme.space["2"] }}
-          />
+          <View style={{ gap: theme.space["2"], marginTop: theme.space["2"] }}>
+            <Button label="Sign out" tier="secondary" onPress={() => void auth.signOut()} />
+            <Button
+              label="Delete account"
+              tier="tertiary"
+              onPress={() => confirmDeleteAccount(() => void auth.deleteAccount())}
+            />
+          </View>
         ) : null}
 
         <Text
@@ -72,6 +74,19 @@ export function SettingsScreen({ onPrivacy }: Props) {
         </Text>
       </ScrollView>
     </Screen>
+  );
+}
+
+// A destructive, irreversible action — gate it behind an explicit confirm so a stray tap can't
+// erase a collection. The system dialog's "Delete" is styled destructive on both platforms.
+function confirmDeleteAccount(onConfirm: () => void) {
+  Alert.alert(
+    "Delete account?",
+    "This permanently erases your account, your vault, and your scan history. This can't be undone.",
+    [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: onConfirm },
+    ]
   );
 }
 

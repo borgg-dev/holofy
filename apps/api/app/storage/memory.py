@@ -31,3 +31,7 @@ class InMemoryCaptureStorage:
             return self._captures[capture_ref][0]
         except KeyError as exc:
             raise CaptureNotFoundError(capture_ref) from exc
+
+    async def delete(self, capture_ref: str) -> None:
+        # Idempotent erasure: drop the stills if present, no-op if already gone.
+        self._captures.pop(capture_ref, None)

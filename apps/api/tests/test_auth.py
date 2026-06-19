@@ -130,6 +130,38 @@ def test_unscoped_endpoint_rejects_a_dev_token_under_session_backend(auth_client
     assert res.status_code == 401
 
 
+def test_delete_account_erases_data_and_kills_the_token(auth_client) -> None:  # noqa: ANN001
+    token = _register(auth_client).json()["access_token"]
+    auth = {"Authorization": f"Bearer {token}"}
+
+    # Build some personal data: a scan lands a card in the catalog, then add it to the vault.
+    scan = auth_client.post("/scan", json={"bundle_id": "mock-high-confidence"}, headers=auth)
+    cid = scan.json()["card"]["identity"]["canonical_id"]
+    auth_client.post("/collection", json={"canonical_id": cid}, headers=auth)
+    assert len(auth_client.get("/collection", headers=auth).json()) == 1
+
+    # Erase the account.
+    assert auth_client.delete("/auth/me", headers=auth).status_code == 204
+
+    # The still-valid token must not resurrect a blank account — it's now a 401, not a new user.
+    assert auth_client.get("/auth/me", headers=auth).status_code == 401
+    assert auth_client.get("/collection", headers=auth).status_code == 401
+    # The login no longer works (credentials erased).
+    relogin = auth_client.post(
+        "/auth/login", json={"email": "collector@example.com", "password": "hunter2pass"}
+    )
+    assert relogin.status_code == 401
+    # …and the email is freed for a fresh, empty account.
+    fresh = _register(auth_client)
+    assert fresh.status_code == 201
+    fresh_auth = {"Authorization": f"Bearer {fresh.json()['access_token']}"}
+    assert auth_client.get("/collection", headers=fresh_auth).json() == []
+
+
+def test_delete_account_requires_authentication(auth_client) -> None:  # noqa: ANN001
+    assert auth_client.delete("/auth/me").status_code == 401
+
+
 # ── Unit-level: the primitives ────────────────────────────────────────────────
 
 
