@@ -1,6 +1,6 @@
 # Holofy — Live Status
 
-**Updated:** 2026-06-19 · **Phase:** GOING REAL (Pokémon-only) — Unit 1 in progress · **Launch anchor:** before 2026-09-16
+**Updated:** 2026-06-19 · **Phase:** GOING REAL (Pokémon-only) — all 5 units built; device validation pending · **Launch anchor:** before 2026-09-16
 
 ## Pokémon-only "make it real" build (started 2026-06-19)
 Focus narrowed to **Pokémon only** (defer multi-category; keep architecture scalable). Dev
@@ -50,6 +50,10 @@ range (centering/corners/edges/surface measured). The fast mock `api-smoke` is u
 - Verified: clean card reads high, real edge/surface damage drops *that* axis; and an HTTP
   e2e (`test_inhouse_pregrade_e2e`) — upload real card → `/pregrade` (inhouse) → estimated
   range from real centering + real condition, honest framing intact. 212 backend tests.
+
+**Unit 5 — mobile points at the live API ✅:** the root layout uses the HTTP client when
+`EXPO_PUBLIC_API_URL` is set (`EXPO_PUBLIC_DEV_TOKEN` for the bearer), else the fixture client
+(demo default). Same screens, real backend — no screen changes. tsc 0, 160 mobile tests.
 
 **Unit 1 — camera capture wired ✅ (device-runtime validation pending):**
 - `useCardCapture` hook (expo-camera `CameraView` + permissions + `takePictureAsync`) with a
