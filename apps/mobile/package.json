@@ -15,6 +15,7 @@
   "dependencies": {
     "@holofy/design-tokens": "*",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/javascriptcore": "^0.2.0",
     "@types/react": "~19.1.10",
     "babel-preset-expo": "~54.0.10",
     "expo": "^54.0.0",
