@@ -1,6 +1,33 @@
 # Holofy — Live Status
 
-**Updated:** 2026-06-19 · **Phase:** GOING REAL (Pokémon-only) — all 5 units built; device validation pending · **Launch anchor:** before 2026-09-16
+**Updated:** 2026-06-19 · **Phase:** REAL BY DEFAULT (Pokémon-only) — full stack live-verified end to end; device validation pending · **Launch anchor:** before 2026-09-16
+
+## Production-real cutover (2026-06-19) — no mock data in the shipping path
+The whole stack now defaults to **real** providers and is verified working end to end with a
+real card, real API, real catalog, real pricing:
+- **Config defaults flipped to real** (`app/config.py`): in-house OCR recognition · live
+  **TCGdex** catalog · **TCGdex** pricing · in-house condition grading · in-house authenticity
+  · on-disk capture storage. Tests pin mocks explicitly (`tests/conftest.py`); the two smoke
+  scripts pin their seed catalog/pricer. Nothing mock ships.
+- **Mobile↔backend contract fixed** — the app crashed against the live API because `game` was
+  never emitted and collection/portfolio shapes diverged. `CardIdentity` now carries a
+  `CardGame` (defaults to Pokémon — the seam a multi-game recognizer sets per card);
+  `GET /collection` returns valued holdings with the full price quote; `GET /portfolio`
+  returns live `latest` + prior `previous`. The **real mobile client** was run against the
+  live all-real API and parsed every response (collection, portfolio, scan) with no error.
+- **Real Pokémon gate** — the Pokémon-only catalog *is* the game gate (a non-Pokémon card
+  doesn't resolve); a recognition floor rejects weak/spurious reads cleanly, and the scan
+  screen now surfaces a Pokémon-aware rejection instead of failing silently.
+- **Real authenticity** — the fixture provider is gone; an in-house analyzer reads the real
+  capture pixels per signal (honestly never asserting genuine/fake from visuals without a
+  per-card reference), with the real catalog-existence cross-check as the dispositive signal.
+- **Live proof:** rendered `Pikachu 58/102` → in-house OCR → TCGdex resolved `base1-58`
+  (Base Set, game=pokemon) → priced **€6.26** (Cardmarket via TCGdex), through the full HTTP
+  scan path and again through the real mobile client. 225 backend tests · mobile typecheck +
+  160 tests green · both smoke journeys green.
+- **Remaining for production:** real-device OCR accuracy on phone photos (synthetic/clean
+  only so far); federated auth (dev-token today); EU-region object storage + Postgres/Redis
+  infra; the optional Ximilar adapter behind the recognition seam.
 
 ## Pokémon-only "make it real" build (started 2026-06-19)
 Focus narrowed to **Pokémon only** (defer multi-category; keep architecture scalable). Dev
