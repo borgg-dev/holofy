@@ -18,7 +18,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_current_user, get_session
+from app.api.dependencies import get_current_user, get_datalake_sink, get_session
+from app.datalake.base import DataLakeSink
 from app.db.models import User
 from app.schemas.consent import ConsentState, ConsentUpdate
 from app.services.consent import build_consent_service
@@ -39,8 +40,10 @@ async def set_training_consent(
     update: ConsentUpdate,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
+    data_lake: DataLakeSink = Depends(get_datalake_sink),
 ) -> ConsentState:
-    service = build_consent_service(session)
+    # The sink is wired so a revoke purges already-emitted lake examples (GDPR Art. 7(3)).
+    service = build_consent_service(session, data_lake=data_lake)
     if update.granted:
         return await service.grant(user, note=update.note)
     return await service.revoke(user)

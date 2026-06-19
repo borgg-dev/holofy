@@ -100,6 +100,25 @@ async def test_consented_scan_emits_exactly_one_training_example(
 
 
 @pytest.mark.asyncio
+async def test_revoking_consent_purges_already_emitted_lake_examples(
+    session: AsyncSession,
+) -> None:
+    # GDPR Art. 7(3): withdrawing training consent must REMOVE the data already in the lake,
+    # not merely stop future emissions. A consented scan emits one example; revoking consent
+    # through the service must purge it.
+    from app.services.consent import build_consent_service
+
+    sink = MockDataLakeSink()
+    user = await _scan(_scan_service(sink), session, training_consent=True)
+    assert len(sink.examples_of(TrainingExampleKind.SCAN)) == 1  # it's in the lake
+
+    service = build_consent_service(session, data_lake=sink)
+    await service.revoke(user)
+
+    assert sink.examples == []  # the withdrawn example is gone from the lake
+
+
+@pytest.mark.asyncio
 async def test_non_consented_scan_emits_zero_examples(session: AsyncSession) -> None:
     # The privacy hard line: a default (consent-off) scan is the user's history and nothing
     # more. Nothing must reach the lake.

@@ -101,7 +101,7 @@ def test_grant_then_revoke_flips_consent_state_for_existing_captures(client) -> 
     assert revoked.json()["consented"]["scans"] == 0
 
 
-def test_consented_scan_reaches_the_lake_and_revoke_stops_future_ones(client) -> None:  # noqa: ANN001
+def test_consented_scan_reaches_the_lake_and_revoke_purges_it(client) -> None:  # noqa: ANN001
     sink = _sink(client)
 
     # A scan with consent opted in at capture emits one example.
@@ -112,12 +112,16 @@ def test_consented_scan_reaches_the_lake_and_revoke_stops_future_ones(client) ->
     )
     assert len(sink.examples_of(TrainingExampleKind.SCAN)) == 1
 
-    # Revoking flips the gate; a subsequent default scan (consent off) emits nothing more.
+    # Revoking consent (GDPR Art. 7(3)) PURGES the already-emitted example, not just stops
+    # future ones — withdrawing consent must remove the data already in the lake.
     client.put("/consent/training", json={"granted": False}, headers=auth_header())
+    assert len(sink.examples_of(TrainingExampleKind.SCAN)) == 0
+
+    # And a subsequent default scan (consent off) adds nothing more.
     client.post(
         "/scan", json={"bundle_id": "mock-high-confidence"}, headers=auth_header()
     )
-    assert len(sink.examples_of(TrainingExampleKind.SCAN)) == 1
+    assert len(sink.examples_of(TrainingExampleKind.SCAN)) == 0
 
 
 def test_non_consented_scan_never_reaches_the_lake(client) -> None:  # noqa: ANN001

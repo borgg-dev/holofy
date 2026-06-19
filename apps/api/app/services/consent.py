@@ -20,6 +20,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.datalake.base import DataLakeSink
 from app.db.models import User
 from app.db.repositories import (
     AuthenticityRepository,
@@ -28,6 +29,7 @@ from app.db.repositories import (
     UserRepository,
 )
 from app.schemas.consent import ConsentCounts, ConsentState
+from app.schemas.datalake import TrainingExampleKind
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,11 +48,14 @@ class ConsentService:
         scans: ScanRepository,
         pregrades: PreGradeRepository,
         authenticity: AuthenticityRepository,
+        data_lake: DataLakeSink | None = None,
     ) -> None:
         self._users = users
         self._scans = scans
         self._pregrades = pregrades
         self._authenticity = authenticity
+        # Only the revoke path needs it (to purge already-emitted examples); grant/state don't.
+        self._data_lake = data_lake
 
     async def state(self, user: User) -> ConsentState:
         """The account's training-consent posture: ``granted`` read straight off the account."""
@@ -66,12 +71,46 @@ class ConsentService:
         return await self.state(user)
 
     async def revoke(self, user: User) -> ConsentState:
-        """Opt the account out: revoke the account flag and every consented capture."""
+        """Opt the account out: revoke the account flag, every consented capture, AND purge any
+        examples already replicated into the training lake (GDPR Art. 7(3) — withdrawing consent
+        must actually remove the data, not just stop future emissions). The records eligible
+        *right now* are exactly the ones that could have reached the lake, so we snapshot their
+        ids before flipping the flags, then purge each from the sink.
+        """
+        eligible = await self._eligible_ids(user.id)
+
         await self._users.revoke_training_consent(user)
         await self._scans.revoke_training_consent_for_user(user.id)
         await self._pregrades.revoke_training_consent_for_user(user.id)
         await self._authenticity.revoke_training_consent_for_user(user.id)
+
+        if self._data_lake is not None:
+            for kind, record_ids in eligible:
+                for record_id in record_ids:
+                    await self._data_lake.purge(kind=kind, record_id=record_id)
         return await self.state(user)
+
+    async def _eligible_ids(
+        self, user_id: uuid.UUID
+    ) -> list[tuple[TrainingExampleKind, list[uuid.UUID]]]:
+        """Snapshot, per kind, the record ids currently training-eligible (consented, not
+        revoked) — the precise set a revoke must purge from the lake."""
+        def _eligible(records: list) -> list[uuid.UUID]:  # noqa: ANN001
+            return [
+                r.id for r in records if r.training_consent and r.consent_revoked_at is None
+            ]
+
+        return [
+            (TrainingExampleKind.SCAN, _eligible(await self._scans.list_for_user(user_id))),
+            (
+                TrainingExampleKind.PREGRADE,
+                _eligible(await self._pregrades.list_for_user(user_id)),
+            ),
+            (
+                TrainingExampleKind.AUTHENTICITY,
+                _eligible(await self._authenticity.list_for_user(user_id)),
+            ),
+        ]
 
     async def resolve_for_capture(
         self, user: User, *, opt_in: bool, note: str | None
@@ -117,13 +156,17 @@ class ConsentService:
         )
 
 
-def build_consent_service(session: AsyncSession) -> ConsentService:
+def build_consent_service(
+    session: AsyncSession, *, data_lake: DataLakeSink | None = None
+) -> ConsentService:
     """Assemble the service over one request session — the capture endpoints and the consent
-    routes both stamp captures / set the account through this single composition.
+    routes both stamp captures / set the account through this single composition. Pass the
+    ``data_lake`` on the consent route so a revoke can purge already-emitted lake examples.
     """
     return ConsentService(
         users=UserRepository(session),
         scans=ScanRepository(session),
         pregrades=PreGradeRepository(session),
         authenticity=AuthenticityRepository(session),
+        data_lake=data_lake,
     )
