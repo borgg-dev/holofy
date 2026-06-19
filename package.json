@@ -12,12 +12,10 @@
   },
   "dependencies": {
     "@expo-google-fonts/manrope": "^0.4.2",
-    "@react-native/virtualized-lists": "^0.74.87",
-    "semver": "^7.8.4"
+    "@react-native/virtualized-lists": "^0.74.87"
   },
-  "devDependencies": {
-    "@babel/plugin-transform-class-properties": "^8.0.1",
-    "@babel/plugin-transform-private-methods": "^8.0.1",
-    "@babel/plugin-transform-private-property-in-object": "^8.0.1"
+  "overrides": {
+    "@babel/core": "7.25.2",
+    "ajv": "^8.17.1"
   }
 }

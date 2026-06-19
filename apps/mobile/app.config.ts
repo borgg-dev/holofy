@@ -16,12 +16,6 @@ const config: ExpoConfig = {
   orientation: "portrait",
   userInterfaceStyle: "dark",
   backgroundColor: VAULT,
-  // Use JavaScriptCore, not Hermes. SDK 54's Hermes AOT compiler (hermesc) rejects the modern
-  // `#private` class syntax that reanimated v4 ships ("private properties are not supported"),
-  // breaking the release build. JSC runs that syntax natively; the native engine is provided
-  // by @react-native-community/javascriptcore (added for SDK 54). Revisit Hermes once the
-  // toolchain lowers those fields.
-  jsEngine: "jsc",
   icon: "./assets/icon.png",
   splash: {
     image: "./assets/splash.png",
@@ -47,7 +41,6 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
-    "expo-font",
     [
       "expo-camera",
       {
