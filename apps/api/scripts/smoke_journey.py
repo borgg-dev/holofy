@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import os
 import sys
+from io import BytesIO
 
 import httpx
+from PIL import Image, ImageDraw
 
 from app.auth.dev_token import mint_dev_token
 from app.config import INSECURE_DEV_SECRET
@@ -20,6 +22,21 @@ BASE_URL = os.environ.get("HOLOFY_SMOKE_BASE_URL", "http://127.0.0.1:8099")
 
 def _eur(value: object) -> str:
     return f"€{value}" if value is not None else "—"
+
+
+def _centered_card_png() -> bytes:
+    """A real PNG of a centred bordered card — the stand-in for a camera still.
+
+    Light card on a dark surface with an evenly-inset inner panel, so the in-house centering
+    measurement has real pixels to read and returns a confident estimate, not a retake.
+    """
+    image = Image.new("L", (500, 700), color=30)
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((24, 24, 476, 676), fill=235)
+    draw.rectangle((64, 64, 436, 636), fill=90)
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
 
 
 def main() -> int:
@@ -80,8 +97,18 @@ def main() -> int:
             f"total {_eur(portfolio['total_value_eur'])}"
         )
 
+        upload = client.post(
+            "/captures",
+            files=[("files", ("front.png", _centered_card_png(), "image/png"))],
+        ).json()
+        capture_ref = upload["ref"]
+        print(
+            f"upload        : stored {upload['image_count']} still(s) -> "
+            f"ref {capture_ref[:8]}… (real bytes in object storage)"
+        )
+
         pre = client.post(
-            "/pregrade", json={"capture_ref": "capture-centered", "card_id": "origins-8"}
+            "/pregrade", json={"capture_ref": capture_ref, "card_id": "origins-8"}
         ).json()
         if pre["status"] == "estimated":
             p = pre["probability"]
@@ -93,7 +120,7 @@ def main() -> int:
             print(f"pre-grade     : {pre['status']}")
 
         auth_res = client.post(
-            "/authenticity", json={"capture_ref": "capture-authentic", "card_id": "origins-8"}
+            "/authenticity", json={"capture_ref": capture_ref, "card_id": "origins-8"}
         ).json()
         if auth_res["status"] == "assessed":
             a = auth_res["assessment"]

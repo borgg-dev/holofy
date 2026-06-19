@@ -50,6 +50,16 @@ class AuthenticityBackend(StrEnum):
     MOCK = "mock"
 
 
+class CaptureStorageBackend(StrEnum):
+    # Where uploaded capture stills live. ``mock`` synthesises captures by reference (the
+    # pre-grade tests' synthetic cards, no real bytes); ``memory`` and ``local`` keep real
+    # uploaded bytes for dev (in process / on disk). The EU-region S3/GCS client drops in
+    # behind the same CaptureStorage Protocol — residency stays an infra concern.
+    MOCK = "mock"
+    MEMORY = "memory"
+    LOCAL = "local"
+
+
 class DataLakeBackend(StrEnum):
     # The consented-capture training lake. ``mock`` (an in-memory recorder) is the only
     # backend wired today; the real EU-region writer drops in behind the same DataLakeSink
@@ -102,6 +112,17 @@ class Settings(BaseSettings):
     # in-memory mock records emissions for tests; the real EU-region lake writer drops in
     # behind the same DataLakeSink Protocol with no change at the emission sites.
     datalake_sink: DataLakeBackend = DataLakeBackend.MOCK
+
+    # Capture stills storage. Defaults to the synthetic-by-reference mock so the test suite
+    # and keyless centering run with no bytes; ``memory``/``local`` keep real uploads for
+    # dev (api-smoke uses memory). ``capture_storage_dir`` is only consulted for ``local``.
+    capture_storage: CaptureStorageBackend = CaptureStorageBackend.MOCK
+    capture_storage_dir: str = "./captures"
+    # Ingress guards on the upload endpoint: a capture is a handful of stills, not an album,
+    # and a phone still is a few MB — these cap storage COGS and reject obvious abuse before
+    # any bytes are written.
+    capture_max_images: int = 8
+    capture_max_image_bytes: int = 12 * 1024 * 1024
 
     # Auth seam: the dev-token backend mints/verifies an HMAC-signed bearer that maps to a
     # seeded user, so endpoints are genuinely user-scoped with no OAuth/Clerk yet. Real

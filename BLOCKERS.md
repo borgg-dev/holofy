@@ -13,7 +13,7 @@ Legend: 🔑 key/secret · 💳 paid account · 🧭 decision · ⚖️ legal ·
 ## 1. Make the "intelligence" real (today it's mock fixtures)
 | # | Blocker | Unlocks | Where it plugs in |
 |---|---------|---------|-------------------|
-| 1 | 🔑💳 **Ximilar API token** | Real card **recognition** + **AI grading** (replaces mock fixtures) | `RecognitionProvider` / `GradingProvider` seams (`app/providers/recognition`, `/grading`). Set `HOLOFY_RECOGNITION_PROVIDER=ximilar` + token. Also needs #6 (real capture image storage) to feed it images. |
+| 1 | ~~🔑💳 **Ximilar API token**~~ — **DROPPED from critical path (2026-06-19)** | — | Decision: **build recognition + grading in-house**, not buy — Ximilar per-scan fees compress the margin on a product we sell. Identification = on-device detect + OCR/embedding against the keyless TCGdex catalog (zero per-scan COGS). Grading = in-house classical-CV v1 + centering with honest confidence, improved via the data loop. The `RecognitionProvider`/`GradingProvider` seams stay as an **optional, disabled** fallback we only flip on if in-house accuracy proves insufficient — no longer a launch gate. |
 | 2 | 🔑💳 **Pricing source** — Scrydex commercial tier (or confirm TCGdex commercial use) | Real € prices at scale (the keyless TCGdex provider already works for dev) | `PricingProvider` seam. `HOLOFY_PRICING_PROVIDER=tcgdex` works now; a paid tier + caching for volume. |
 | — | (Anti-fake real CV model) | Real authenticity signals | `AuthenticityProvider` seam — this is **our** model to build later (data-loop is the moat); no external key, but needs the dataset to accrue. |
 

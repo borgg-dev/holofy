@@ -9,6 +9,10 @@ export type ApiErrorCode =
   | "upstream_unavailable"
   | "validation_error"
   | "internal_error"
+  // Capture upload (apps/api/app/core/errors.py): a still was rejected at ingress, or the
+  // configured storage backend can't accept uploads at all.
+  | "capture_rejected"
+  | "capture_upload_unavailable"
   // Client-side codes the server never sends:
   | "network_error"
   | "unauthorized";

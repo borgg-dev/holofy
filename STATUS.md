@@ -1,6 +1,30 @@
 # Holofy — Live Status
 
-**Updated:** 2026-06-18 · **Phase:** MOCK-FIRST BUILD FINISHED (Phases 0–5.1) · **Launch anchor:** before 2026-09-16
+**Updated:** 2026-06-19 · **Phase:** GOING REAL (Pokémon-only) — Unit 1 in progress · **Launch anchor:** before 2026-09-16
+
+## Pokémon-only "make it real" build (started 2026-06-19)
+Focus narrowed to **Pokémon only** (defer multi-category; keep architecture scalable). Dev
+parts first, no Ximilar key yet. Five units (task backlog): (1) real capture→upload→storage,
+(2) "is this a Pokémon card?" guard, (3) card identification (keyless Spike-B path + Ximilar
+adapter behind seam), (4) pre-grade on real input + Ximilar grading adapter, (5) mobile off
+fixtures onto live API.
+
+**Unit 1 — backend + mobile upload seam done & verified ✅ (camera UI next):**
+- New `CaptureStorage` seam (`app/storage/`) with `memory` + `local` backends holding real
+  uploaded bytes; `mock` (synthetic-by-ref) stays the default for tests. Config-selected
+  (`HOLOFY_CAPTURE_STORAGE`); EU S3/GCS drops in behind the same Protocol.
+- `POST /captures` upload endpoint (auth + ingress guards) → returns the `ref` that `/scan`
+  and `/pregrade` carry. 187 tests green (+12).
+- `make api-smoke` now uploads a real still and runs pre-grade/authenticity against the
+  stored bytes (`HOLOFY_CAPTURE_STORAGE=memory`). Pinned missing deps (python-multipart,
+  fakeredis[lua], async-timeout). Toolchain note: backend needs Python ≥3.11.
+- Mobile API client: `uploadCapture()` (multipart) on `HolofyClient` — HTTP + fixture
+  impls, typed `capture_rejected`/`capture_upload_unavailable` errors. 159 mobile tests
+  green, `tsc` 0. Toolchain note: mobile test/typecheck need Node ≥22 (`--experimental-strip-types`).
+- **Remaining for Unit 1 (own sub-slice, needs device verification):** replace the
+  `CameraPreview` placeholder with expo-camera `CameraView`, capture stills on the locked
+  shutter, call `uploadCapture`, pass the returned ref into `runScan`. Must keep
+  `make mobile-watch` (web/fixtures, no real camera) working — graceful fallback required.
 
 ## 🏁 The autonomous mock-first product is FINISHED
 All features built + audited; backend runs live (`make api-smoke`, 175 tests); mobile builds reproducibly (android+web, `make mobile-watch`, 135 tests, tsc 0); productionization scaffold authored + CI-verified. What remains to go **real/launchable** is founder-gated — see **BLOCKERS.md** (Ximilar/pricing keys, auth+billing choices, EU cloud + capture storage, Apple/Google accounts, and 2 legal gates). Phase 5 retro: `docs/PHASE_5_RETRO.md`.

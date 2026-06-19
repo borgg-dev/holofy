@@ -55,6 +55,28 @@ class CaptureNotFoundError(HolofyError):
     code = "capture_not_found"
 
 
+class CaptureRejectedError(HolofyError):
+    """An upload failed an ingress guard — not an image, too many stills, or oversized.
+
+    A 400 about the request itself, distinct from a 503 when storage can't accept uploads at
+    all and from the typed pre-grade ``retake`` (a readable-but-poor capture).
+    """
+
+    status_code = 400
+    code = "capture_rejected"
+
+
+class CaptureUploadUnavailableError(HolofyError):
+    """The configured storage backend can't accept uploads (the synthetic mock).
+
+    A deployment/config issue, not a user fault: surfaced as a 503 so the client retries or
+    reports rather than treating it as a bad request.
+    """
+
+    status_code = 503
+    code = "capture_upload_unavailable"
+
+
 class RecognitionFailedError(HolofyError):
     status_code = 422
     code = "recognition_failed"
