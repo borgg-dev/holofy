@@ -28,6 +28,12 @@ fixtures onto live API.
 - **Remaining:** production fronts the live catalog with the nightly Postgres sync (same seam);
   real-photo OCR accuracy (vs synthetic) is device-validated later — capture quality is the ceiling.
 
+**Live owned-models journey ✅** — `make api-smoke-inhouse` boots the API on the in-house
+recognizer + grader and drives the whole journey over HTTP on real uploaded card images:
+presence guard rejects a non-card (422), a clean card resolves + prices from real pixels, an
+ambiguous "12" reprint routes to confirm (€757 vs €24), and a capture pre-grades to an honest
+range (centering/corners/edges/surface measured). The fast mock `api-smoke` is unchanged.
+
 **Unit 2 — Pokémon-card presence guard done & verified ✅:**
 - `app/identify/presence.py`: `CardPresenceProvider` seam + `HeuristicCardPresence` (v1 from
   card-detection quality). Rejects a hand / table / random object / undecodable frame before
