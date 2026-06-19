@@ -14,8 +14,12 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-# Run as a non-root user.
-RUN useradd --create-home --uid 10001 holofy && chown -R holofy /app
+# Run as a non-root user. Pre-create the capture-storage dir owned by that user so a freshly
+# created named volume mounted there inherits the right ownership (otherwise the volume is
+# root-owned and the non-root app can't write uploads — Errno 13).
+RUN useradd --create-home --uid 10001 holofy \
+    && mkdir -p /data/captures \
+    && chown -R holofy /app /data
 USER holofy
 
 EXPOSE 8000
