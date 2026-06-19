@@ -57,10 +57,12 @@ class GradingBackend(StrEnum):
 
 
 class AuthenticityBackend(StrEnum):
-    # The visual-signal CV ensemble is built (not bought) per architecture §3.3; ``mock`` is
-    # the only backend wired today. The catalog-existence cross-check is not selected here —
-    # it is a deterministic reference-DB lookup the service owns.
+    # The visual-signal analyzer is built (not bought) per architecture §3.3. ``inhouse`` reads
+    # the real capture pixels to judge, per signal, whether the capture can support that read
+    # (driving the honest assess-vs-retake decision); the dispositive risk signal stays the
+    # deterministic catalog-existence cross-check the service owns. ``mock`` is the test fixture.
     MOCK = "mock"
+    INHOUSE = "inhouse"
 
 
 class CaptureStorageBackend(StrEnum):
@@ -116,13 +118,17 @@ class Settings(BaseSettings):
     # Deny-by-default. Populate per environment with the exact mobile/web origins.
     cors_allow_origins: list[str] = Field(default_factory=list)
 
-    recognition_provider: RecognitionBackend = RecognitionBackend.MOCK
-    # Only consulted when recognition_provider == inhouse — the catalog the recognizer
-    # resolves reads against. Defaults to the in-memory seed catalog; tcgdex resolves live.
-    catalog_provider: CatalogBackend = CatalogBackend.INMEMORY
-    pricing_provider: PricingBackend = PricingBackend.MOCK
-    grading_provider: GradingBackend = GradingBackend.MOCK
-    authenticity_provider: AuthenticityBackend = AuthenticityBackend.MOCK
+    # Production defaults are the REAL providers: Holofy's own OCR recognizer resolving
+    # against the live TCGdex catalog, TCGdex pricing, and the in-house condition grader.
+    # Nothing here is a mock — the test suite pins mocks explicitly (see tests/conftest.py),
+    # and a deployment can still override any one via its ``HOLOFY_*_PROVIDER`` env var.
+    recognition_provider: RecognitionBackend = RecognitionBackend.INHOUSE
+    # The catalog the in-house recognizer resolves reads against — the live TCGdex catalog
+    # (keyless). ``inmemory`` is the seed catalog used by the offline smoke/tests only.
+    catalog_provider: CatalogBackend = CatalogBackend.TCGDEX
+    pricing_provider: PricingBackend = PricingBackend.TCGDEX
+    grading_provider: GradingBackend = GradingBackend.INHOUSE
+    authenticity_provider: AuthenticityBackend = AuthenticityBackend.INHOUSE
 
     # Where consented captures land as training examples (the moat, architecture §6). The
     # in-memory mock records emissions for tests; the real EU-region lake writer drops in
@@ -132,7 +138,10 @@ class Settings(BaseSettings):
     # Capture stills storage. Defaults to the synthetic-by-reference mock so the test suite
     # and keyless centering run with no bytes; ``memory``/``local`` keep real uploads for
     # dev (api-smoke uses memory). ``capture_storage_dir`` is only consulted for ``local``.
-    capture_storage: CaptureStorageBackend = CaptureStorageBackend.MOCK
+    # Real uploaded bytes, persisted to disk so a capture survives between the upload request
+    # and the scan/pre-grade that reads it (and across a restart). The EU-region S3/GCS client
+    # drops in behind the same Protocol for multi-instance; ``mock`` is the test-only synthetic.
+    capture_storage: CaptureStorageBackend = CaptureStorageBackend.LOCAL
     capture_storage_dir: str = "./captures"
     # Ingress guards on the upload endpoint: a capture is a handful of stills, not an album,
     # and a phone still is a few MB — these cap storage COGS and reject obvious abuse before

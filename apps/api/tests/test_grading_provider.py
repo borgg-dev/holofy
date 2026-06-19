@@ -58,8 +58,12 @@ async def test_unknown_capture_defaults_to_low_confidence_case() -> None:
     assert all(s.confidence < 0.5 for s in sub_scores)
 
 
-def test_factory_defaults_to_mock_grading_backend() -> None:
-    assert isinstance(build_grading_provider(Settings(), MockCaptureStore()), MockGradingProvider)
+def test_factory_defaults_to_inhouse_grading_backend() -> None:
+    # The production default is the owned condition grader — no bought/mock grader ships.
+    from app.providers.grading.inhouse import InHouseGradingProvider
+
+    provider = build_grading_provider(Settings(), MockCaptureStore())
+    assert isinstance(provider, InHouseGradingProvider)
 
 
 def test_factory_honours_grading_backend_enum() -> None:

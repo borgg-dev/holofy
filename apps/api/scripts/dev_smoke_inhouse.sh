@@ -16,6 +16,11 @@ export HOLOFY_SMOKE_BASE_URL="http://127.0.0.1:${PORT}"
 export HOLOFY_CAPTURE_STORAGE=memory
 export HOLOFY_RECOGNITION_PROVIDER=inhouse
 export HOLOFY_GRADING_PROVIDER=inhouse
+export HOLOFY_AUTHENTICITY_PROVIDER=inhouse
+# This journey resolves the invented seed cards, so pin the in-memory seed catalog and the
+# mock pricer that knows their prices (production defaults are the live TCGdex catalog + pricer).
+export HOLOFY_CATALOG_PROVIDER=inmemory
+export HOLOFY_PRICING_PROVIDER=mock
 
 rm -f "$DB"
 "$PY" -m alembic upgrade head >/dev/null

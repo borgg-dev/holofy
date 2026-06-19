@@ -67,14 +67,28 @@ async def test_mock_pricing_unknown_card_raises_price_unavailable() -> None:
         await MockPricingProvider().price("does-not-exist")
 
 
-def test_factory_defaults_to_mock_backends() -> None:
+@pytest.mark.asyncio
+async def test_factory_defaults_to_real_backends() -> None:
+    # The production defaults are the real providers: the in-house OCR recognizer (resolving
+    # against the live TCGdex catalog, so it owns an HTTP client) and TCGdex pricing.
+    from app.identify.provider import InHouseRecognitionProvider
+
     settings = Settings()
     recognizer, recognizer_client = build_recognition_provider(settings, MockCaptureStore())
-    assert isinstance(recognizer, MockRecognitionProvider)
-    assert recognizer_client is None
+    try:
+        assert isinstance(recognizer, InHouseRecognitionProvider)
+        assert recognizer_client is not None  # default catalog is tcgdex → owns a client
+    finally:
+        if recognizer_client is not None:
+            await recognizer_client.aclose()
+
     provider, client = build_pricing_provider(settings)
-    assert isinstance(provider, MockPricingProvider)
-    assert client is None
+    try:
+        assert isinstance(provider, TcgdexPricingProvider)
+        assert client is not None
+    finally:
+        if client is not None:
+            await client.aclose()
 
 
 @pytest.mark.asyncio
@@ -95,12 +109,18 @@ def test_factory_honours_recognition_backend_enum() -> None:
     assert isinstance(recognizer, MockRecognitionProvider)
 
 
-def test_catalog_factory_defaults_to_in_memory_and_owns_no_client() -> None:
-    from app.identify.catalog import InMemoryCatalogIndex
+@pytest.mark.asyncio
+async def test_catalog_factory_defaults_to_tcgdex_and_owns_a_client() -> None:
+    # The in-house recognizer resolves against the live TCGdex catalog by default.
+    from app.identify.tcgdex_catalog import TcgdexCatalogIndex
 
     index, client = build_catalog_index(Settings())
-    assert isinstance(index, InMemoryCatalogIndex)
-    assert client is None
+    try:
+        assert isinstance(index, TcgdexCatalogIndex)
+        assert client is not None
+    finally:
+        if client is not None:
+            await client.aclose()
 
 
 @pytest.mark.asyncio

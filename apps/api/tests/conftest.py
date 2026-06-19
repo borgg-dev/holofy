@@ -9,7 +9,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.testclient import TestClient
 
 from app.auth.dev_token import mint_dev_token
-from app.config import PricingBackend, RecognitionBackend, Settings
+from app.config import (
+    AuthenticityBackend,
+    CaptureStorageBackend,
+    CatalogBackend,
+    DataLakeBackend,
+    GradingBackend,
+    PricingBackend,
+    RateLimitBackend,
+    RecognitionBackend,
+    Settings,
+)
 from app.db.base import Base
 from app.db.session import create_engine, create_session_factory
 from app.main import create_app
@@ -47,11 +57,20 @@ async def session() -> AsyncIterator[AsyncSession]:
 
 @pytest.fixture
 def settings() -> Settings:
-    # Fully mocked backends and an in-memory database — the API suite runs with no network,
-    # no keys, and no Postgres. The dev secret is fixed so the test harness can mint tokens.
+    # Every backend pinned to its hermetic value and an in-memory database — the API suite
+    # runs with no network, no keys, and no Postgres. These are pinned explicitly (not left to
+    # config defaults) precisely because the *production* defaults are now the real providers
+    # (in-house recognition, TCGdex catalog/pricing); the suite must stay offline regardless.
+    # The dev secret is fixed so the test harness can mint tokens.
     return Settings(
         recognition_provider=RecognitionBackend.MOCK,
+        catalog_provider=CatalogBackend.INMEMORY,
         pricing_provider=PricingBackend.MOCK,
+        grading_provider=GradingBackend.MOCK,
+        authenticity_provider=AuthenticityBackend.MOCK,
+        capture_storage=CaptureStorageBackend.MOCK,
+        datalake_sink=DataLakeBackend.MOCK,
+        rate_limit_provider=RateLimitBackend.MEMORY,
         database_url=_TEST_DATABASE_URL,
         auth_dev_secret=_DEV_SECRET,
         log_json=False,

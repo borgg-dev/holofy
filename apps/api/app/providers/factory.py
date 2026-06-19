@@ -133,14 +133,21 @@ def build_grading_provider(
             raise ValueError(f"unsupported grading backend: {unknown}")
 
 
-def build_authenticity_provider(settings: Settings) -> AuthenticityProvider:
+def build_authenticity_provider(
+    settings: Settings, capture_store: CaptureStore
+) -> AuthenticityProvider:
     """Return the configured provider for the per-signal authenticity reads.
 
     The catalog-existence cross-check is not selected here — it is a deterministic
-    reference-DB lookup the authenticity service owns, not a model behind this seam.
+    reference-DB lookup the authenticity service owns, not a model behind this seam. The
+    in-house provider reads the capture's bytes from the same store the recognizer/grader use.
     """
     match settings.authenticity_provider:
         case AuthenticityBackend.MOCK:
             return MockAuthenticityProvider()
+        case AuthenticityBackend.INHOUSE:
+            from app.providers.authenticity.inhouse import InHouseAuthenticityProvider
+
+            return InHouseAuthenticityProvider(capture_store)
         case unknown:  # pragma: no cover - guards an unwired enum value
             raise ValueError(f"unsupported authenticity backend: {unknown}")

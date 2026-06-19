@@ -67,7 +67,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.pricing_provider = pricing_provider
     app.state.pricing_client = pricing_client
     app.state.grading_provider = build_grading_provider(settings, app.state.capture_store)
-    app.state.authenticity_provider = build_authenticity_provider(settings)
+    app.state.authenticity_provider = build_authenticity_provider(
+        settings, app.state.capture_store
+    )
     # The consented-capture training lake. Built once and held on state so a single sink (and
     # for the real backend, its one connection pool) is shared across requests, like a provider.
     app.state.datalake_sink = build_datalake_sink(settings)

@@ -14,7 +14,13 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw, ImageFont
 
-from app.config import CaptureStorageBackend, PricingBackend, RecognitionBackend, Settings
+from app.config import (
+    CaptureStorageBackend,
+    CatalogBackend,
+    PricingBackend,
+    RecognitionBackend,
+    Settings,
+)
 from app.db.base import Base
 from app.main import create_app
 from tests.conftest import auth_header
@@ -43,6 +49,8 @@ def inhouse_client():
     pytest.importorskip("rapidocr_onnxruntime")
     settings = Settings(
         recognition_provider=RecognitionBackend.INHOUSE,
+        # Resolve the rendered seed cards offline (the production default is live TCGdex).
+        catalog_provider=CatalogBackend.INMEMORY,
         pricing_provider=PricingBackend.MOCK,
         capture_storage=CaptureStorageBackend.MEMORY,
         database_url="sqlite+aiosqlite://",

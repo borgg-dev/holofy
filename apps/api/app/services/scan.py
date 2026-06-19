@@ -26,7 +26,11 @@ import uuid
 from dataclasses import dataclass
 from decimal import Decimal
 
-from app.core.errors import PriceUnavailableError, RecognitionFailedError
+from app.core.errors import (
+    CardNotFoundError,
+    PriceUnavailableError,
+    RecognitionFailedError,
+)
 from app.datalake.base import DataLakeSink
 from app.datalake.emit import emit_scan
 from app.db.models.enums import ScanOutcome as PersistedScanOutcome
@@ -199,11 +203,14 @@ class ScanService:
         ]
 
     async def _price_or_none(self, canonical_id: str) -> PriceQuote | None:
-        # A missing price is a long-tail fact, not a scan failure — the identity still
-        # stands and the UI shows "no price yet". Other pricing faults propagate.
+        # A missing price is a long-tail fact, not a scan failure — the identity still stands
+        # and the UI shows "no price yet". This covers both an explicit "no comp" and a card
+        # the pricing catalog simply doesn't carry (``card_not_found``): recognition can
+        # legitimately resolve a card the pricing source hasn't got, and that must not 404 the
+        # whole scan. Other pricing faults (upstream down) still propagate.
         try:
             return await self._pricing.price(canonical_id)
-        except PriceUnavailableError:
+        except (PriceUnavailableError, CardNotFoundError):
             return None
 
 

@@ -15,6 +15,13 @@ export HOLOFY_SMOKE_BASE_URL="http://127.0.0.1:${PORT}"
 # Keep real uploaded bytes in process so the journey exercises the actual upload->store->
 # scan/pre-grade path, not synthetic-by-reference captures.
 export HOLOFY_CAPTURE_STORAGE=memory
+# This is the FAST mock journey — pin the mock backends explicitly, now that the app's
+# production defaults are the real providers (in-house recognition, TCGdex). The owned-models
+# journey on real pixels lives in dev_smoke_inhouse.sh.
+export HOLOFY_RECOGNITION_PROVIDER=mock
+export HOLOFY_PRICING_PROVIDER=mock
+export HOLOFY_GRADING_PROVIDER=mock
+export HOLOFY_AUTHENTICITY_PROVIDER=mock
 
 rm -f "$DB"
 "$PY" -m alembic upgrade head >/dev/null

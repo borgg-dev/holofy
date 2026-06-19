@@ -114,10 +114,21 @@ def test_signal_detail_is_a_closed_set_not_free_text() -> None:
         )
 
 
-def test_factory_defaults_to_mock_authenticity_backend() -> None:
-    assert isinstance(build_authenticity_provider(Settings()), MockAuthenticityProvider)
+class _FakeStore:
+    async def load(self, ref: str) -> bytes:  # pragma: no cover - not called by the factory
+        raise NotImplementedError
+
+
+def test_factory_defaults_to_inhouse_authenticity_backend() -> None:
+    # The production default is the real, pixel-reading in-house analyzer — no mock ships.
+    from app.providers.authenticity.inhouse import InHouseAuthenticityProvider
+
+    provider = build_authenticity_provider(Settings(), _FakeStore())
+    assert isinstance(provider, InHouseAuthenticityProvider)
 
 
 def test_factory_honours_authenticity_backend_enum() -> None:
     settings = Settings(authenticity_provider=AuthenticityBackend.MOCK)
-    assert isinstance(build_authenticity_provider(settings), MockAuthenticityProvider)
+    assert isinstance(
+        build_authenticity_provider(settings, _FakeStore()), MockAuthenticityProvider
+    )
