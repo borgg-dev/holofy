@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.base import AuthProvider
 from app.auth.session_token import PROVIDER_NAME as SESSION_PROVIDER
+from app.auth.throttle import InMemoryAuthThrottle
 from app.authenticity.reference_catalog import ReferenceCatalogExistenceChecker
 from app.config import Settings
 from app.core.errors import (
@@ -109,6 +110,10 @@ def get_auth_provider(request: Request) -> AuthProvider:
 
 def get_rate_limiter(request: Request) -> RateLimiter:
     return request.app.state.rate_limiter
+
+
+def get_auth_throttle(request: Request) -> "InMemoryAuthThrottle":
+    return request.app.state.auth_throttle
 
 
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:

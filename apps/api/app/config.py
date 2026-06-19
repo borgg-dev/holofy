@@ -166,6 +166,13 @@ class Settings(BaseSettings):
     # against bounding a leaked token; a refresh-token rotation is a later refinement.
     session_token_ttl_seconds: int = 30 * 24 * 60 * 60
 
+    # Brute-force throttle for /auth/login and /auth/register (short rolling window, per IP and
+    # per email). Tight enough to stop credential stuffing, loose enough that a user mistyping
+    # a password a few times isn't locked out.
+    auth_throttle_window_seconds: int = 300
+    auth_throttle_max_per_email: int = 8
+    auth_throttle_max_per_ip: int = 30
+
     # Freemium COGS guard: the free ("Collector") tier is 8 ID scans/day (master plan §4).
     # The memory limiter is fine for a single process; the Redis backend lands behind the
     # same RateLimiter Protocol for the multi-instance gateway.

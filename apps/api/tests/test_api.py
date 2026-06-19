@@ -20,6 +20,13 @@ def test_health_reports_active_backends_and_region(client) -> None:  # noqa: ANN
     assert body["data_region"].startswith("eu-")
 
 
+def test_readiness_pings_the_database(client) -> None:  # noqa: ANN001
+    # /health/ready actually touches the DB so a load balancer routes around a broken instance.
+    response = client.get("/health/ready")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready", "db": "ok"}
+
+
 def test_scan_requires_authentication(client) -> None:  # noqa: ANN001
     response = client.post("/scan", json={"bundle_id": "mock-high-confidence"})
 

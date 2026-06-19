@@ -13,10 +13,13 @@ repository), and a wrong email *or* password is a single 401 — the response ne
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Response, status
+import uuid
+
+from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import (
+    get_auth_throttle,
     get_capture_store,
     get_current_user,
     get_datalake_sink,
@@ -26,8 +29,13 @@ from app.api.dependencies import (
 from app.auth.passwords import hash_password, verify_password
 from app.auth.session_token import PROVIDER_NAME as SESSION_PROVIDER
 from app.auth.session_token import issue_session_token
+from app.auth.throttle import InMemoryAuthThrottle
 from app.config import Settings
-from app.core.errors import ConstraintViolationError, InvalidCredentialError
+from app.core.errors import (
+    ConstraintViolationError,
+    InvalidCredentialError,
+    QuotaExceededError,
+)
 from app.datalake.base import DataLakeSink
 from app.db.erasure import plan_erasure
 from app.db.models import User
@@ -44,6 +52,33 @@ from app.schemas.datalake import TrainingExampleKind
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+def _client_ip(request: Request) -> str:
+    """The caller's IP for throttling. Behind the reverse proxy the real client is the first
+    hop in X-Forwarded-For; fall back to the socket peer when there's no proxy."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _throttle_auth(
+    request: Request, throttle: InMemoryAuthThrottle, settings: Settings, email: str
+) -> None:
+    """Short-window brute-force guard: cap attempts per IP and per target email. A breach is a
+    typed 429, not a 401, so the client can show 'try again shortly'."""
+    ip = _client_ip(request)
+    window = settings.auth_throttle_window_seconds
+    ip_ok = throttle.allow(f"ip:{ip}", limit=settings.auth_throttle_max_per_ip, window_seconds=window)
+    email_ok = throttle.allow(
+        f"email:{email}", limit=settings.auth_throttle_max_per_email, window_seconds=window
+    )
+    if not (ip_ok and email_ok):
+        raise QuotaExceededError(
+            "Too many attempts. Please wait a few minutes and try again.",
+            details={"reset_seconds": window},
+        )
+
+
 @router.post(
     "/register",
     response_model=AuthTokenResponse,
@@ -51,9 +86,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 )
 async def register(
     request: RegisterRequest,
+    http_request: Request,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
+    throttle: InMemoryAuthThrottle = Depends(get_auth_throttle),
 ) -> AuthTokenResponse:
+    _throttle_auth(http_request, throttle, settings, request.email)
     users = UserRepository(session)
     # Friendly, explicit duplicate message; the unique constraint is still the race backstop
     # (a concurrent register of the same email surfaces as a 409 from the repository's flush).
@@ -62,10 +100,12 @@ async def register(
             "An account with this email already exists. Try logging in instead.",
             details={"field": "email"},
         )
-    # The session subject is the (normalized) email — the stable handle the token resolves to.
+    # The session subject is a fresh opaque id, NOT the email — so a token issued to one
+    # account can never resolve to a *different* account that later registers the same email
+    # (e.g. after this one is deleted). The email stays the login handle for password lookup.
     user = await users.create(
         auth_provider=SESSION_PROVIDER,
-        auth_subject=request.email,
+        auth_subject=uuid.uuid4().hex,
         email=request.email,
         password_hash=hash_password(request.password),
     )
@@ -75,9 +115,12 @@ async def register(
 @router.post("/login", response_model=AuthTokenResponse)
 async def login(
     request: LoginRequest,
+    http_request: Request,
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
+    throttle: InMemoryAuthThrottle = Depends(get_auth_throttle),
 ) -> AuthTokenResponse:
+    _throttle_auth(http_request, throttle, settings, request.email)
     user = await UserRepository(session).get_by_email(request.email)
     # One indistinguishable failure for "no such account" and "wrong password" — no account
     # enumeration. ``verify_password`` is still run on a dummy hash? Not needed here: the
@@ -87,6 +130,9 @@ async def login(
         request.password, user.password_hash
     ):
         raise InvalidCredentialError("Email or password is incorrect.")
+    # A correct login clears the throttle so earlier typos don't count against this account/IP.
+    throttle.reset(f"email:{request.email}")
+    throttle.reset(f"ip:{_client_ip(http_request)}")
     return _token_response(user, settings)
 
 

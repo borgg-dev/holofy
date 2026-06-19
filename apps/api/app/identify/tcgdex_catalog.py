@@ -17,6 +17,9 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Sequence
 
+import httpx
+
+from app.core.errors import UpstreamUnavailableError
 from app.identify.catalog import CardRead, CatalogCard
 from app.identify.collector_number import parse_collector_number
 from app.providers.pricing.tcgdex import CardNotFound, TcgdexClient
@@ -38,13 +41,21 @@ class TcgdexCatalogIndex:
             # be located across sets. Honest empty result rather than a guess.
             return []
 
-        briefs = await self._client.search_cards(name=read.name, locale=self._locale)
-        number = parse_collector_number(read.collector_number)
-        if number is not None and number.numerator is not None:
-            briefs = [b for b in briefs if _brief_numerator(b) == number.numerator] or briefs
+        try:
+            briefs = await self._client.search_cards(name=read.name, locale=self._locale)
+            number = parse_collector_number(read.collector_number)
+            if number is not None and number.numerator is not None:
+                briefs = [b for b in briefs if _brief_numerator(b) == number.numerator] or briefs
 
-        ids = [b["id"] for b in briefs[:_MAX_CANDIDATES] if b.get("id")]
-        cards = await asyncio.gather(*(self._resolve(card_id) for card_id in ids))
+            ids = [b["id"] for b in briefs[:_MAX_CANDIDATES] if b.get("id")]
+            cards = await asyncio.gather(*(self._resolve(card_id) for card_id in ids))
+        except httpx.HTTPError as exc:
+            # TCGdex is down/slow: a scan must degrade to a typed 502 the client can show as
+            # "try again", never a raw 500. The owned OCR already ran; only the catalog failed.
+            raise UpstreamUnavailableError(
+                "The card catalog is temporarily unavailable. Please try again shortly.",
+                details={"upstream": "tcgdex"},
+            ) from exc
         return [card for card in cards if card is not None]
 
     async def _resolve(self, card_id: str) -> CatalogCard | None:

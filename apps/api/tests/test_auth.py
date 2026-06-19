@@ -162,6 +162,35 @@ def test_delete_account_requires_authentication(auth_client) -> None:  # noqa: A
     assert auth_client.delete("/auth/me").status_code == 401
 
 
+def test_login_is_rate_limited_after_repeated_failures(auth_client) -> None:  # noqa: ANN001
+    _register(auth_client)
+    statuses = []
+    for _ in range(15):
+        r = auth_client.post(
+            "/auth/login",
+            json={"email": "collector@example.com", "password": "wrong-password"},
+        )
+        statuses.append(r.status_code)
+    # The first wrong attempts are 401 (bad creds); once the short-window cap is hit the
+    # endpoint throttles with 429 instead of letting an attacker keep guessing.
+    assert 401 in statuses
+    assert 429 in statuses
+    assert statuses[-1] == 429
+
+
+def test_session_token_subject_is_opaque_not_the_email(auth_client) -> None:  # noqa: ANN001
+    # The token subject must not be the email, so a token can never resolve to a different
+    # account that later registers the same address.
+    import base64
+    import json
+
+    token = _register(auth_client).json()["access_token"]
+    payload_b64 = token.split(".")[0]
+    payload = json.loads(base64.urlsafe_b64decode(payload_b64 + "=" * (-len(payload_b64) % 4)))
+    assert payload["sub"] != "collector@example.com"
+    assert "@" not in payload["sub"]
+
+
 # ── Unit-level: the primitives ────────────────────────────────────────────────
 
 

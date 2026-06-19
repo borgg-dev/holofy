@@ -5,6 +5,12 @@
 {$HOLOFY_DOMAIN} {
 	encode gzip
 
+	# Hard cap on request bodies at the edge — a capture is at most a handful of phone stills.
+	# Bounds memory before a request reaches the app (8 images × 12 MB ≈ 96 MB, plus slack).
+	request_body {
+		max_size 110MB
+	}
+
 	# Static legal pages (Google Play needs a Privacy Policy URL; both are plain HTML).
 	handle /privacy {
 		rewrite * /privacy.html

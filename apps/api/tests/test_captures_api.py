@@ -105,6 +105,18 @@ def test_upload_rejects_a_non_image(memory_client) -> None:  # noqa: ANN001
     assert response.json()["error"]["code"] == "capture_rejected"
 
 
+def test_upload_rejects_non_image_bytes_lying_about_content_type(memory_client) -> None:  # noqa: ANN001
+    # A client claiming image/png but sending non-image bytes is rejected by the magic-byte
+    # check — the declared content-type is never trusted to decide what gets stored.
+    response = memory_client.post(
+        "/captures",
+        files=[("files", ("fake.png", b"this is definitely not a PNG", "image/png"))],
+        headers=auth_header(),
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "capture_rejected"
+
+
 def test_upload_rejects_too_many_images(memory_client) -> None:  # noqa: ANN001
     response = memory_client.post(
         "/captures", files=[_file() for _ in range(9)], headers=auth_header()

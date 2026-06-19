@@ -80,3 +80,19 @@ async def test_find_feeds_the_resolver_to_pin_the_right_reprint() -> None:
 async def test_find_without_a_name_returns_nothing() -> None:
     cards = await _index().find(CardRead(collector_number="12/120"))
     assert cards == []
+
+
+@pytest.mark.asyncio
+async def test_catalog_outage_raises_typed_upstream_error_not_500() -> None:
+    # When TCGdex is unreachable, find() must raise the typed UpstreamUnavailableError (→ 502),
+    # so a scan degrades to "try again", never a raw 500.
+    from app.core.errors import UpstreamUnavailableError
+
+    def _down(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("tcgdex unreachable", request=request)
+
+    client = TcgdexClient(client=httpx.AsyncClient(transport=httpx.MockTransport(_down)))
+    index = TcgdexCatalogIndex(client, locale="en")
+    with pytest.raises(UpstreamUnavailableError):
+        await index.find(CardRead(name="Pikachu", collector_number="58/102"))
+    await client.aclose()

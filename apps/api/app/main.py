@@ -31,6 +31,7 @@ from app.api import (
     scan,
 )
 from app.auth.factory import build_auth_provider
+from app.auth.throttle import InMemoryAuthThrottle
 from app.config import Settings, get_settings
 from app.core.errors import ErrorBody, ErrorResponse, HolofyError
 from app.core.logging import bind_request_id, configure_logging, current_request_id
@@ -76,6 +77,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.datalake_sink = build_datalake_sink(settings)
     app.state.auth_provider = build_auth_provider(settings)
     app.state.rate_limiter = build_rate_limiter(settings)
+    # Short-window brute-force throttle for the auth endpoints (per-instance, in-memory).
+    app.state.auth_throttle = InMemoryAuthThrottle()
 
     engine = create_engine(settings.database_url, echo=settings.database_echo)
     app.state.db_engine = engine
