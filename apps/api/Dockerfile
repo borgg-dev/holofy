@@ -8,9 +8,13 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install deps first for layer caching.
+# Install deps first for layer caching. RapidOCR pulls in opencv-python, which links X11/GL
+# system libs absent from the slim image (libGL, libxcb…). Swap it for opencv-python-headless,
+# the same cv2 module without the GUI/X deps — the canonical fix for OpenCV in containers.
 COPY requirements.txt ./
-RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt \
+    && pip uninstall -y opencv-python opencv-contrib-python 2>/dev/null || true \
+    && pip install --no-cache-dir opencv-python-headless
 
 COPY . .
 
