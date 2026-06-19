@@ -28,6 +28,7 @@ from app.providers.base import (
     PricingProvider,
     RecognitionProvider,
 )
+from app.grading.capture_store import CaptureStore
 from app.providers.grading.mock import MockGradingProvider
 from app.providers.pricing.mock import MockPricingProvider
 from app.providers.pricing.tcgdex import TcgdexClient
@@ -35,10 +36,27 @@ from app.providers.pricing.tcgdex_provider import TcgdexPricingProvider
 from app.providers.recognition.mock import MockRecognitionProvider
 
 
-def build_recognition_provider(settings: Settings) -> RecognitionProvider:
+def build_recognition_provider(
+    settings: Settings, capture_store: CaptureStore
+) -> RecognitionProvider:
     match settings.recognition_provider:
         case RecognitionBackend.MOCK:
             return MockRecognitionProvider()
+        case RecognitionBackend.INHOUSE:
+            # Imported lazily: the OCR stack (onnxruntime) is only needed for this backend, so
+            # mock/test runs never pay its import cost. The provider reads the uploaded stills
+            # from the same capture store the pre-grade uses.
+            from app.identify.catalog import InMemoryCatalogIndex
+            from app.identify.provider import InHouseRecognitionProvider
+            from app.identify.resolver import CardResolver
+            from app.identify.vision.ocr import RapidOcrEngine
+            from app.identify.vision.reader import VisionCardReader
+
+            return InHouseRecognitionProvider(
+                store=capture_store,
+                reader=VisionCardReader(RapidOcrEngine()),
+                resolver=CardResolver(InMemoryCatalogIndex()),
+            )
         case unknown:  # pragma: no cover - guards an unwired enum value
             raise ValueError(f"unsupported recognition backend: {unknown}")
 

@@ -52,7 +52,11 @@ logger = logging.getLogger("holofy.api")
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
-    app.state.recognition_provider = build_recognition_provider(settings)
+    # Object storage for capture stills, built first: the in-house recognizer reads the
+    # uploaded stills from it. Selected by config (synthetic mock for tests, real bytes for
+    # dev); the EU-region client drops in behind the same Protocol.
+    app.state.capture_store = build_capture_store(settings)
+    app.state.recognition_provider = build_recognition_provider(settings, app.state.capture_store)
     pricing_provider, pricing_client = build_pricing_provider(settings)
     app.state.pricing_provider = pricing_provider
     app.state.pricing_client = pricing_client
@@ -61,9 +65,6 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     # The consented-capture training lake. Built once and held on state so a single sink (and
     # for the real backend, its one connection pool) is shared across requests, like a provider.
     app.state.datalake_sink = build_datalake_sink(settings)
-    # Object storage for capture stills. Selected by config (synthetic mock for tests,
-    # real uploaded bytes for dev); the EU-region client drops in behind the same Protocol.
-    app.state.capture_store = build_capture_store(settings)
     app.state.auth_provider = build_auth_provider(settings)
     app.state.rate_limiter = build_rate_limiter(settings)
 

@@ -9,6 +9,7 @@ import pytest
 
 from app.config import PricingBackend, RecognitionBackend, Settings
 from app.core.errors import PriceUnavailableError
+from app.grading.capture_store import MockCaptureStore
 from app.providers.factory import build_pricing_provider, build_recognition_provider
 from app.providers.pricing.mock import MockPricingProvider
 from app.providers.pricing.tcgdex_provider import TcgdexPricingProvider
@@ -64,7 +65,9 @@ async def test_mock_pricing_unknown_card_raises_price_unavailable() -> None:
 
 def test_factory_defaults_to_mock_backends() -> None:
     settings = Settings()
-    assert isinstance(build_recognition_provider(settings), MockRecognitionProvider)
+    assert isinstance(
+        build_recognition_provider(settings, MockCaptureStore()), MockRecognitionProvider
+    )
     provider, client = build_pricing_provider(settings)
     assert isinstance(provider, MockPricingProvider)
     assert client is None
@@ -84,4 +87,6 @@ async def test_factory_builds_tcgdex_pricing_and_owns_a_client() -> None:
 
 def test_factory_honours_recognition_backend_enum() -> None:
     settings = Settings(recognition_provider=RecognitionBackend.MOCK)
-    assert isinstance(build_recognition_provider(settings), MockRecognitionProvider)
+    assert isinstance(
+        build_recognition_provider(settings, MockCaptureStore()), MockRecognitionProvider
+    )

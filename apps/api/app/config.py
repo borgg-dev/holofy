@@ -30,6 +30,9 @@ class Environment(StrEnum):
 
 class RecognitionBackend(StrEnum):
     MOCK = "mock"
+    # Our owned pipeline: card detect/crop → OCR (RapidOCR, on-device-class CPU) → collector
+    # number + name → catalog resolve. No per-scan vendor fee; the rented seam is gone.
+    INHOUSE = "inhouse"
 
 
 class PricingBackend(StrEnum):

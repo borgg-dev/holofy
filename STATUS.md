@@ -9,15 +9,20 @@ parts first, no Ximilar key yet. Five units (task backlog): (1) real capture→u
 adapter behind seam), (4) pre-grade on real input + Ximilar grading adapter, (5) mobile off
 fixtures onto live API.
 
-**Unit 3 — in-house identification core done & verified ✅ (vision/OCR reader next):**
-- New owned module `app/identify/`: collector-number parse/match (Spike-B's disambiguator —
+**Unit 3 — in-house identification GENUINELY BUILT & verified ✅ (real pixels → identity):**
+- Owned module `app/identify/`: collector-number parse/match (Spike-B's disambiguator —
   full number pins a printing, numerator-only narrows → confirm), `CatalogIndex` seam +
-  `InMemoryCatalogIndex` (TCGdex sync drops in later), and `CardResolver` (read-quality-capped
-  scoring → ranked `RecognitionResult`, same-art reprints route to confirm).
-- `CardReader` seam (the visual stage) + `InHouseRecognitionProvider` composing
-  store → read → resolve behind the standard `RecognitionProvider` seam. Verified end-to-end
-  with a fake reader. **Remaining: the real OCR/CV `CardReader`** (on-device ML Kit / server
-  engine) + wire `RecognitionBackend.INHOUSE` into config/factory. 196 backend tests (+9).
+  `InMemoryCatalogIndex`, `CardResolver` (read-quality-capped scoring → ranked result).
+- **Real vision stage** `app/identify/vision/`: numpy card detect/crop (`detect.py`) + a
+  genuine OCR engine (`ocr.py`, RapidOCR / ONNX — pure-pip, CPU, no system Tesseract, no
+  per-scan vendor fee) + `VisionCardReader` parsing number/name from located tokens.
+- `RecognitionBackend.INHOUSE` wired into config + factory + lifespan; `InHouseRecognitionProvider`
+  composes store → detect → OCR → resolve behind the standard seam.
+- **Proven end-to-end over HTTP** (`test_inhouse_scan_e2e`): upload a real card PNG → `/scan`
+  (inhouse) → OCR reads the pixels → resolves `origins-8` "Tidecaller Leviath" → priced. No
+  fixtures, no network, no Ximilar. 201 backend tests (+14); real-OCR tests marked `ocr`.
+- **Remaining:** swap `InMemoryCatalogIndex` for the real TCGdex-synced catalog; real-photo
+  OCR accuracy (vs synthetic) is device-validated later — capture quality is the ceiling.
 
 **Unit 1 — backend + mobile upload seam done & verified ✅ (camera UI next):**
 - New `CaptureStorage` seam (`app/storage/`) with `memory` + `local` backends holding real

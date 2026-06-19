@@ -11,15 +11,16 @@ branch), not an error: a scan of a missing/expired upload simply recognizes noth
 
 from __future__ import annotations
 
+from app.grading.capture_store import CaptureStore
 from app.identify.reader import CardReader
 from app.identify.resolver import CardResolver
 from app.providers.base import CaptureBundle
 from app.schemas.cards import RecognitionResult
-from app.storage.base import CaptureNotFoundError, CaptureStorage
+from app.storage.base import CaptureNotFoundError
 
 
 class InHouseRecognitionProvider:
-    def __init__(self, store: CaptureStorage, reader: CardReader, resolver: CardResolver) -> None:
+    def __init__(self, store: CaptureStore, reader: CardReader, resolver: CardResolver) -> None:
         self._store = store
         self._reader = reader
         self._resolver = resolver

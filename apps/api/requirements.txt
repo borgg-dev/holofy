@@ -9,6 +9,12 @@ python-multipart==0.0.20   # capture upload: multipart/form-data stills
 numpy==2.4.4
 pillow==12.2.0
 
+# in-house identification OCR: RapidOCR (PaddleOCR models exported to ONNX). Pure-pip,
+# CPU-only, ships its own models, no system Tesseract — the keyless owned recognizer. Only
+# loaded when HOLOFY_RECOGNITION_PROVIDER=inhouse; mock/test runs don't import it.
+rapidocr-onnxruntime==1.4.4
+onnxruntime==1.27.0
+
 # persistence
 sqlalchemy[asyncio]==2.0.36
 alembic==1.14.0
