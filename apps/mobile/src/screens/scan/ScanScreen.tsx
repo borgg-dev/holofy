@@ -30,6 +30,11 @@ type Props = {
   onCaptured?: (image: CaptureImage) => void | Promise<void>;
   /** Selecting Stack mode leaves the single frame for the rapid/stack scanner. */
   onStackMode?: () => void;
+  /**
+   * A persistent coaching line from the last scan attempt — e.g. "couldn't match this to a
+   * Pokémon card". Shown until the next capture so a rejected scan never fails silently.
+   */
+  notice?: string | null;
 };
 
 const CHIP_ORDER: (keyof QualitySignals)[] = ["focus", "glare", "frame"];
@@ -39,7 +44,7 @@ const CHIP_ORDER: (keyof QualitySignals)[] = ["focus", "glare", "frame"];
 // capture hue) when the three live signals pass, coaching chips, and a shutter that
 // refuses a bad shot.
 // Quality is mock-driven here; the lock/refuse/announce wiring is the real thing.
-export function ScanScreen({ onBack, onCaptured, onStackMode }: Props) {
+export function ScanScreen({ onBack, onCaptured, onStackMode, notice }: Props) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
@@ -128,7 +133,8 @@ export function ScanScreen({ onBack, onCaptured, onStackMode }: Props) {
           },
         ]}
       >
-        <CoachingToast message={toast} />
+        {/* A standing rejection (e.g. not a Pokémon card) outranks the transient refuse line. */}
+        <CoachingToast message={notice ?? toast} />
 
         <View style={[styles.chips, { gap: theme.space["3"] }]} accessibilityRole="summary">
           {CHIP_ORDER.map((key) => {

@@ -157,6 +157,7 @@ def get_scan_service(
         pricing=pricing,
         data_lake=data_lake,
         confirm_threshold=settings.recognition_confirm_threshold,
+        recognition_floor=settings.recognition_floor,
     )
 
 

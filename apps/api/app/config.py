@@ -174,6 +174,11 @@ class Settings(BaseSettings):
     # Below this top-1 confidence the scan flow must ask the user to confirm rather than
     # commit a guess — getting a high-value variant wrong is the product's worst failure.
     recognition_confirm_threshold: float = 0.85
+    # Below this top-1 confidence the read is too weak to be a real match at all: with the
+    # Pokémon-only catalog, a non-Pokémon card (or an unreadable frame) produces at most a
+    # spurious low-confidence candidate, which must reject cleanly as "unrecognized" rather
+    # than commit it or offer a confirm against junk. This is the effective Pokémon gate.
+    recognition_floor: float = 0.35
 
     # Pre-grade honesty floor (charter §3.1): if the centering measurement's confidence is
     # below this the capture is too poor to estimate a grade from, so the pre-grade refuses

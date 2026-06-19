@@ -84,11 +84,13 @@ class ScanService:
         pricing: PricingProvider,
         data_lake: DataLakeSink,
         confirm_threshold: float,
+        recognition_floor: float = 0.0,
     ) -> None:
         self._recognition = recognition
         self._pricing = pricing
         self._data_lake = data_lake
         self._confirm_threshold = confirm_threshold
+        self._recognition_floor = recognition_floor
 
     async def classify(self, bundle: CaptureBundleRef) -> ScanClassification:
         """Recognize and price one capture — no persistence, no quota, no side effects.
@@ -98,14 +100,21 @@ class ScanService:
         top-2 with their delta) lives here so neither caller can drift from it.
         """
         result = await self._recognition.recognize(bundle)
-        if not result.candidates:
+        # No candidates, or a top read too weak to be a real match: reject as unrecognized.
+        # With the Pokémon-only catalog this is the effective game gate — a non-Pokémon card
+        # produces at most a spurious sub-floor candidate, and a sub-floor read must never be
+        # committed or offered as a confirm choice.
+        if not result.candidates or result.top.confidence < self._recognition_floor:
             return ScanClassification(
                 outcome=PersistedScanOutcome.UNRECOGNIZED, ranked=[]
             )
 
         ranked = [_candidate_label(c) for c in result.candidates]
 
-        if result.needs_confirmation(self._confirm_threshold):
+        # A confirm needs a genuine alternative to choose between — at least two candidates.
+        # A single below-threshold read has nothing to disambiguate against, so it resolves
+        # (it's the only plausible match) rather than opening a one-option confirm screen.
+        if result.needs_confirmation(self._confirm_threshold) and len(result.candidates) >= 2:
             choices = await self._confirmation_choices(result.candidates[:2])
             return ScanClassification(
                 outcome=PersistedScanOutcome.NEEDS_CONFIRMATION,
@@ -151,8 +160,13 @@ class ScanService:
                 consent_note=consent_note,
             )
             await emit_scan(self._data_lake, unrecognized)
+            # Holofy launches Pokémon-only: the recognizer resolves against the Pokémon
+            # catalog, so a non-Pokémon card (or a frame with no readable card) simply doesn't
+            # match. The message names that honestly — we don't claim to identify *which* other
+            # game it is, only that it isn't a Pokémon card we could match.
             raise RecognitionFailedError(
-                "No card could be recognized in this capture.",
+                "We couldn't match this to a Pokémon card. Holofy is Pokémon-only for now — "
+                "make sure it's a Pokémon card, fills the frame, and is in focus, then try again.",
                 details={"bundle_id": bundle.bundle_id},
             )
 

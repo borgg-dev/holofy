@@ -12,11 +12,14 @@ import { ScanScreen } from "@/screens/scan/ScanScreen";
 export default function ScanTab() {
   const router = useRouter();
   const api = useApi();
-  const { runScan } = useScanFlow();
+  const { runScan, scan } = useScanFlow();
 
   return (
     <ScanScreen
       onStackMode={() => router.push("/rapid")}
+      // A rejected/failed scan leaves a message in the flow — surface it on the frame so the
+      // user knows *why* nothing happened (e.g. not a Pokémon card) and can retake.
+      notice={scan.status === "error" ? scan.message : null}
       onCaptured={async (image: CaptureImage) => {
         const { ref } = await api.uploadCapture([image]);
         const result = await runScan(ref);

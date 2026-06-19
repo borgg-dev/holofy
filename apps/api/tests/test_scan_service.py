@@ -48,13 +48,16 @@ class _StubRecognition:
 
 
 def _service(
-    result: RecognitionResult, sink: MockDataLakeSink | None = None
+    result: RecognitionResult,
+    sink: MockDataLakeSink | None = None,
+    recognition_floor: float = 0.0,
 ) -> ScanService:
     return ScanService(
         recognition=_StubRecognition(result),
         pricing=MockPricingProvider(),
         data_lake=sink or MockDataLakeSink(),
         confirm_threshold=_THRESHOLD,
+        recognition_floor=recognition_floor,
     )
 
 
@@ -127,6 +130,43 @@ async def test_resolved_card_with_unpriced_identity_keeps_identity_and_nulls_pri
     assert response.outcome is ScanOutcome.RESOLVED
     assert response.card is not None
     assert response.card.price is None
+
+
+@pytest.mark.asyncio
+async def test_sub_floor_top_candidate_is_rejected_as_unrecognized(
+    session: AsyncSession,
+) -> None:
+    # The Pokémon gate: a weak/spurious read below the recognition floor must reject cleanly,
+    # never commit or offer a confirm against junk (e.g. a non-Pokémon card the catalog can't
+    # match). Floor 0.35, a 0.20 top read → unrecognized.
+    result = RecognitionResult(
+        candidates=[RecognitionCandidate(identity=_identity("origins-12"), confidence=0.20)]
+    )
+    user = await UserRepository(session).create()
+    with pytest.raises(RecognitionFailedError):
+        await _service(result, recognition_floor=0.35).scan(
+            CaptureBundleRef(bundle_id="b"),
+            user_id=user.id,
+            scans=ScanRepository(session),
+            cards=CardRepository(session),
+        )
+    records = await ScanRepository(session).list_for_user(user.id)
+    assert records[0].outcome == PersistedScanOutcome.UNRECOGNIZED
+
+
+@pytest.mark.asyncio
+async def test_single_below_threshold_candidate_resolves_not_confirms(
+    session: AsyncSession,
+) -> None:
+    # Above the floor but below the confirm threshold, with only one candidate: there is
+    # nothing to disambiguate against, so it resolves rather than opening a broken one-option
+    # confirm screen (the mobile confirm UI requires two choices).
+    result = RecognitionResult(
+        candidates=[RecognitionCandidate(identity=_identity("origins-12"), confidence=0.55)]
+    )
+    _user, response = await _run(_service(result, recognition_floor=0.35), session)
+    assert response.outcome is ScanOutcome.RESOLVED
+    assert response.card is not None
 
 
 @pytest.mark.asyncio
