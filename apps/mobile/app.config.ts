@@ -15,6 +15,11 @@ const config: ExpoConfig = {
   orientation: "portrait",
   userInterfaceStyle: "dark",
   backgroundColor: VAULT,
+  // Use JavaScriptCore, not Hermes, for now. SDK 54's bundled Hermes AOT compiler (hermesc)
+  // rejects the modern `#private` class syntax that reanimated v4 ships ("private properties
+  // are not supported"), which breaks the release bundle. JSC runs that syntax natively, so
+  // the APK builds and runs. Revisit Hermes once the toolchain lowers those fields.
+  jsEngine: "jsc",
   icon: "./assets/icon.png",
   splash: {
     image: "./assets/splash.png",

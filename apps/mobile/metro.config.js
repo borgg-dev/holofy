@@ -18,4 +18,9 @@ config.resolver.nodeModulesPaths = [
 // Don't let a hoisted and a local copy of a singleton (React) both load.
 config.resolver.disableHierarchicalLookup = true;
 
+// Minify with terser, not the default uglify-es, which rejects modern class private syntax
+// ("private properties are not supported") that SDK 54 deps (reanimated v4) ship. terser
+// handles it, so the production/release bundle builds.
+config.transformer.minifierPath = require.resolve("metro-minify-terser");
+
 module.exports = config;
