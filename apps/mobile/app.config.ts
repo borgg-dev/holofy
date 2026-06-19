@@ -10,6 +10,7 @@ const VAULT = "#0B0B12";
 const config: ExpoConfig = {
   name: "Holofy",
   slug: "holofy",
+  owner: "holofy-dev",
   scheme: "holofy",
   version: "0.1.0",
   orientation: "portrait",
@@ -56,6 +57,11 @@ const config: ExpoConfig = {
   ],
   experiments: {
     typedRoutes: true,
+  },
+  extra: {
+    eas: {
+      projectId: "cce0cf1b-4456-4987-b610-9d37f5222380",
+    },
   },
 };
 
