@@ -28,6 +28,13 @@ fixtures onto live API.
 - **Remaining:** production fronts the live catalog with the nightly Postgres sync (same seam);
   real-photo OCR accuracy (vs synthetic) is device-validated later — capture quality is the ceiling.
 
+**Unit 2 — Pokémon-card presence guard done & verified ✅:**
+- `app/identify/presence.py`: `CardPresenceProvider` seam + `HeuristicCardPresence` (v1 from
+  card-detection quality). Rejects a hand / table / random object / undecodable frame before
+  the recognizer spends an OCR pass; the trained Pokémon/multi-game classifier drops in behind
+  the same `assess`. Wired into `InHouseRecognitionProvider` (guard → skip OCR when absent).
+  Verified: framed card accepted, non-card rejected, OCR skipped when absent. 217 backend tests.
+
 **Unit 4 — in-house grading GENUINELY BUILT & verified ✅ (real pixels → range):**
 - `app/grading/condition.py`: classical-CV corners/edges/surface reader — measures defect
   *roughness* (edge whitening/fraying, surface scratches) from the detected card crop, maps

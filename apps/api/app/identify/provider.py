@@ -12,6 +12,7 @@ branch), not an error: a scan of a missing/expired upload simply recognizes noth
 from __future__ import annotations
 
 from app.grading.capture_store import CaptureStore
+from app.identify.presence import CardPresenceProvider
 from app.identify.reader import CardReader
 from app.identify.resolver import CardResolver
 from app.providers.base import CaptureBundle
@@ -20,15 +21,25 @@ from app.storage.base import CaptureNotFoundError
 
 
 class InHouseRecognitionProvider:
-    def __init__(self, store: CaptureStore, reader: CardReader, resolver: CardResolver) -> None:
+    def __init__(
+        self,
+        store: CaptureStore,
+        reader: CardReader,
+        resolver: CardResolver,
+        presence: CardPresenceProvider,
+    ) -> None:
         self._store = store
         self._reader = reader
         self._resolver = resolver
+        self._presence = presence
 
     async def recognize(self, bundle: CaptureBundle) -> RecognitionResult:
         try:
             image = await self._store.load(bundle.bundle_id)
         except CaptureNotFoundError:
+            return RecognitionResult(candidates=[])
+        # Guard first: don't spend an OCR pass on a frame that holds no card.
+        if not self._presence.assess(image).present:
             return RecognitionResult(candidates=[])
         read = await self._reader.read([image])
         return await self._resolver.resolve(read)

@@ -74,6 +74,7 @@ def build_recognition_provider(
             # Imported lazily: the OCR stack (onnxruntime) is only needed for this backend, so
             # mock/test runs never pay its import cost. The provider reads the uploaded stills
             # from the same capture store the pre-grade uses.
+            from app.identify.presence import HeuristicCardPresence
             from app.identify.provider import InHouseRecognitionProvider
             from app.identify.resolver import CardResolver
             from app.identify.vision.ocr import RapidOcrEngine
@@ -84,6 +85,7 @@ def build_recognition_provider(
                 store=capture_store,
                 reader=VisionCardReader(RapidOcrEngine()),
                 resolver=CardResolver(catalog),
+                presence=HeuristicCardPresence(),
             )
             return provider, catalog_client
         case unknown:  # pragma: no cover - guards an unwired enum value

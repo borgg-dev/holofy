@@ -12,9 +12,17 @@ from dataclasses import dataclass
 import pytest
 
 from app.identify.catalog import CardRead, InMemoryCatalogIndex
+from app.identify.presence import CardPresence
 from app.identify.provider import InHouseRecognitionProvider
 from app.identify.resolver import CardResolver
 from app.storage.memory import InMemoryCaptureStorage
+
+
+class _AlwaysPresent:
+    """Presence stub for orchestration tests — keeps the focus off image decoding."""
+
+    def assess(self, image_bytes: bytes) -> CardPresence:  # noqa: ARG002
+        return CardPresence(present=True, confidence=1.0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,7 +46,12 @@ class _FixedReader:
 
 
 def _provider(reader: _FixedReader, store: InMemoryCaptureStorage) -> InHouseRecognitionProvider:
-    return InHouseRecognitionProvider(store=store, reader=reader, resolver=CardResolver(InMemoryCatalogIndex()))
+    return InHouseRecognitionProvider(
+        store=store,
+        reader=reader,
+        resolver=CardResolver(InMemoryCatalogIndex()),
+        presence=_AlwaysPresent(),
+    )
 
 
 @pytest.mark.asyncio
