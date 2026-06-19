@@ -13,8 +13,7 @@
       "distribution": "internal",
       "android": { "buildType": "apk" },
       "env": {
-        "//": "Set this to your deployed API URL before building (e.g. https://api.yourdomain.com).",
-        "EXPO_PUBLIC_API_URL": "https://api.example.com"
+        "EXPO_PUBLIC_API_URL": "https://holofy.shugo.io"
       }
     },
     "production": {

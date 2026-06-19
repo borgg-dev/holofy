@@ -11,8 +11,9 @@ module.exports = function (api) {
           extensions: [".ts", ".tsx", ".js", ".jsx", ".json"],
         },
       ],
-      // Reanimated's plugin must be listed last.
-      "react-native-reanimated/plugin",
+      // Reanimated v4 moved its worklet babel transform into react-native-worklets; it must
+      // remain the LAST plugin in the list.
+      "react-native-worklets/plugin",
     ],
   };
 };
