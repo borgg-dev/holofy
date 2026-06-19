@@ -16,6 +16,8 @@ import {
 import { ChevronLeft } from "@/components/icons";
 import { useReduceMotion, useTheme } from "@/theme";
 import { withAlpha } from "@/theme/color";
+import type { CaptureImage } from "@/api";
+import { useCardCapture } from "../scan/useCardCapture";
 import { CameraPreview } from "../scan/CameraPreview";
 import {
   AUTHENTICITY_PLAN,
@@ -28,8 +30,12 @@ import { useGuidedCapture } from "./useGuidedCapture";
 
 type Props = {
   onBack?: () => void;
-  /** Fired once every shot is captured — the route runs the screening and shows the verdict. */
-  onComplete?: () => void;
+  /**
+   * Fired once every shot is captured, with the real stills (print macro + holo tilts). The
+   * route uploads them and runs the screening on the returned reference. On web/demo these are
+   * placeholder stills the fixture upload ignores — the flow is identical.
+   */
+  onComplete?: (stills: CaptureImage[]) => void | Promise<void>;
 };
 
 // Guided authenticity capture — the capture↔ML dependency made visible for anti-counterfeit.
@@ -45,6 +51,15 @@ export function GuidedCaptureScreen({ onBack, onComplete }: Props) {
 
   const { shotIndex, signals, locked, firstFailing, capturedCount, total, complete, capture } =
     useGuidedCapture();
+
+  // The real camera + capture seam (native); on web/demo it yields placeholder stills the
+  // fixture upload ignores. One real still per accepted shot, handed up as the bundle.
+  const { cameraRef, permission, requestPermission, capture: takeStill, live } = useCardCapture();
+  const stills = useRef<CaptureImage[]>([]);
+
+  useEffect(() => {
+    if (permission && !permission.granted && permission.canAskAgain) requestPermission();
+  }, [permission, requestPermission]);
 
   const [toast, setToast] = useState<string | null>(null);
   const [refuseSignal, setRefuseSignal] = useState(0);
@@ -62,11 +77,13 @@ export function GuidedCaptureScreen({ onBack, onComplete }: Props) {
     wasLocked.current = locked;
   }, [locked, reduceMotion]);
 
-  // Once every shot is captured, announce and hand off to the screening.
+  // Once every shot is captured, announce and hand off to the screening with the stills.
+  const handedOff = useRef(false);
   useEffect(() => {
-    if (!complete) return;
+    if (!complete || handedOff.current) return;
+    handedOff.current = true;
     AccessibilityInfo.announceForAccessibility(CAPTURE_DONE_ANNOUNCE);
-    onComplete?.();
+    void onComplete?.(stills.current);
   }, [complete, onComplete]);
 
   useEffect(
@@ -76,9 +93,10 @@ export function GuidedCaptureScreen({ onBack, onComplete }: Props) {
     []
   );
 
-  const handleShutter = useCallback(() => {
+  const handleShutter = useCallback(async () => {
     if (locked) {
       AccessibilityInfo.announceForAccessibility(shotAdvanceAnnounce(shot.label));
+      stills.current.push(await takeStill());
       capture();
       setToast(null);
       return;
@@ -87,11 +105,11 @@ export function GuidedCaptureScreen({ onBack, onComplete }: Props) {
     setToast(refuseMessage(firstFailing));
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2800);
-  }, [locked, firstFailing, capture, shot.label]);
+  }, [locked, firstFailing, capture, takeStill, shot.label]);
 
   return (
     <Screen ground="flat" edges={[]} padded={false}>
-      <CameraPreview />
+      <CameraPreview live={live} cameraRef={cameraRef} />
       <View
         pointerEvents="none"
         style={[

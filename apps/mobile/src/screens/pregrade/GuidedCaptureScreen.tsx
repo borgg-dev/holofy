@@ -16,6 +16,8 @@ import {
 import { ChevronLeft } from "@/components/icons";
 import { useReduceMotion, useTheme } from "@/theme";
 import { withAlpha } from "@/theme/color";
+import type { CaptureImage } from "@/api";
+import { useCardCapture } from "../scan/useCardCapture";
 import { CameraPreview } from "../scan/CameraPreview";
 import { CAPTURE_PLAN, SIGNAL_COPY, chipOrderFor, refuseMessage } from "./capturePlan";
 import {
@@ -27,8 +29,12 @@ import { useGuidedCapture } from "./useGuidedCapture";
 
 type Props = {
   onBack?: () => void;
-  /** Fired once every angle is captured — the route runs the pre-grade and shows the gauge. */
-  onComplete?: () => void;
+  /**
+   * Fired once every angle is captured, with the real stills shot at each angle. The route
+   * uploads them and runs the pre-grade on the returned reference. On web/demo there's no
+   * camera, so these are placeholder stills the fixture upload ignores — the flow is identical.
+   */
+  onComplete?: (stills: CaptureImage[]) => void | Promise<void>;
 };
 
 // Guided multi-angle capture — the capture↔ML dependency made visible. Unlike the scan
@@ -44,6 +50,16 @@ export function GuidedCaptureScreen({ onBack, onComplete }: Props) {
 
   const { angleIndex, signals, locked, firstFailing, capturedCount, total, complete, capture } =
     useGuidedCapture();
+
+  // The real camera + capture seam (native); on web/demo it yields placeholder stills the
+  // fixture upload ignores. We collect one still per accepted angle and hand the bundle up.
+  const { cameraRef, permission, requestPermission, capture: takeStill, live } = useCardCapture();
+  const stills = useRef<CaptureImage[]>([]);
+
+  // Ask for camera access once on mount so the guided pass shoots real frames on device.
+  useEffect(() => {
+    if (permission && !permission.granted && permission.canAskAgain) requestPermission();
+  }, [permission, requestPermission]);
 
   const [toast, setToast] = useState<string | null>(null);
   const [refuseSignal, setRefuseSignal] = useState(0);
@@ -61,11 +77,13 @@ export function GuidedCaptureScreen({ onBack, onComplete }: Props) {
     wasLocked.current = locked;
   }, [locked, reduceMotion]);
 
-  // Once every angle is captured, announce and hand off to the assessment.
+  // Once every angle is captured, announce and hand off to the assessment with the stills.
+  const handedOff = useRef(false);
   useEffect(() => {
-    if (!complete) return;
+    if (!complete || handedOff.current) return;
+    handedOff.current = true;
     AccessibilityInfo.announceForAccessibility(CAPTURE_DONE_ANNOUNCE);
-    onComplete?.();
+    void onComplete?.(stills.current);
   }, [complete, onComplete]);
 
   useEffect(
@@ -75,10 +93,13 @@ export function GuidedCaptureScreen({ onBack, onComplete }: Props) {
     []
   );
 
-  const handleShutter = useCallback(() => {
+  const handleShutter = useCallback(async () => {
     if (locked) {
       const next = CAPTURE_PLAN[angleIndex + 1];
       AccessibilityInfo.announceForAccessibility(angleAdvanceAnnounce(angle.label));
+      // Shoot the real still for this angle before advancing, so the bundle handed to the
+      // pre-grade is the frames the user actually captured.
+      stills.current.push(await takeStill());
       capture();
       if (next) setToast(null);
       return;
@@ -87,11 +108,11 @@ export function GuidedCaptureScreen({ onBack, onComplete }: Props) {
     setToast(refuseMessage(firstFailing));
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2800);
-  }, [locked, firstFailing, capture, angle.label, angleIndex]);
+  }, [locked, firstFailing, capture, takeStill, angle.label, angleIndex]);
 
   return (
     <Screen ground="flat" edges={[]} padded={false}>
-      <CameraPreview />
+      <CameraPreview live={live} cameraRef={cameraRef} />
       <View
         pointerEvents="none"
         style={[
