@@ -56,7 +56,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     # uploaded stills from it. Selected by config (synthetic mock for tests, real bytes for
     # dev); the EU-region client drops in behind the same Protocol.
     app.state.capture_store = build_capture_store(settings)
-    app.state.recognition_provider = build_recognition_provider(settings, app.state.capture_store)
+    # The in-house recognizer may own a TCGdex catalog client (pooled HTTP); keep it to close
+    # on shutdown, like the pricing client. The mock owns nothing.
+    recognition_provider, catalog_client = build_recognition_provider(
+        settings, app.state.capture_store
+    )
+    app.state.recognition_provider = recognition_provider
+    app.state.catalog_client = catalog_client
     pricing_provider, pricing_client = build_pricing_provider(settings)
     app.state.pricing_provider = pricing_provider
     app.state.pricing_client = pricing_client
@@ -88,6 +94,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     finally:
         if pricing_client is not None:
             await pricing_client.aclose()
+        if catalog_client is not None:
+            await catalog_client.aclose()
         # The Redis limiter holds a connection pool; the in-memory one has no aclose.
         if (closer := getattr(app.state.rate_limiter, "aclose", None)) is not None:
             await closer()

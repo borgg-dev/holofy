@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from app.config import (
     AuthenticityBackend,
+    CatalogBackend,
     GradingBackend,
     PricingBackend,
     RecognitionBackend,
@@ -36,27 +37,55 @@ from app.providers.pricing.tcgdex_provider import TcgdexPricingProvider
 from app.providers.recognition.mock import MockRecognitionProvider
 
 
+def build_catalog_index(settings: Settings) -> tuple["CatalogIndex", TcgdexClient | None]:
+    """Return the catalog the in-house recognizer resolves against, and the HTTP client it
+    owns (if any) for the caller to close on shutdown — mirroring ``build_pricing_provider``.
+    """
+    from app.identify.catalog import CatalogIndex, InMemoryCatalogIndex
+
+    match settings.catalog_provider:
+        case CatalogBackend.INMEMORY:
+            return InMemoryCatalogIndex(), None
+        case CatalogBackend.TCGDEX:
+            from app.identify.tcgdex_catalog import TcgdexCatalogIndex
+
+            client = TcgdexClient(
+                api_root=settings.tcgdex_api_root,
+                locale=settings.tcgdex_locale,
+                timeout_seconds=settings.tcgdex_timeout_seconds,
+            )
+            return TcgdexCatalogIndex(client, locale=settings.tcgdex_locale), client
+        case unknown:  # pragma: no cover - guards an unwired enum value
+            raise ValueError(f"unsupported catalog backend: {unknown}")
+
+
 def build_recognition_provider(
     settings: Settings, capture_store: CaptureStore
-) -> RecognitionProvider:
+) -> tuple[RecognitionProvider, TcgdexClient | None]:
+    """Return the recognition provider and the catalog HTTP client it owns (if any).
+
+    The mock owns nothing (``None``); the in-house recognizer may own a TCGdex catalog client
+    the caller (app lifespan) closes on shutdown, exactly like the pricing client.
+    """
     match settings.recognition_provider:
         case RecognitionBackend.MOCK:
-            return MockRecognitionProvider()
+            return MockRecognitionProvider(), None
         case RecognitionBackend.INHOUSE:
             # Imported lazily: the OCR stack (onnxruntime) is only needed for this backend, so
             # mock/test runs never pay its import cost. The provider reads the uploaded stills
             # from the same capture store the pre-grade uses.
-            from app.identify.catalog import InMemoryCatalogIndex
             from app.identify.provider import InHouseRecognitionProvider
             from app.identify.resolver import CardResolver
             from app.identify.vision.ocr import RapidOcrEngine
             from app.identify.vision.reader import VisionCardReader
 
-            return InHouseRecognitionProvider(
+            catalog, catalog_client = build_catalog_index(settings)
+            provider = InHouseRecognitionProvider(
                 store=capture_store,
                 reader=VisionCardReader(RapidOcrEngine()),
-                resolver=CardResolver(InMemoryCatalogIndex()),
+                resolver=CardResolver(catalog),
             )
+            return provider, catalog_client
         case unknown:  # pragma: no cover - guards an unwired enum value
             raise ValueError(f"unsupported recognition backend: {unknown}")
 

@@ -21,8 +21,12 @@ fixtures onto live API.
 - **Proven end-to-end over HTTP** (`test_inhouse_scan_e2e`): upload a real card PNG → `/scan`
   (inhouse) → OCR reads the pixels → resolves `origins-8` "Tidecaller Leviath" → priced. No
   fixtures, no network, no Ximilar. 201 backend tests (+14); real-OCR tests marked `ocr`.
-- **Remaining:** swap `InMemoryCatalogIndex` for the real TCGdex-synced catalog; real-photo
-  OCR accuracy (vs synthetic) is device-validated later — capture quality is the ceiling.
+- **Real TCGdex catalog** `app/identify/tcgdex_catalog.py`: name search → numerator pre-filter
+  → per-card detail → `CatalogCard` (set, total, variant). Selectable via `HOLOFY_CATALOG_PROVIDER`
+  (`inmemory` default | `tcgdex`); the recognizer factory returns its pooled client for the
+  lifespan to close, like pricing. Hermetic tests via `httpx.MockTransport`. 206 backend tests.
+- **Remaining:** production fronts the live catalog with the nightly Postgres sync (same seam);
+  real-photo OCR accuracy (vs synthetic) is device-validated later — capture quality is the ceiling.
 
 **Unit 1 — backend + mobile upload seam done & verified ✅ (camera UI next):**
 - New `CaptureStorage` seam (`app/storage/`) with `memory` + `local` backends holding real

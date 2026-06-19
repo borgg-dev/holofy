@@ -35,6 +35,14 @@ class RecognitionBackend(StrEnum):
     INHOUSE = "inhouse"
 
 
+class CatalogBackend(StrEnum):
+    # The card catalog the in-house recognizer resolves reads against. ``inmemory`` is a
+    # handful of seed cards (dev/test); ``tcgdex`` resolves the live Pokémon catalog. The
+    # nightly Postgres sync (architecture §4) drops in behind the same CatalogIndex later.
+    INMEMORY = "inmemory"
+    TCGDEX = "tcgdex"
+
+
 class PricingBackend(StrEnum):
     MOCK = "mock"
     TCGDEX = "tcgdex"
@@ -107,6 +115,9 @@ class Settings(BaseSettings):
     cors_allow_origins: list[str] = Field(default_factory=list)
 
     recognition_provider: RecognitionBackend = RecognitionBackend.MOCK
+    # Only consulted when recognition_provider == inhouse — the catalog the recognizer
+    # resolves reads against. Defaults to the in-memory seed catalog; tcgdex resolves live.
+    catalog_provider: CatalogBackend = CatalogBackend.INMEMORY
     pricing_provider: PricingBackend = PricingBackend.MOCK
     grading_provider: GradingBackend = GradingBackend.MOCK
     authenticity_provider: AuthenticityBackend = AuthenticityBackend.MOCK

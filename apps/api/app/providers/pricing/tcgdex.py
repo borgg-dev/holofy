@@ -140,6 +140,31 @@ class TcgdexClient:
         if self._owns_client:
             await self._client.aclose()
 
+    async def search_cards(self, *, name: str, locale: str | None = None) -> list[dict]:
+        """Brief catalog records whose name matches ``name`` (TCGdex does a contains match).
+
+        Returns the lightweight ``{id, localId, name, image}`` briefs; resolving a brief to a
+        full printing (set, total, variant) is a follow-up ``get_card``. Recall over
+        precision — the resolver scores and ranks downstream.
+        """
+        locale = locale or self._locale
+        response = await self._client.get(
+            f"{self._api_root}/{locale}/cards", params={"name": name}
+        )
+        response.raise_for_status()
+        payload = response.json()
+        # The endpoint returns a bare list; tolerate an object envelope defensively.
+        return payload if isinstance(payload, list) else payload.get("data", [])
+
+    async def get_card(self, card_id: str, *, locale: str | None = None) -> dict:
+        """The full catalog record for a card id (set, collector total, variants, …)."""
+        locale = locale or self._locale
+        response = await self._client.get(f"{self._api_root}/{locale}/cards/{card_id}")
+        if response.status_code == 404:
+            raise CardNotFound(card_id)
+        response.raise_for_status()
+        return response.json()
+
     async def fetch_cardmarket_price(
         self, card_id: str, *, locale: str | None = None
     ) -> CardmarketPrice:
