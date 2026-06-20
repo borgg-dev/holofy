@@ -95,8 +95,11 @@ class PregradeService:
         if centering.confidence < self._min_centering_confidence:
             return _retake(
                 [
-                    "Centering could not be read confidently — the border may be blurred, "
-                    "glare-washed, or skewed. Re-capture flat and in good light."
+                    "Centering needs a clean, straight-on look at the border. Lay the card flat, "
+                    "fill the frame, shoot square-on (not at an angle) in even light with no glare, "
+                    "then try again.",
+                    "Pre-grade is in beta and only estimates from a sharp, flat scan — if it can't "
+                    "read the border clearly it asks for a retake rather than guess a grade.",
                 ]
             )
 

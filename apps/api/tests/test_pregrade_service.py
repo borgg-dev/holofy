@@ -165,7 +165,10 @@ async def test_low_centering_confidence_refuses_rather_than_guessing() -> None:
     result = await _service(_bought(9.0, 9.0, 9.0, conf=0.9)).pregrade(_Capture(), image=image)
 
     assert result.status is PregradeStatus.RETAKE
-    assert result.reasons and "confiden" in result.reasons[0].lower()
+    # The refusal coaches a cleaner capture instead of guessing a grade.
+    assert result.reasons and any(
+        kw in result.reasons[0].lower() for kw in ("border", "flat", "straight-on")
+    )
 
 
 @pytest.mark.asyncio

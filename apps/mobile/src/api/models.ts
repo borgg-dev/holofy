@@ -331,6 +331,9 @@ export type PregradeEstimate = {
   /** 0–1 overall confidence across the four axes. */
   confidence: number;
   disclaimer: string;
+  /** Centering pre-grade is an in-house beta — the UI shows a "Beta" label so the estimate
+   *  is never read as authoritative. */
+  experimental: boolean;
 };
 
 /** Capture too poor to grade honestly: coaching reasons to re-capture, never a grade. */
@@ -338,6 +341,7 @@ export type PregradeRetake = {
   status: "retake";
   reasons: string[];
   disclaimer: string;
+  experimental: boolean;
 };
 
 export type Pregrade = PregradeEstimate | PregradeRetake;

@@ -210,7 +210,16 @@ class Settings(BaseSettings):
     # Pre-grade honesty floor (charter §3.1): if the centering measurement's confidence is
     # below this the capture is too poor to estimate a grade from, so the pre-grade refuses
     # with a "retake" signal rather than emitting a confident wrong range.
-    pregrade_min_centering_confidence: float = 0.4
+    #
+    # Set conservatively (fail-closed): the 1-D border measurement was calibrated on flat,
+    # clean-border captures, and on a casual angled phone photo of a real card it can latch
+    # onto the artwork and read a *confident-but-wrong* ratio. Real-card validation
+    # (2026-06-20) showed those bad reads land around 0.30–0.45 confidence, while a genuinely
+    # flat, straight-on scan with a crisp border scores ~0.8+. A 0.6 floor refuses the former
+    # and only grades the latter — better to ask for a cleaner scan than to show a wrong grade.
+    # This stays high until the centering measurement is rebuilt to be robust to real art
+    # (deskew + border detection that ignores interior edges).
+    pregrade_min_centering_confidence: float = 0.6
 
     # Authenticity screening is only meaningful on cards worth faking (architecture §3.3:
     # "scoped to vintage/high-value"). Below this € value the service returns a typed

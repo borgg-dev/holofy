@@ -242,6 +242,7 @@ export function mapPregrade(w: WirePregradeResponse): Pregrade {
       subScores: w.sub_scores.map(mapSubScore),
       confidence: w.confidence,
       disclaimer: w.disclaimer,
+      experimental: w.experimental ?? true,
     };
   }
 
@@ -249,7 +250,7 @@ export function mapPregrade(w: WirePregradeResponse): Pregrade {
   if (reasons.length === 0) {
     throw new MappingError("Pre-grade retake carried no coaching reasons.");
   }
-  return { status: "retake", reasons, disclaimer: w.disclaimer };
+  return { status: "retake", reasons, disclaimer: w.disclaimer, experimental: w.experimental ?? true };
 }
 
 // ── Authenticity ─────────────────────────────────────────────────────────────

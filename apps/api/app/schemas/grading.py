@@ -120,6 +120,12 @@ class PregradeResponse(BaseModel):
 
     status: PregradeStatus
     disclaimer: str = PREGRADE_DISCLAIMER
+    # Centering-based pre-grade is an in-house beta: it only emits a range for a clean, flat,
+    # straight-on capture and refuses otherwise (it does not yet handle angled real-card art
+    # robustly). The UI surfaces this as a "Beta" label so the estimate is never read as
+    # authoritative. A flag, not baked into copy, so it flips off in one place once the
+    # measurement is rebuilt.
+    experimental: bool = True
 
     # Present when status == estimated.
     probability: GradeProbabilityRange | None = None

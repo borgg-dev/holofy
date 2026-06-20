@@ -46,7 +46,7 @@ export function PregradeGaugeScreen({
   onBack?: () => void;
 }) {
   const theme = useTheme();
-  const { range, subScores, confidence, disclaimer } = estimate;
+  const { range, subScores, confidence, disclaimer, experimental } = estimate;
   const verdict = verdictFor(range);
   const surfaceLimited = subScores.some((s) => s.axis === "surface" && s.provenance === "limited");
 
@@ -84,9 +84,12 @@ export function PregradeGaugeScreen({
 
         {/* Verdict header — the range and the recommendation read as one line. */}
         <View style={{ gap: theme.space["2"] }} accessibilityRole="header">
-          <Text variant="overline" tone="tertiary">
-            {GAUGE_OVERLINE}
-          </Text>
+          <View style={styles.overlineRow}>
+            <Text variant="overline" tone="tertiary">
+              {GAUGE_OVERLINE}
+            </Text>
+            {experimental ? <BetaBadge /> : null}
+          </View>
           <VerdictLine range={range} />
         </View>
 
@@ -167,6 +170,31 @@ function VerdictLine({ range }: { range: PregradeEstimate["range"] }) {
         {verdict.label}
       </Text>
     </Text>
+  );
+}
+
+// A small, calm "Beta" pill on the pre-grade header. Centering pre-grade is an in-house beta
+// that only estimates from a clean, flat, straight-on scan; the badge keeps the estimate from
+// being read as an authoritative grade. Neutral tone — informational, not an alarm.
+function BetaBadge() {
+  const theme = useTheme();
+  return (
+    <View
+      style={[
+        styles.betaBadge,
+        {
+          backgroundColor: theme.color.bgRaised,
+          borderColor: theme.color.border,
+          borderRadius: theme.radius.sm,
+        },
+      ]}
+      accessibilityLabel="Beta feature"
+      accessibilityRole="text"
+    >
+      <Text variant="overline" tone="tertiary">
+        BETA
+      </Text>
+    </View>
   );
 }
 
@@ -275,6 +303,16 @@ const styles = StyleSheet.create({
   topbar: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  overlineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  betaBadge: {
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   confidence: {
     textAlign: "center",

@@ -168,6 +168,7 @@ export type WirePregradeRequest = {
 export type WirePregradeResponse = {
   status: WirePregradeStatus;
   disclaimer: string;
+  experimental?: boolean;
   probability: WireGradeProbabilityRange | null;
   sub_scores: WireSubScore[] | null;
   confidence: number | null;
