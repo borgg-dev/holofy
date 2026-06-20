@@ -42,6 +42,8 @@ services:
       HOLOFY_DATABASE_URL: postgresql+asyncpg://holofy:${POSTGRES_PASSWORD}@db:5432/holofy
       HOLOFY_RATE_LIMIT_PROVIDER: redis
       HOLOFY_REDIS_URL: redis://redis:6379/0
+      # Daily scan quota per account — generous during the free beta. Override in deploy/.env.
+      HOLOFY_FREE_TIER_DAILY_SCANS: ${HOLOFY_FREE_TIER_DAILY_SCANS:-500}
       HOLOFY_DATA_REGION: eu-central-1
       # Real providers are the defaults (in-house OCR + TCGdex); pinned here for clarity.
       HOLOFY_RECOGNITION_PROVIDER: inhouse

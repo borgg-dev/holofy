@@ -173,11 +173,13 @@ class Settings(BaseSettings):
     auth_throttle_max_per_email: int = 8
     auth_throttle_max_per_ip: int = 30
 
-    # Freemium COGS guard: the free ("Collector") tier is 8 ID scans/day (master plan §4).
-    # The memory limiter is fine for a single process; the Redis backend lands behind the
-    # same RateLimiter Protocol for the multi-instance gateway.
+    # Daily scan quota per account. The launch plan's freemium tier is 8/day (master plan §4),
+    # but that's a *monetization* limit for paying-vs-free — during the free beta there's no
+    # billing and near-zero per-scan cost (in-house OCR + open TCGdex), so this is a generous
+    # abuse guard, not a paywall. Tighten it back to the tier limit when billing turns on.
+    # Override per-env with HOLOFY_FREE_TIER_DAILY_SCANS.
     rate_limit_provider: RateLimitBackend = RateLimitBackend.MEMORY
-    free_tier_daily_scans: int = 8
+    free_tier_daily_scans: int = 500
     # Only consulted when rate_limit_provider == redis — the shared counter store the whole
     # fleet's limiter reads/writes so the daily quota holds across instances.
     redis_url: str = "redis://localhost:6379/0"
