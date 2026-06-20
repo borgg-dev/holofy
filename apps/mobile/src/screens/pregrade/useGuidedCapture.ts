@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CAPTURE_PLAN, type CaptureSignals } from "./capturePlan";
 
-// Stand-in for the real per-angle capture↔ML signal stream (master plan §7), the
-// counterpart to the scan-frame's useMockCaptureQuality. On device, focus/skew/glare
-// come from the on-device detector; here a scripted sequence walks each angle from
-// "working" toward "pass" so the lock + advance choreography is demonstrable without a
-// camera. The shape it returns — a {signal -> state} snapshot, a derived `locked`, and
-// the angle cursor — is the real contract the live detector slots into.
+// Stand-in for the real per-angle capture↔ML signal stream (master plan §7), the pre-grade
+// counterpart to the scan-frame's capture readiness. On device, focus/skew/glare come from the
+// on-device detector; here a scripted sequence walks each angle from "working" toward "pass" so
+// the lock + advance choreography is demonstrable without a camera. The shape it returns — a
+// {signal -> state} snapshot, a derived `locked`, and the angle cursor — is the real contract
+// the live detector slots into. (Unlike the single-shot scan frame, the guided pre-grade flow
+// still drives its multi-angle sequence from this scripted hook for now.)
 
 export type GuidedCaptureState = {
   /** Index into CAPTURE_PLAN of the angle being captured. */

@@ -1,5 +1,5 @@
 import type { ChipState } from "@/components";
-import type { QualitySignals } from "./useMockCaptureQuality";
+import type { QualitySignals } from "./useCaptureReadiness";
 
 // All scan-frame microcopy in one place — the strings are product copy, not
 // placeholders, and the file is the seam where localization (FR→ES→IT→DE→EN)
@@ -8,17 +8,19 @@ import type { QualitySignals } from "./useMockCaptureQuality";
 type SignalCopy = Record<ChipState, string>;
 
 const CHIP_COPY: Record<keyof QualitySignals, { signal: string; states: SignalCopy }> = {
+  // Steady framing guidance: the on-device focus/glare/frame detector isn't wired yet, so the
+  // "working" label (what the readiness hook shows) reads as a reminder, not a measured verdict.
   focus: {
     signal: "Focus",
-    states: { pass: "Sharp", working: "Focusing…", fail: "Too blurry" },
+    states: { pass: "Sharp", working: "Hold steady & sharp", fail: "Too blurry" },
   },
   glare: {
     signal: "Glare",
-    states: { pass: "No glare", working: "Tilt from light", fail: "Glare on holo" },
+    states: { pass: "No glare", working: "Avoid glare", fail: "Glare on holo" },
   },
   frame: {
     signal: "Frame",
-    states: { pass: "All 4 corners", working: "Show full card", fail: "Corner cut off" },
+    states: { pass: "All 4 corners", working: "Fit the whole card", fail: "Corner cut off" },
   },
 };
 

@@ -22,7 +22,7 @@ import type { CaptureImage } from "@/api";
 import { CameraPreview } from "./CameraPreview";
 import { LOCK_ANNOUNCE, SHUTTER_LOCKED, SHUTTER_REST, chipFor, refuseMessage } from "./copy";
 import { useCardCapture } from "./useCardCapture";
-import { useMockCaptureQuality, type QualitySignals } from "./useMockCaptureQuality";
+import { useCaptureReadiness, type QualitySignals } from "./useCaptureReadiness";
 
 type Props = {
   onBack?: () => void;
@@ -57,7 +57,7 @@ export function ScanScreen({ onBack, onCaptured, onStackMode, notice }: Props) {
     },
     [onStackMode]
   );
-  const { signals, locked, firstFailing } = useMockCaptureQuality();
+  const { signals, locked, firstFailing } = useCaptureReadiness();
   const { cameraRef, permission, requestPermission, capture, live } = useCardCapture();
 
   // Ask once on mount; on web/denied the preview falls back to the stand-in ground.
