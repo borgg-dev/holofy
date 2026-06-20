@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { StyleSheet, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Image, StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
   interpolate,
@@ -17,13 +17,16 @@ import { Text } from "./Text";
 type FoilCardProps = {
   /** Width as a fraction of the parent — spec calls for ~64% of viewport. */
   widthPct?: number;
-  /** The card's name/set, shown on the face (no real artwork — user's photo lands here). */
+  /** The card's name/set, shown on the placeholder face when there's no real artwork. */
   title: string;
   subtitle: string;
   /** A11y description of the captured card. */
   accessibilityLabel: string;
   /** Run the once-only reveal sweep on mount. Off → render at settled rest. */
   reveal?: boolean;
+  /** The real catalog artwork to render as the card face. When set (and it loads) the foil
+   *  sweep layers over the actual card; when null/failed, the placeholder face is shown. */
+  imageUrl?: string | null;
 };
 
 // The foil card hero (foil-reveal.md). A near-black Vault card face in the trading-card
@@ -40,9 +43,15 @@ export function FoilCard({
   subtitle,
   accessibilityLabel,
   reveal = true,
+  imageUrl = null,
 }: FoilCardProps) {
   const theme = useTheme();
   const reduceMotion = useReduceMotion();
+
+  // Show the real artwork when we have a URL that loads; on a load failure fall back to the
+  // placeholder face so a missing/broken image never leaves a blank hero.
+  const [artFailed, setArtFailed] = useState(false);
+  const showArt = !!imageUrl && !artFailed;
 
   // 0 = pre-reveal, 1 = settled. Drives entrance scale/opacity + foil brightness.
   const progress = useSharedValue(reveal && !reduceMotion ? 0 : 1);
@@ -77,9 +86,13 @@ export function FoilCard({
     ],
   }));
 
-  // Foil opacity blooms to ~0.5 then settles to ~0.18 (peak at the reveal midpoint).
+  // Foil opacity blooms then settles (peak at the reveal midpoint). Over real artwork the
+  // sweep is dialed back so it reads as a holo *sheen* on the card rather than tinting it; the
+  // placeholder face keeps the fuller bloom since there's nothing under it to obscure.
   const foilStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0, 0.5, 1], [0.22, 0.5, 0.18]),
+    opacity: showArt
+      ? interpolate(progress.value, [0, 0.5, 1], [0.14, 0.3, 0.1])
+      : interpolate(progress.value, [0, 0.5, 1], [0.22, 0.5, 0.18]),
   }));
 
   const sheenStyle = useAnimatedStyle(() => ({
@@ -104,6 +117,18 @@ export function FoilCard({
         cardStyle,
       ]}
     >
+      {/* The real card artwork, full-bleed under the foil layers so the shimmer reads as a
+          holo sheen over the actual card. Falls back to the placeholder face on load error. */}
+      {showArt ? (
+        <Image
+          source={{ uri: imageUrl! }}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+          onError={() => setArtFailed(true)}
+          accessibilityIgnoresInvertColors
+        />
+      ) : null}
+
       {/* The conic-approximating foil sweep, masked to the card. */}
       <Animated.View style={[StyleSheet.absoluteFill, foilStyle]} pointerEvents="none">
         <FoilSweep />
@@ -115,17 +140,19 @@ export function FoilCard({
         style={[styles.sheen, { backgroundColor: withAlpha(theme.color.textPrimary, 0.55) }, sheenStyle]}
       />
 
-      {/* The card face content — stands in for the user's captured photo. Hidden from the
-          reader since the card's identity is announced by the parent's label. */}
-      <View style={styles.face} importantForAccessibility="no-hide-descendants">
-        <View style={[styles.facePlate, { borderColor: withAlpha(theme.color.textPrimary, 0.08) }]} />
-        <Text variant="titleLg" tone="primary" style={styles.faceTitle}>
-          {title}
-        </Text>
-        <Text variant="caption" tone="secondary">
-          {subtitle}
-        </Text>
-      </View>
+      {/* Placeholder face — only when there's no real artwork to show. Hidden from the reader
+          since the card's identity is announced by the parent's label. */}
+      {showArt ? null : (
+        <View style={styles.face} importantForAccessibility="no-hide-descendants">
+          <View style={[styles.facePlate, { borderColor: withAlpha(theme.color.textPrimary, 0.08) }]} />
+          <Text variant="titleLg" tone="primary" style={styles.faceTitle}>
+            {title}
+          </Text>
+          <Text variant="caption" tone="secondary">
+            {subtitle}
+          </Text>
+        </View>
+      )}
     </Animated.View>
   );
 }

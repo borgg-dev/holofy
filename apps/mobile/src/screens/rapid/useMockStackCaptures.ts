@@ -26,6 +26,7 @@ const identity = (
   collectorNumber,
   language: "en",
   variant,
+  imageUrl: null,
 });
 
 const price = (canonicalId: string, value: number, avg30: number): PriceQuote => ({

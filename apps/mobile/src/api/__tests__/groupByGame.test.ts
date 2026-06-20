@@ -23,6 +23,7 @@ function holding(game: CardGame, value: number | null, quantity = 1): Collection
       collectorNumber: "1/1",
       language: "en",
       variant: "holo",
+      imageUrl: null,
     },
     condition: "near_mint",
     quantity,

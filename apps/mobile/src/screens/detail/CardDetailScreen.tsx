@@ -66,6 +66,7 @@ export function CardDetailScreen({ state, onBack, onGrade, onAuthenticity }: Pro
           <FoilCard
             title={identity.name}
             subtitle={identitySubline(identity)}
+            imageUrl={identity.imageUrl}
             accessibilityLabel={`Your card: ${identityA11yLabel(identity)}`}
             reveal={false}
           />

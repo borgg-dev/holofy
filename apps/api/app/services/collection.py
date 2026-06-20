@@ -105,4 +105,5 @@ def _identity_of(card) -> CardIdentity:  # noqa: ANN001 - ORM Card, no import cy
         collector_number=card.collector_number,
         language=card.language,
         variant=Variant(card.variant),
+        image_url=card.image_url,
     )

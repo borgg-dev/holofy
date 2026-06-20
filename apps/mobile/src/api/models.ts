@@ -157,6 +157,9 @@ export type CardIdentity = {
   /** ISO-639 code, e.g. "en", "de". */
   language: string;
   variant: Variant;
+  /** Absolute URL of the card's real catalog artwork, or null when the catalog has none
+   *  (the card hero falls back to the foil placeholder). */
+  imageUrl: string | null;
 };
 
 export type PriceQuote = {

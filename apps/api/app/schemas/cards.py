@@ -64,6 +64,10 @@ class CardIdentity(BaseModel):
     collector_number: str
     language: str
     variant: Variant
+    # Absolute URL of the card's catalog artwork (TCGdex), for the client to render the real
+    # card face. ``None`` when the catalog has no image for the printing (the client falls back
+    # to the foil placeholder), so it never blocks recognition.
+    image_url: str | None = None
 
 
 class RecognitionCandidate(BaseModel):

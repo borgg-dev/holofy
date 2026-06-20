@@ -41,6 +41,7 @@ export type WireCardIdentity = {
   collector_number: string;
   language: string;
   variant: WireVariant;
+  image_url?: string | null;
 };
 
 /** apps/api/app/schemas/cards.py :: PriceQuote. Decimal fields arrive as strings. */

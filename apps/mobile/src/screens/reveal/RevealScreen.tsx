@@ -115,6 +115,7 @@ export function RevealScreen({
         <FoilCard
           title={identity.name}
           subtitle={identitySubline(identity)}
+          imageUrl={identity.imageUrl}
           accessibilityLabel={`Your scanned card: ${identityA11yLabel(identity)}`}
           reveal
         />

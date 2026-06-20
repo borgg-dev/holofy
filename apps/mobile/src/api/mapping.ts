@@ -77,6 +77,7 @@ export function mapIdentity(w: WireCardIdentity): CardIdentity {
     collectorNumber: w.collector_number,
     language: w.language,
     variant: w.variant,
+    imageUrl: w.image_url ?? null,
   };
 }
 

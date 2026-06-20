@@ -197,6 +197,7 @@ describe("collection valuation", () => {
       collectorNumber: "1/1",
       language: "en",
       variant: "holo",
+      imageUrl: null,
     },
     condition: "near_mint",
     quantity: qty,

@@ -244,6 +244,7 @@ async def _upsert_card(cards: CardRepository, identity: CardIdentity):
         collector_number=identity.collector_number,
         language=identity.language,
         variant=PersistedVariant(identity.variant.value),
+        image_url=identity.image_url,
     )
 
 

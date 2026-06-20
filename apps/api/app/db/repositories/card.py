@@ -32,6 +32,7 @@ class CardRepository:
         collector_number: str,
         language: str,
         variant: Variant,
+        image_url: str | None = None,
     ) -> Card:
         """Idempotently land a catalog entry — the shape the nightly reference sync uses."""
         existing = await self.get_by_canonical_id(canonical_id)
@@ -42,6 +43,10 @@ class CardRepository:
             existing.collector_number = collector_number
             existing.language = language
             existing.variant = variant
+            # Only overwrite a stored image with a real one — a later read that couldn't
+            # resolve the artwork must not blank out an image we already have.
+            if image_url is not None:
+                existing.image_url = image_url
             await self._session.flush()
             return existing
         card = Card(
@@ -52,6 +57,7 @@ class CardRepository:
             collector_number=collector_number,
             language=language,
             variant=variant,
+            image_url=image_url,
         )
         self._session.add(card)
         # A racing insert of the same canonical id hits the unique guard; surface it as a

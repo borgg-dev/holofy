@@ -22,6 +22,7 @@ const identity = (canonicalId: string, name = canonicalId): CardIdentity => ({
   collectorNumber: "8/120",
   language: "en",
   variant: "holo",
+  imageUrl: null,
 });
 
 const price = (value: number): PriceQuote => ({

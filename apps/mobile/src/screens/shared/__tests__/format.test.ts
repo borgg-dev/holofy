@@ -20,6 +20,7 @@ const EMBERWYRM: CardIdentity = {
   collectorNumber: "12/120",
   language: "en",
   variant: "holo",
+  imageUrl: null,
 };
 
 function quote(value: number | null, avg30: number | null): PriceQuote {

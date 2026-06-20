@@ -140,6 +140,21 @@ def _to_catalog_card(card: dict, *, locale: str) -> CatalogCard | None:
             collector_number=number_str,
             language=locale,
             variant=_primary_variant(card),
+            image_url=_image_url(card),
         ),
         number=number,
     )
+
+
+def _image_url(card: dict) -> str | None:
+    """The full artwork URL for the card's real face.
+
+    TCGdex returns ``image`` as a base path without quality/extension (e.g.
+    ``…/base/base1/58``); the client renders the card face from it, so we resolve it to a
+    concrete high-res WebP (``…/58/high.webp``). Absent for some printings — return ``None``
+    so the client falls back to the placeholder rather than a broken image.
+    """
+    base = card.get("image")
+    if not base:
+        return None
+    return f"{base}/high.webp"

@@ -51,6 +51,10 @@ class Card(TimestampMixin, Base):
     language: Mapped[str] = mapped_column(String(8))
     variant: Mapped[Variant] = mapped_column(String(16))
 
+    # Absolute URL of the card's catalog artwork (TCGdex), rendered as the real card face in
+    # the app. Nullable — a printing the catalog has no image for keeps the placeholder.
+    image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
     collection_items: Mapped[list["CollectionItem"]] = relationship(
         back_populates="card"
     )
