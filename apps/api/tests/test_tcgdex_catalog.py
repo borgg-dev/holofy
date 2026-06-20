@@ -92,7 +92,7 @@ async def test_catalog_outage_raises_typed_upstream_error_not_500() -> None:
         raise httpx.ConnectError("tcgdex unreachable", request=request)
 
     client = TcgdexClient(client=httpx.AsyncClient(transport=httpx.MockTransport(_down)))
-    index = TcgdexCatalogIndex(client, locale="en")
+    index = TcgdexCatalogIndex(client, locales=["en"])
     with pytest.raises(UpstreamUnavailableError):
         await index.find(CardRead(name="Pikachu", collector_number="58/102"))
     await client.aclose()

@@ -58,7 +58,12 @@ class _SpyReader:
 
 
 @pytest.mark.asyncio
-async def test_recognizer_skips_ocr_when_no_card_present() -> None:
+async def test_recognizer_runs_ocr_regardless_of_presence_heuristic() -> None:
+    # The brightness/aspect presence heuristic is a recorded signal, not a hard gate: it
+    # mis-scored real phone photos and silently skipped OCR on readable cards. The OCR read +
+    # catalog match is now the real decision, so the reader runs even on a frame the heuristic
+    # would have rejected — an honest "no card" comes from the read yielding no name, not from a
+    # pre-OCR brightness veto.
     store = InMemoryCaptureStorage()
     ref = await store.save([_empty_png()])
     reader = _SpyReader()
@@ -71,9 +76,9 @@ async def test_recognizer_skips_ocr_when_no_card_present() -> None:
 
     result = await provider.recognize(_bundle(ref))
 
-    assert result.candidates == []
-    # The guard short-circuited before the (expensive) OCR read.
-    assert reader.calls == 0
+    # OCR was attempted (no brightness short-circuit) and the spy's read resolved a candidate.
+    assert reader.calls == 1
+    assert result.candidates[0].identity.canonical_id == "origins-8"
 
 
 @pytest.mark.asyncio

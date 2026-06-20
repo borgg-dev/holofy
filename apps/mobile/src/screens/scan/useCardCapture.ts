@@ -27,7 +27,11 @@ export function useCardCapture() {
     const camera = cameraRef.current;
     if (live && camera) {
       try {
-        const photo = await camera.takePictureAsync({ quality: 0.7, skipProcessing: true });
+        // High quality and *with* processing: recognition hinges on OCR reading the small
+        // collector number, so we keep full detail and let the OS apply orientation/colour
+        // correction (skipProcessing returned raw, sometimes sideways frames on Android that
+        // the server then couldn't read).
+        const photo = await camera.takePictureAsync({ quality: 0.95, skipProcessing: false });
         if (photo?.uri) return { uri: photo.uri, name: "scan.jpg", type: "image/jpeg" };
       } catch {
         // A camera that refuses a frame shouldn't dead-end the scan — fall back so the user

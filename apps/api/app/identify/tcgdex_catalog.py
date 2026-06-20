@@ -31,9 +31,19 @@ _MAX_CANDIDATES = 16
 
 
 class TcgdexCatalogIndex:
-    def __init__(self, client: TcgdexClient, *, locale: str = "en") -> None:
+    """Resolve an OCR'd name+number against TCGdex across one or more language catalogs.
+
+    A card is printed in its own language — a French Charizard reads "Dracaufeu", a German one
+    "Glurak" — so the OCR'd name only matches the catalog *in that card's locale*. We search
+    every configured locale and union the hits: the card's own language returns it, the others
+    return nothing, so a French card resolves without us having to know up front which language
+    it is. Each hit is resolved in the locale it was found in, so its catalog name comes back in
+    the same language the OCR read — which is what lets the resolver corroborate the name.
+    """
+
+    def __init__(self, client: TcgdexClient, *, locales: Sequence[str] = ("en",)) -> None:
         self._client = client
-        self._locale = locale
+        self._locales = tuple(locales) or ("en",)
 
     async def find(self, read: CardRead) -> Sequence[CatalogCard]:
         if not read.name:
@@ -41,29 +51,56 @@ class TcgdexCatalogIndex:
             # be located across sets. Honest empty result rather than a guess.
             return []
 
-        try:
-            briefs = await self._client.search_cards(name=read.name, locale=self._locale)
-            number = parse_collector_number(read.collector_number)
-            if number is not None and number.numerator is not None:
-                briefs = [b for b in briefs if _brief_numerator(b) == number.numerator] or briefs
+        number = parse_collector_number(read.collector_number)
+        per_locale = await asyncio.gather(
+            *(self._find_in_locale(read.name, number, locale) for locale in self._locales),
+            return_exceptions=True,
+        )
 
-            ids = [b["id"] for b in briefs[:_MAX_CANDIDATES] if b.get("id")]
-            cards = await asyncio.gather(*(self._resolve(card_id) for card_id in ids))
-        except httpx.HTTPError as exc:
-            # TCGdex is down/slow: a scan must degrade to a typed 502 the client can show as
-            # "try again", never a raw 500. The owned OCR already ran; only the catalog failed.
+        # Only fail the scan if *every* locale's catalog call failed — a single language being
+        # down must not blind the others.
+        errors = [r for r in per_locale if isinstance(r, BaseException)]
+        if errors and len(errors) == len(per_locale):
             raise UpstreamUnavailableError(
                 "The card catalog is temporarily unavailable. Please try again shortly.",
                 details={"upstream": "tcgdex"},
+            ) from errors[0]
+
+        seen: set[str] = set()
+        merged: list[CatalogCard] = []
+        for result in per_locale:
+            if isinstance(result, BaseException):
+                continue
+            for card in result:
+                if card.identity.canonical_id in seen:
+                    continue
+                seen.add(card.identity.canonical_id)
+                merged.append(card)
+        return merged
+
+    async def _find_in_locale(
+        self, name: str, number, locale: str
+    ) -> list[CatalogCard]:
+        try:
+            briefs = await self._client.search_cards(name=name, locale=locale)
+            if number is not None and number.numerator is not None:
+                briefs = [b for b in briefs if _brief_numerator(b) == number.numerator] or briefs
+            ids = [b["id"] for b in briefs[:_MAX_CANDIDATES] if b.get("id")]
+            cards = await asyncio.gather(*(self._resolve(card_id, locale) for card_id in ids))
+        except httpx.HTTPError as exc:
+            # Surface as the typed upstream error; find() decides whether any locale survived.
+            raise UpstreamUnavailableError(
+                "The card catalog is temporarily unavailable. Please try again shortly.",
+                details={"upstream": "tcgdex", "locale": locale},
             ) from exc
         return [card for card in cards if card is not None]
 
-    async def _resolve(self, card_id: str) -> CatalogCard | None:
+    async def _resolve(self, card_id: str, locale: str) -> CatalogCard | None:
         try:
-            card = await self._client.get_card(card_id, locale=self._locale)
+            card = await self._client.get_card(card_id, locale=locale)
         except CardNotFound:
             return None
-        return _to_catalog_card(card, locale=self._locale)
+        return _to_catalog_card(card, locale=locale)
 
 
 def _brief_numerator(brief: dict) -> int | None:

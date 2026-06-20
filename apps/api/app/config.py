@@ -184,7 +184,13 @@ class Settings(BaseSettings):
 
     # Only consulted when pricing_provider == tcgdex. No key required — TCGdex is open.
     tcgdex_api_root: str = "https://api.tcgdex.net/v2"
-    tcgdex_locale: str = "en"
+    tcgdex_locale: str = "en"  # primary locale, used for pricing lookups
+    # Recognition searches each of these language catalogs and unions the hits, so a card
+    # printed in any of them resolves by the name as it appears *on that card* (a French
+    # "Dracaufeu" matches the fr catalog, an English "Charizard" the en catalog). English +
+    # French cover the two largest communities and are both Latin-script the OCR reads today;
+    # Japanese/Korean additionally need a CJK OCR model before adding their locales here.
+    tcgdex_recognition_locales: list[str] = ["en", "fr"]
     tcgdex_timeout_seconds: float = 10.0
 
     # Below this top-1 confidence the scan flow must ask the user to confirm rather than

@@ -11,6 +11,8 @@ branch), not an error: a scan of a missing/expired upload simply recognizes noth
 
 from __future__ import annotations
 
+import logging
+
 from app.grading.capture_store import CaptureStore
 from app.identify.presence import CardPresenceProvider
 from app.identify.reader import CardReader
@@ -18,6 +20,8 @@ from app.identify.resolver import CardResolver
 from app.providers.base import CaptureBundle
 from app.schemas.cards import RecognitionResult
 from app.storage.base import CaptureNotFoundError
+
+logger = logging.getLogger("holofy.recognition")
 
 
 class InHouseRecognitionProvider:
@@ -37,9 +41,20 @@ class InHouseRecognitionProvider:
         try:
             image = await self._store.load(bundle.bundle_id)
         except CaptureNotFoundError:
+            logger.info("recognition.recognize capture_not_found bundle=%s", bundle.bundle_id)
             return RecognitionResult(candidates=[])
-        # Guard first: don't spend an OCR pass on a frame that holds no card.
-        if not self._presence.assess(image).present:
-            return RecognitionResult(candidates=[])
+        # The presence heuristic (a brightness/aspect score) is recorded as a signal but is no
+        # longer a hard gate: on real phone photos it mis-scored cleanly-readable cards and
+        # silently skipped OCR. The OCR read + catalog match is the real decision — a frame with
+        # no card simply yields no name and resolves to no candidates, which is the honest gate.
+        presence = self._presence.assess(image)
         read = await self._reader.read([image])
-        return await self._resolver.resolve(read)
+        result = await self._resolver.resolve(read)
+        logger.info(
+            "recognition.recognize bundle=%s presence=%.3f candidates=%d top=%.3f",
+            bundle.bundle_id,
+            presence.confidence,
+            len(result.candidates),
+            result.candidates[0].confidence if result.candidates else 0.0,
+        )
+        return result

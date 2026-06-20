@@ -42,10 +42,13 @@ def _png(width: int = 360, height: int = 500, color: int = 235) -> bytes:
 @pytest.mark.asyncio
 async def test_reader_parses_number_from_bottom_and_name_from_top() -> None:
     tokens = [
-        OcrToken(text="Tidecaller", confidence=0.98, cx=120, cy=40),
-        OcrToken(text="Leviath", confidence=0.97, cx=240, cy=40),
-        OcrToken(text="58 HP", confidence=0.80, cx=300, cy=44),  # not a name, not a number
-        OcrToken(text="8/120", confidence=0.95, cx=60, cy=470),
+        # The "Basic Pokémon" type label sits where the name does but must be dropped, even at
+        # higher OCR confidence, so it never becomes the search term.
+        OcrToken(text="BasicPokemon", confidence=0.99, cx=120, cy=28, height=14),
+        # The name is the most prominent token — the tallest box.
+        OcrToken(text="Tidecaller Leviath", confidence=0.97, cx=180, cy=50, height=30),
+        OcrToken(text="58 HP", confidence=0.80, cx=300, cy=44, height=14),  # not a name/number
+        OcrToken(text="8/120", confidence=0.95, cx=60, cy=470, height=12),
     ]
     read = await VisionCardReader(_FakeEngine(tokens)).read([_png()])
 

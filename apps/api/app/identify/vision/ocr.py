@@ -20,12 +20,18 @@ import numpy as np
 
 @dataclass(frozen=True, slots=True)
 class OcrToken:
-    """One recognized text span and where its centre sits in the image (pixels)."""
+    """One recognized text span: its text, where its centre sits, and how tall its box is.
+
+    ``height`` (the text box's pixel height) is a proxy for font size — the card *name* is set
+    larger than the "Basic Pokémon" type label above it, so height is what separates the name
+    from the surrounding small print when both sit in the top band.
+    """
 
     text: str
     confidence: float
     cx: float
     cy: float
+    height: float = 0.0
 
 
 class OcrEngine(Protocol):
@@ -55,6 +61,7 @@ class RapidOcrEngine:
                     confidence=float(confidence),
                     cx=float(sum(xs) / len(xs)),
                     cy=float(sum(ys) / len(ys)),
+                    height=float(max(ys) - min(ys)),
                 )
             )
         return tokens

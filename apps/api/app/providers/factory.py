@@ -54,7 +54,10 @@ def build_catalog_index(settings: Settings) -> tuple["CatalogIndex", TcgdexClien
                 locale=settings.tcgdex_locale,
                 timeout_seconds=settings.tcgdex_timeout_seconds,
             )
-            return TcgdexCatalogIndex(client, locale=settings.tcgdex_locale), client
+            return (
+                TcgdexCatalogIndex(client, locales=settings.tcgdex_recognition_locales),
+                client,
+            )
         case unknown:  # pragma: no cover - guards an unwired enum value
             raise ValueError(f"unsupported catalog backend: {unknown}")
 
