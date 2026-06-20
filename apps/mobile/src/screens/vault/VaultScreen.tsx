@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AccessibilityInfo, FlatList, Pressable, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, FlatList, Image, Pressable, StyleSheet, View } from "react-native";
 
 import {
   Button,
@@ -205,13 +205,9 @@ function HoldingRow({ item, onPress }: { item: CollectionItem; onPress?: () => v
   const inner = (
     <FoilSurface level="raised" padded={false} style={[styles.row, { padding: theme.space["5"] }]}>
       <View style={[styles.rowInner, { gap: theme.space["4"] }]}>
-        {/* Card chit — a small near-black tile standing in for the captured thumbnail. */}
-        <View
-          style={[
-            styles.chit,
-            { backgroundColor: theme.color.bgInset, borderColor: withAlpha(theme.color.holoViolet, 0.35) },
-          ]}
-        />
+        {/* Card chit — the real card artwork at thumbnail size, falling back to a near-black
+            tile when the catalog has no image (or it fails to load). */}
+        <CardThumb imageUrl={item.identity.imageUrl} />
         <View style={[styles.rowText, { gap: theme.space["1"] }]}>
           <Text variant="titleMd" tone="primary" numberOfLines={1}>
             {item.identity.name}
@@ -251,6 +247,29 @@ function HoldingRow({ item, onPress }: { item: CollectionItem; onPress?: () => v
     >
       {inner}
     </Pressable>
+  );
+}
+
+// The holding's thumbnail: the real card artwork at chit size, with the near-black tile as the
+// fallback when there's no image URL or it fails to load.
+function CardThumb({ imageUrl }: { imageUrl: string | null }) {
+  const theme = useTheme();
+  const [failed, setFailed] = useState(false);
+  const frame = [
+    styles.chit,
+    { backgroundColor: theme.color.bgInset, borderColor: withAlpha(theme.color.holoViolet, 0.35) },
+  ];
+  if (!imageUrl || failed) {
+    return <View style={frame} />;
+  }
+  return (
+    <Image
+      source={{ uri: imageUrl }}
+      style={frame}
+      resizeMode="cover"
+      onError={() => setFailed(true)}
+      accessibilityIgnoresInvertColors
+    />
   );
 }
 
@@ -320,6 +339,7 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
   },
   rowText: { flex: 1 },
   rowValue: { alignItems: "flex-end" },

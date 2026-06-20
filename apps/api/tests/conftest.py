@@ -79,6 +79,9 @@ def settings() -> Settings:
         auth_dev_secret=_DEV_SECRET,
         log_json=False,
         cors_allow_origins=["https://app.holofy.test"],
+        # The quota tests assert the limit is enforced at the 8/day freemium tier; pin it here
+        # so they're independent of the (now generous, beta-time) production default.
+        free_tier_daily_scans=8,
     )
 
 

@@ -171,6 +171,12 @@ class ScanService:
             )
 
         if verdict.outcome is PersistedScanOutcome.NEEDS_CONFIRMATION:
+            # Land both offered printings in the catalog now, so whichever the user picks can be
+            # added to the collection straight away. Without this, a confirm-then-add 404s
+            # (the card was never persisted — only the resolved path used to upsert).
+            assert verdict.choices is not None  # needs_confirmation always carries choices
+            for choice in verdict.choices:
+                await _upsert_card(cards, choice.identity)
             unconfirmed = await scans.record(
                 user_id=user_id,
                 capture_ref=bundle.bundle_id,
