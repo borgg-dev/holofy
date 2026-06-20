@@ -195,7 +195,12 @@ class Settings(BaseSettings):
 
     # Below this top-1 confidence the scan flow must ask the user to confirm rather than
     # commit a guess — getting a high-value variant wrong is the product's worst failure.
-    recognition_confirm_threshold: float = 0.85
+    # Set between the two scoring bands so it splits them by *what was read*, not by photo
+    # quality: a full "n/total" collector-number match pins one printing and scores ~0.83+
+    # (commit), while a numerator-only or name-only read — the genuinely ambiguous cases ADR
+    # 0002 guards — scores ~0.40–0.55 and routes to confirmation. At 0.85 even cleanly-read
+    # cards were forced to confirm on every scan.
+    recognition_confirm_threshold: float = 0.70
     # Below this top-1 confidence the read is too weak to be a real match at all: with the
     # Pokémon-only catalog, a non-Pokémon card (or an unreadable frame) produces at most a
     # spurious low-confidence candidate, which must reject cleanly as "unrecognized" rather
