@@ -15,6 +15,13 @@ COPY requirements.txt ./
 RUN pip install -r requirements.txt \
     && pip uninstall -y opencv-python opencv-contrib-python 2>/dev/null || true \
     && pip install --no-cache-dir opencv-python-headless
+# opencv-python (a RapidOCR dependency) and opencv-python-headless share the cv2/ package dir,
+# so the uninstall above can delete cv2/ while leaving headless's metadata behind — pip then
+# treats headless as "already satisfied" and never restores the module, so `import cv2` fails at
+# runtime (ModuleNotFoundError) even though `pip list` shows it. Force-reinstall the files to
+# guarantee cv2/ is present. Separate layer so the slow deps install above stays cached.
+RUN pip install --no-cache-dir --force-reinstall --no-deps opencv-python-headless \
+    && python -c "import cv2; print('cv2', cv2.__version__)"
 
 COPY . .
 
