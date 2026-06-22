@@ -20,6 +20,7 @@ import {
   type Portfolio,
   type PortfolioChange,
 } from "@/api";
+import { useCurrency } from "@/currency";
 import { ChevronRight } from "@/components/icons";
 import { useTheme } from "@/theme";
 import { withAlpha } from "@/theme/color";
@@ -153,19 +154,16 @@ function VaultHeader({
   count: number;
 }) {
   const theme = useTheme();
+  const { format } = useCurrency();
 
-  // Announce the settled total + change once, politely.
+  // Announce the settled total + change once, politely — in the chosen display currency.
   useEffect(() => {
-    const total = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(
-      portfolio.latest.totalValueEur
-    );
+    const total = format(portfolio.latest.totalValueEur);
     const tail = change
-      ? `, ${change.direction === "down" ? "down" : "up"} ${new Intl.NumberFormat("de-DE").format(
-          Math.abs(change.absolute)
-        )} euros since last week`
+      ? `, ${change.direction === "down" ? "down" : "up"} ${format(Math.abs(change.absolute))} since last week`
       : "";
     AccessibilityInfo.announceForAccessibility(`Vault value, ${total}${tail}`);
-  }, [portfolio.latest.totalValueEur, change]);
+  }, [portfolio.latest.totalValueEur, change, format]);
 
   return (
     <FoilSurface level="elevated" foilEdge padded style={[styles.header, { marginBottom: theme.space["7"] }]}>
@@ -183,7 +181,7 @@ function VaultHeader({
           <TrendPill trend={{ fraction: change.fraction, direction: change.direction }} />
         ) : null}
         <Text variant="bodySm" tone="secondary">
-          {change ? `${formatSigned(change.absolute)} this week` : "First valuation"} ·{" "}
+          {change ? `${formatSigned(change.absolute, format)} this week` : "First valuation"} ·{" "}
           {count} {count === 1 ? "card" : "cards"}
         </Text>
       </View>
@@ -193,14 +191,11 @@ function VaultHeader({
 
 function HoldingRow({ item, onPress }: { item: CollectionItem; onPress?: () => void }) {
   const theme = useTheme();
+  const { format } = useCurrency();
   const value = itemValue(item);
   const a11y = `${item.identity.name}, ${conditionLabel(item.condition)}${
     item.quantity > 1 ? `, quantity ${item.quantity}` : ""
-  }, ${
-    value != null
-      ? new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(value)
-      : "no recent euro sales"
-  }`;
+  }, ${value != null ? format(value) : "no recent sales"}`;
 
   const inner = (
     <FoilSurface level="raised" padded={false} style={[styles.row, { padding: theme.space["5"] }]}>
@@ -306,12 +301,9 @@ function VaultHeaderSkeleton() {
   );
 }
 
-function formatSigned(value: number): string {
-  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
-  const body = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(
-    Math.abs(value)
-  );
-  return `${sign}${body}`;
+function formatSigned(valueEur: number, format: (amountEur: number) => string): string {
+  const sign = valueEur > 0 ? "+" : valueEur < 0 ? "−" : "";
+  return `${sign}${format(Math.abs(valueEur))}`;
 }
 
 const styles = StyleSheet.create({

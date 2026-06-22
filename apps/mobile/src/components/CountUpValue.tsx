@@ -5,10 +5,10 @@ import { useReduceMotion, useTheme } from "@/theme";
 import { ValueText } from "./ValueText";
 
 type Props = {
-  /** Final amount in major units (euros). */
+  /** Final amount in major units of the source currency (EUR). */
   amount: number;
+  /** Source currency of `amount` (EUR); ValueText converts it to the display currency. */
   currency?: string;
-  locale?: string;
   variant?: "displayXl" | "displayLg" | "displayMd" | "titleLg";
   tone?: "primary" | "reward" | "secondary";
   /** Override the count-up duration; defaults to the token countUp duration. */
@@ -22,7 +22,6 @@ type Props = {
 export function CountUpValue({
   amount,
   currency = "EUR",
-  locale = "de-DE",
   variant = "displayXl",
   tone = "primary",
   durationMs,
@@ -59,12 +58,6 @@ export function CountUpValue({
   // ValueText carries the settled figure as its own SR label; a screen that needs a
   // richer announcement ("…up 4.2 percent") renders it on a sibling polite live region.
   return (
-    <ValueText
-      amount={display}
-      currency={currency}
-      locale={locale}
-      variant={variant}
-      tone={tone}
-    />
+    <ValueText amount={display} currency={currency} variant={variant} tone={tone} />
   );
 }

@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { FoilSurface, Text, ValueText } from "@/components";
 import type { BatchNeedsConfirmation, ScanChoice } from "@/api";
+import { useCurrency } from "@/currency";
 import { useTheme } from "@/theme";
 import { withAlpha } from "@/theme/color";
 import { identitySubline, variantLabel } from "../shared/format";
@@ -20,11 +21,9 @@ type Props = {
 // variant joins the bulk add; an undecided one is held out (never silently guessed).
 export function ConfirmRow({ item, selected, onSelect }: Props) {
   const theme = useTheme();
+  const { format } = useCurrency();
   const top2 = item.choices.slice(0, 2);
-  const formattedDelta =
-    item.priceDelta != null
-      ? new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(item.priceDelta)
-      : null;
+  const formattedDelta = item.priceDelta != null ? format(item.priceDelta) : null;
 
   return (
     <FoilSurface level="raised" padded style={[styles.surface, { gap: theme.space["4"] }]}>

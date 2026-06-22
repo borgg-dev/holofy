@@ -12,6 +12,11 @@ export const settingsCopy = {
   appearanceOverline: "APPEARANCE",
   appearanceHint: "System follows your device. Light and Dark override it.",
 
+  currencyOverline: "CURRENCY",
+  // Honest framing: prices are sourced in EUR (Cardmarket); USD is a live FX conversion, not a
+  // US-market quote. The collector should never read a converted figure as a TCGplayer price.
+  currencyHint: "Prices come from Cardmarket in EUR. USD is converted at today's rate — a display aid, not a US-market price.",
+
   planRowLabel: "Plan",
   planRowValue: "Free (beta)",
   planRowHint: "Everything's free while Holofy is in testing.",
