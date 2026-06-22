@@ -195,6 +195,17 @@ class Settings(BaseSettings):
     tcgdex_recognition_locales: list[str] = ["en", "fr"]
     tcgdex_timeout_seconds: float = 10.0
 
+    # Artwork match index — the visual recognizer's database (perceptual hashes of catalog art,
+    # built offline by scripts/build_image_index.py). When this file exists and is non-empty the
+    # in-house recognizer matches a card by its picture first and uses OCR only to corroborate /
+    # break reprint ties; when it's absent the recognizer transparently falls back to the
+    # OCR-against-TCGdex text path, so the index is a data deployment, not a code switch.
+    image_index_path: str = "./data/image_index.json"
+    # Above this Hamming distance (0–64) the nearest catalog artwork isn't a real match — the
+    # card is outside the built index — so the recognizer defers to the text path instead of
+    # asserting a far, wrong hit. Calibrated from the observed gap: true matches ≤ ~8 bits.
+    recognition_visual_max_distance: int = 14
+
     # Below this top-1 confidence the scan flow must ask the user to confirm rather than
     # commit a guess — getting a high-value variant wrong is the product's worst failure.
     # Set between the two scoring bands so it splits them by *what was read*, not by photo

@@ -40,6 +40,22 @@ jobs:
           HOLOFY_DATABASE_URL: postgresql+asyncpg://holofy:holofy@localhost:5432/holofy
           HOLOFY_RATE_LIMIT_PROVIDER: redis
           HOLOFY_REDIS_URL: redis://localhost:6379/0
+          # smoke_journey.py is mock-first (it posts mock-* bundle ids and asserts deterministic
+          # outcomes), so the live server must run the mock providers + in-memory capture store
+          # it was written for — matching scripts/dev_smoke.sh. The point of this step is exercising
+          # migrations + the HTTP journey on REAL Postgres/Redis, not the bought-vs-owned providers
+          # (the in-house journey has its own smoke). Without these the server boots the production
+          # default (in-house) providers and the mock bundle ids resolve to nothing.
+          HOLOFY_CAPTURE_STORAGE: memory
+          HOLOFY_RECOGNITION_PROVIDER: mock
+          HOLOFY_PRICING_PROVIDER: mock
+          HOLOFY_GRADING_PROVIDER: mock
+          HOLOFY_AUTHENTICITY_PROVIDER: mock
+          HOLOFY_AUTH_PROVIDER: dev_token
+          # The app package lives at apps/api/app; the smoke runs `python scripts/smoke_journey.py`
+          # whose sys.path[0] is scripts/, not apps/api — so `import app` needs the working dir on
+          # the path (scripts/dev_smoke.sh sets this; the bare CI invocation didn't).
+          PYTHONPATH: .
         run: |
           python -m alembic upgrade head
           python -m alembic check
@@ -58,16 +74,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # The test runner uses `node --experimental-strip-types`, added in Node 22.6 — Node 20
+          # rejects it with "bad option". Match the repo's required runtime (Node ≥22).
+          node-version: "22"
       - name: Install (workspace root)
         working-directory: .
         run: npm install --legacy-peer-deps --no-audit --no-fund
-      - run: npx tsc --noEmit
-      - run: npm test
-      - name: Build native + web bundles (the real compile)
+      # Build BEFORE typecheck: expo-router's typed-routes generate app/.expo/types/router.d.ts
+      # during export, and `tsc --noEmit` needs them to know about every route (e.g. /sign-in).
+      # On a fresh checkout that file doesn't exist yet, so running tsc first fails with phantom
+      # "route has no overlap" errors. Generating routes first makes the typecheck see real routes.
+      - name: Build native + web bundles (the real compile, also generates route types)
         run: |
           npx expo export --platform android --output-dir dist
           npx expo export --platform web --output-dir dist-web
+      - run: npx tsc --noEmit
+      - run: npm test
       - name: Render screenshots of the running app
         run: |
           npm install --no-save playwright

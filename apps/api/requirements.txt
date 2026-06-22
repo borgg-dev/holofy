@@ -15,6 +15,12 @@ pillow==12.2.0
 rapidocr-onnxruntime==1.4.4
 onnxruntime==1.27.0
 
+# in-house identification: visual recognition. OpenCV does card localization + perspective
+# rectification (find the card's quad in a phone photo and flatten it upright); the perceptual
+# hash that matches the rectified art against the catalog index is pure numpy (no extra dep).
+# Headless build — no GUI/X11 libs — is the right one for the inference container.
+opencv-python-headless==4.13.0.92
+
 # persistence
 sqlalchemy[asyncio]==2.0.36
 alembic==1.14.0

@@ -1,7 +1,9 @@
 # Holofy dev commands. Mock-first: everything here runs with no API keys.
 # Backend deps live in apps/api/.deps (see apps/api/README.md); mobile uses npm.
 
-.PHONY: help api-dev api-smoke api-smoke-inhouse api-test mobile-test mobile-typecheck tokens dev-check
+.PHONY: help api-dev api-smoke api-smoke-inhouse api-test index-build recognition-eval mobile-test mobile-typecheck tokens dev-check
+# Use the 3.11 interpreter the vendored .deps are built for (system python3 is 3.10).
+API_PY = PYTHONPATH=.deps:. python3.11
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-16s %s\n", $$1, $$2}'
@@ -18,6 +20,13 @@ api-smoke-inhouse: ## Same journey on Holofy's OWN models (in-house recognition 
 
 api-test: ## Run the backend test suite
 	cd apps/api && PYTHONPATH=.deps:. .deps/bin/pytest -q
+
+index-build: ## Build the artwork match index (the visual recognizer's database) from TCGdex
+	cd apps/api && $(API_PY) scripts/build_image_index.py --out data/image_index.json $(if $(SETS),--sets $(SETS),) $(if $(ALL),--all,)
+
+recognition-eval: ## Measure recognition accuracy on a labelled folder: make recognition-eval IMAGES=./eval_set
+	@test -n "$(IMAGES)" || (echo "Set IMAGES, e.g. make recognition-eval IMAGES=./eval_set" && exit 1)
+	cd apps/api && $(API_PY) scripts/eval_recognition.py --images $(IMAGES) --index data/image_index.json
 
 mobile-test: ## Run the mobile test suite
 	cd apps/mobile && npm test
