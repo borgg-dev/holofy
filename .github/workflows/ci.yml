@@ -40,6 +40,18 @@ jobs:
           HOLOFY_DATABASE_URL: postgresql+asyncpg://holofy:holofy@localhost:5432/holofy
           HOLOFY_RATE_LIMIT_PROVIDER: redis
           HOLOFY_REDIS_URL: redis://localhost:6379/0
+          # smoke_journey.py is mock-first (it posts mock-* bundle ids and asserts deterministic
+          # outcomes), so the live server must run the mock providers + in-memory capture store
+          # it was written for — matching scripts/dev_smoke.sh. The point of this step is exercising
+          # migrations + the HTTP journey on REAL Postgres/Redis, not the bought-vs-owned providers
+          # (the in-house journey has its own smoke). Without these the server boots the production
+          # default (in-house) providers and the mock bundle ids resolve to nothing.
+          HOLOFY_CAPTURE_STORAGE: memory
+          HOLOFY_RECOGNITION_PROVIDER: mock
+          HOLOFY_PRICING_PROVIDER: mock
+          HOLOFY_GRADING_PROVIDER: mock
+          HOLOFY_AUTHENTICITY_PROVIDER: mock
+          HOLOFY_AUTH_PROVIDER: dev_token
         run: |
           python -m alembic upgrade head
           python -m alembic check
