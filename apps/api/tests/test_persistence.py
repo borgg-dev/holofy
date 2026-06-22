@@ -368,25 +368,35 @@ async def test_collection_item_constraints(session: AsyncSession) -> None:
 
 
 @pytest.mark.asyncio
-async def test_duplicate_collection_item_maps_to_a_domain_conflict(
+async def test_re_adding_same_holding_increments_quantity(
     session: AsyncSession,
 ) -> None:
-    # A second add of the same (user, card, condition) hits the unique guard; the repository
-    # maps it to the typed conflict rather than letting the raw IntegrityError reach the
-    # catch-all handler as a 500.
+    # A holding is unique on (user, card, condition) but quantity carries duplicates: re-adding
+    # the same card at the same condition is "I have one more", so it folds into the existing
+    # row's quantity rather than raising the unique-guard conflict (which the app surfaced as
+    # "couldn't add to vault").
     user = await UserRepository(session).create()
     card = await _emberwyrm(session)
     collection = CollectionRepository(session)
-    await collection.add(
-        user_id=user.id, card_id=card.id, condition=CardCondition.NEAR_MINT
+    first = await collection.add(
+        user_id=user.id, card_id=card.id, condition=CardCondition.NEAR_MINT, quantity=1
     )
     await session.commit()
 
-    with pytest.raises(ConstraintViolationError) as caught:
-        await collection.add(
-            user_id=user.id, card_id=card.id, condition=CardCondition.NEAR_MINT
-        )
-    assert caught.value.status_code == 409
+    second = await collection.add(
+        user_id=user.id, card_id=card.id, condition=CardCondition.NEAR_MINT, quantity=2
+    )
+    await session.commit()
+
+    assert second.id == first.id  # same holding, not a new row
+    assert second.quantity == 3
+    # A different condition stays a distinct holding.
+    other = await collection.add(
+        user_id=user.id, card_id=card.id, condition=CardCondition.LIGHT_PLAYED, quantity=1
+    )
+    await session.commit()
+    assert other.id != first.id
+    assert len(await collection.list_for_user(user.id)) == 2
 
 
 @pytest.mark.asyncio

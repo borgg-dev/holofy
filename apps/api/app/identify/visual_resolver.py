@@ -27,10 +27,12 @@ from app.identify.collector_number import NumberMatch, match_strength, parse_col
 from app.identify.image_index import ImageMatch
 from app.schemas.cards import CardIdentity, RecognitionCandidate, RecognitionResult
 
-# Hamming distance (0–64) → visual base score. Anchored on observed separation: a true match
-# lands ≤ ~8 bits while distinct artwork sits ≥ ~14, so a /24 falloff keeps the true card high
-# and pushes unrelated cards toward the floor.
-_VISUAL_FALLOFF = 24.0
+# Hamming distance → visual base score, over the 384-bit YCbCr hash. Scaled from the original
+# 64-bit calibration (falloff 24) by the 6× bit increase: a true match lands at a small fraction
+# of the bits while distinct artwork sits far higher, so this falloff keeps the true card high
+# and pushes unrelated cards toward the floor. Because the score normalises distance by this
+# falloff, every downstream boost/threshold in 0–1 score space stays calibrated across bit lengths.
+_VISUAL_FALLOFF = 144.0
 
 # Collector-number agreement on top of the visual score.
 _NUMBER_BOOST: dict[NumberMatch, float] = {

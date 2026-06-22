@@ -162,8 +162,17 @@ def _quads_from_contour(contour: np.ndarray, area: float, frame_area: float) -> 
 
 
 def _score_quad(quad: np.ndarray, area_fraction: float) -> float:
-    """Confidence that a convex 4-gon is a cleanly-framed card: fills the frame, has card
-    proportions, and is genuinely rectangular. Returns 0 to reject a non-card shape outright."""
+    """Confidence that a convex 4-gon is a cleanly-framed card: has card proportions, is
+    genuinely rectangular, and occupies a *plausible* share of the frame. Returns 0 to reject a
+    non-card shape outright.
+
+    The card's defining signal is its shape (aspect + rectangularity), NOT its size: on a real
+    unguided photo the card fills only ~15% of the frame, while the single biggest card-aspect
+    region is usually the *background itself* (the table thresholds into one near-full-frame
+    blob). Scoring on area therefore picked the whole frame over the actual card — the dominant
+    real-world failure. So shape dominates, and area is a mild band that gives full credit across
+    the realistic 0.08–0.70 range and *penalises* a near-full-frame quad as the likely background.
+    """
     ordered = _order_corners(quad)
     (tl, tr, br, bl) = ordered
     width_top = np.linalg.norm(tr - tl)
@@ -186,11 +195,15 @@ def _score_quad(quad: np.ndarray, area_fraction: float) -> float:
     rect_score = min(width_top, width_bottom) / max(width_top, width_bottom)
     rect_score *= min(height_left, height_right) / max(height_left, height_right)
 
-    # Fill: reward a card that occupies the frame, but don't punish one that doesn't quite fill
-    # it. Saturates at ~0.6 of the frame.
-    area_score = float(np.clip(area_fraction / 0.6, 0.0, 1.0))
+    # Area as a plausibility band, not a "bigger is better" reward: full credit once the quad is
+    # clearly more than noise (≥~0.12 of the frame), held flat through 0.70, then decaying to 0 by
+    # ~0.90 so a near-full-frame blob (the table) can't outscore the real card on size.
+    if area_fraction <= 0.70:
+        area_score = float(np.clip(area_fraction / 0.12, 0.0, 1.0))
+    else:
+        area_score = float(np.clip((0.90 - area_fraction) / 0.20, 0.0, 1.0))
 
-    return float(np.clip(0.4 * area_score + 0.4 * aspect_score + 0.2 * rect_score, 0.0, 1.0))
+    return float(np.clip(0.5 * aspect_score + 0.3 * rect_score + 0.2 * area_score, 0.0, 1.0))
 
 
 def _order_corners(quad: np.ndarray) -> np.ndarray:
