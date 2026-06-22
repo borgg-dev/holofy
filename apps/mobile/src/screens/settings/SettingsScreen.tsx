@@ -1,8 +1,9 @@
 import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
-import { AppearanceToggle, Button, FoilSurface, Screen, Text } from "@/components";
+import { AppearanceToggle, Button, CurrencyToggle, FoilSurface, Screen, Text } from "@/components";
 import { ChevronRight } from "@/components/icons";
 import { useOptionalAuth } from "@/auth/AuthContext";
+import { useCurrency } from "@/currency";
 import { useTheme, useThemeMode } from "@/theme";
 import { withAlpha } from "@/theme/color";
 import { settingsCopy as copy } from "./copy";
@@ -40,6 +41,8 @@ export function SettingsScreen({ onPrivacy }: Props) {
         <AccountCard email={auth?.user?.email ?? null} />
 
         <AppearanceSection />
+
+        <CurrencySection />
 
         <View style={{ gap: theme.space["3"] }}>
           <SettingRow
@@ -104,6 +107,22 @@ function AppearanceSection() {
       <AppearanceToggle value={mode} onChange={setThemeMode} />
       <Text variant="caption" tone="tertiary">
         {copy.appearanceHint}
+      </Text>
+    </View>
+  );
+}
+
+function CurrencySection() {
+  const theme = useTheme();
+  const { currency, setCurrency } = useCurrency();
+  return (
+    <View style={{ gap: theme.space["3"] }}>
+      <Text variant="overline" tone="tertiary">
+        {copy.currencyOverline}
+      </Text>
+      <CurrencyToggle value={currency} onChange={setCurrency} />
+      <Text variant="caption" tone="tertiary">
+        {copy.currencyHint}
       </Text>
     </View>
   );

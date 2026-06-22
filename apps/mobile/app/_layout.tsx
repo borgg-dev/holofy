@@ -8,6 +8,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ApiProvider } from "@/api";
 import { AuthProvider, useAuth, type AuthStatus } from "@/auth/AuthContext";
+import { CurrencyProvider } from "@/currency";
 import { ScanFlowProvider } from "@/flow/ScanFlowProvider";
 import { ThemeProvider, fontAssets, useTheme } from "@/theme";
 
@@ -37,17 +38,19 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          {apiUrl ? (
-            <AuthProvider baseUrl={apiUrl}>
-              <LiveTree baseUrl={apiUrl} />
-            </AuthProvider>
-          ) : (
-            <ApiProvider>
-              <ScanFlowProvider>
-                <AppShell />
-              </ScanFlowProvider>
-            </ApiProvider>
-          )}
+          <CurrencyProvider>
+            {apiUrl ? (
+              <AuthProvider baseUrl={apiUrl}>
+                <LiveTree baseUrl={apiUrl} />
+              </AuthProvider>
+            ) : (
+              <ApiProvider>
+                <ScanFlowProvider>
+                  <AppShell />
+                </ScanFlowProvider>
+              </ApiProvider>
+            )}
+          </CurrencyProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

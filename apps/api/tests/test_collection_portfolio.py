@@ -42,6 +42,37 @@ def test_add_scanned_card_to_collection_returns_valuation(client) -> None:  # no
     assert Decimal(body["price"]["value"]) == Decimal("289.00")
 
 
+def test_remove_card_from_collection(client) -> None:  # noqa: ANN001
+    headers = auth_header("remover")
+    added = _scan_and_add(client, headers, quantity=1)
+    item_id = added.json()["id"]
+
+    # The holding is present...
+    assert len(client.get("/collection", headers=headers).json()) == 1
+    # ...removing it returns 204 and empties the Vault.
+    deleted = client.delete(f"/collection/{item_id}", headers=headers)
+    assert deleted.status_code == 204
+    assert client.get("/collection", headers=headers).json() == []
+
+
+def test_remove_missing_item_is_404(client) -> None:  # noqa: ANN001
+    import uuid
+
+    response = client.delete(f"/collection/{uuid.uuid4()}", headers=auth_header())
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "collection_item_not_found"
+
+
+def test_cannot_remove_another_users_card(client) -> None:  # noqa: ANN001
+    owner = auth_header("owner-del")
+    item_id = _scan_and_add(client, owner, quantity=1).json()["id"]
+    # A different user must not be able to delete it — owner-scoped, so it reads as a 404.
+    other = client.delete(f"/collection/{item_id}", headers=auth_header("intruder-del"))
+    assert other.status_code == 404
+    # And the owner's holding is untouched.
+    assert len(client.get("/collection", headers=owner).json()) == 1
+
+
 def test_adding_an_unknown_card_is_rejected(client) -> None:  # noqa: ANN001
     response = client.post(
         "/collection",

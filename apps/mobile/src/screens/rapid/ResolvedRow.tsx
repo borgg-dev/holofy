@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { FoilSurface, Text, ValueText } from "@/components";
 import type { BatchResolved } from "@/api";
+import { useCurrency } from "@/currency";
 import { useTheme } from "@/theme";
 import { withAlpha } from "@/theme/color";
 import { identitySubline } from "../shared/format";
@@ -22,12 +23,11 @@ type Props = {
 // a missing feature: the chevron and hint say it takes you somewhere more careful.
 export function ResolvedRow({ item, selected, onToggle, onGrade }: Props) {
   const theme = useTheme();
+  const { format } = useCurrency();
   const value = item.price?.value;
   const totalValue = value != null ? value * item.count : null;
   const a11y = `${item.identity.name}, ${identitySubline(item.identity)}, ${
-    totalValue != null
-      ? new Intl.NumberFormat("de-DE", { style: "currency", currency: item.price!.currency }).format(totalValue)
-      : "no recent euro sales"
+    totalValue != null ? format(totalValue) : "no recent sales"
   }${item.count > 1 ? `, ${item.count} copies` : ""}`;
 
   return (

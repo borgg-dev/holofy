@@ -28,6 +28,8 @@ type Props = {
   onBack?: () => void;
   onGrade?: () => void;
   onAuthenticity?: () => void;
+  /** Remove this holding from the Vault (the route confirms, then deletes and navigates back). */
+  onRemove?: () => void;
 };
 
 // The card detail screen — a Vault holding opened. The card sits at rest (no reveal sweep:
@@ -35,7 +37,7 @@ type Props = {
 // beneath, then a small reference panel (low · 30-day average · condition) and the two
 // wedge actions: pre-grade and authenticity. Both re-enter the guided capture flow against
 // this card. Loading and missing are real states, not a blank.
-export function CardDetailScreen({ state, onBack, onGrade, onAuthenticity }: Props) {
+export function CardDetailScreen({ state, onBack, onGrade, onAuthenticity, onRemove }: Props) {
   const theme = useTheme();
 
   if (state === "loading") return <DetailLoading onBack={onBack} />;
@@ -111,6 +113,17 @@ export function CardDetailScreen({ state, onBack, onGrade, onAuthenticity }: Pro
           />
           <Button label={ACTION_AUTH} tier="tertiary" onPress={onAuthenticity} />
         </View>
+
+        {onRemove ? (
+          <View style={{ marginTop: theme.space["2"] }}>
+            <Button
+              label="Remove from Vault"
+              tier="tertiary"
+              onPress={onRemove}
+              accessibilityHint="Removes this card from your collection. Asks you to confirm first."
+            />
+          </View>
+        ) : null}
       </ScrollView>
     </Screen>
   );

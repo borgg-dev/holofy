@@ -4,7 +4,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -67,6 +67,18 @@ class CollectionRepository:
             CollectionItem.condition == condition,
         )
         return (await self._session.execute(stmt)).scalar_one_or_none()
+
+    async def remove(self, *, user_id: uuid.UUID, item_id: uuid.UUID) -> bool:
+        """Delete one holding, scoped to its owner. Returns False if no such row was the user's —
+        the caller turns that into a 404 rather than silently succeeding (so removing another
+        user's id, or an already-deleted one, can't read as success)."""
+        result = await self._session.execute(
+            delete(CollectionItem).where(
+                CollectionItem.id == item_id,
+                CollectionItem.user_id == user_id,
+            )
+        )
+        return bool(result.rowcount)
 
     async def list_for_user(self, user_id: uuid.UUID) -> list[CollectionItem]:
         """The user's holdings with their cards eager-loaded, for valuation and display."""
