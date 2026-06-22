@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import logging
 
+import numpy as np
+
 from app.grading.capture_store import CaptureStore
 from app.identify.image_index import ImageMatchIndex
 from app.identify.vision.phash import phash
@@ -61,8 +63,12 @@ class VisualRecognitionProvider:
             return RecognitionResult(candidates=[])
 
         rect = rectify_card(image)
-        image_hash = phash(rect.image)
-        matches = self._index.query(image_hash, k=8)
+        # A pHash is not rotation-invariant, and the rectifier's portrait/upright decision is a
+        # guess (a card photographed sideways or upside-down warps to a 90°/180°-rotated crop).
+        # Probe all four right-angle orientations and keep the one whose nearest catalog art is
+        # closest — that orientation is, by definition, the one that lines up with the upright
+        # catalog. The same oriented crop then feeds OCR, so the reader sees upright text too.
+        oriented_image, matches = self._best_orientation(rect.image)
         if not matches or matches[0].distance > self._max_match_distance:
             logger.info(
                 "recognition.recognize visual_miss bundle=%s nearest=%s → text fallback",
@@ -71,7 +77,7 @@ class VisualRecognitionProvider:
             )
             return await self._fallback.recognize(bundle)
 
-        read = await self._reader.read_image(rect.image, rect.quality, fallback_bytes=image)
+        read = await self._reader.read_image(oriented_image, rect.quality, fallback_bytes=image)
         result = self._resolver.resolve(matches, read, rect.quality)
         logger.info(
             "recognition.recognize visual bundle=%s found_quad=%s q=%.3f nearest=%d top=%.3f cand=%d",
@@ -83,3 +89,15 @@ class VisualRecognitionProvider:
             len(result.candidates),
         )
         return result
+
+    def _best_orientation(self, image: "np.ndarray") -> tuple["np.ndarray", list]:
+        """Return the (image, matches) for whichever 90° rotation matches the catalog best."""
+        best_image = image
+        best_matches: list = []
+        for k in range(4):
+            candidate = image if k == 0 else np.rot90(image, k)
+            matches = self._index.query(phash(candidate), k=8)
+            if matches and (not best_matches or matches[0].distance < best_matches[0].distance):
+                best_matches = matches
+                best_image = candidate
+        return best_image, best_matches

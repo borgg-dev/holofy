@@ -50,17 +50,37 @@ _API_ROOT = "https://api.tcgdex.net/v2"
 # A small, high-value default: the cards beta users actually scan. Enough to validate the whole
 # pipeline end-to-end without a multi-hour full-catalog crawl.
 _DEFAULT_SETS = ("base1", "base2", "base3", "base4", "base5")
-_CONCURRENCY = 8
+# Concurrency is the build's main throughput lever. TCGdex is a CDN-backed open API that tolerates
+# parallel reads, so we run well above a timid 8 — but with bounded retry/backoff (below) so the
+# extra load can't silently *drop* cards on a transient 429/timeout, which would quietly shrink the
+# index. phash is CPU work and runs in a thread, so downloads and hashing overlap.
+_CONCURRENCY = 24
+# Transient failures (429 rate-limit, connection reset, slow image) must be retried, not skipped —
+# a skipped card is a hole in the recognition index. Only give up after this many attempts.
+_MAX_ATTEMPTS = 4
+
+
+async def _get_with_retry(client: httpx.AsyncClient, url: str) -> httpx.Response | None:
+    """GET with bounded exponential backoff. Returns the response, or None after exhausting tries."""
+    for attempt in range(1, _MAX_ATTEMPTS + 1):
+        try:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            return resp
+        except httpx.HTTPError as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            # 404 is a real "this art doesn't exist" — never worth retrying. Everything else
+            # (429/5xx/timeouts/resets) is transient: back off and try again.
+            if status == 404 or attempt == _MAX_ATTEMPTS:
+                log.warning("skip (fetch failed after %d): %s — %s", attempt, url, exc)
+                return None
+            await asyncio.sleep(0.5 * 2 ** (attempt - 1))
+    return None
 
 
 async def _get_json(client: httpx.AsyncClient, url: str) -> object | None:
-    try:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        return resp.json()
-    except httpx.HTTPError as exc:
-        log.warning("skip (fetch failed): %s — %s", url, exc)
-        return None
+    resp = await _get_with_retry(client, url)
+    return resp.json() if resp is not None else None
 
 
 async def _list_set_ids(client: httpx.AsyncClient, locale: str, *, all_sets: bool, sets: list[str]) -> list[str]:
@@ -87,15 +107,19 @@ async def _fingerprint_card(
         if not image_url:
             log.warning("skip (no image): %s", card_id)
             return None
+        img_resp = await _get_with_retry(client, image_url)
+        if img_resp is None:
+            return None
         try:
-            img_resp = await client.get(image_url)
-            img_resp.raise_for_status()
             arr = np.asarray(Image.open(BytesIO(img_resp.content)).convert("RGB"))
-        except (httpx.HTTPError, OSError) as exc:
+        except OSError as exc:
             log.warning("skip (image decode failed): %s — %s", card_id, exc)
             return None
 
         number_str = _collector_number(card)
+        # phash is numpy-heavy CPU work; run it off the event loop so it overlaps the many
+        # in-flight downloads instead of serializing the whole crawl behind hashing.
+        card_phash = await asyncio.to_thread(phash, arr)
         return ImageHashEntry(
             identity=CardIdentity(
                 canonical_id=card["id"],
@@ -106,7 +130,7 @@ async def _fingerprint_card(
                 variant=_primary_variant(card),
                 image_url=image_url,
             ),
-            phash=phash(arr),
+            phash=card_phash,
         )
 
 
@@ -131,7 +155,8 @@ async def build(out: Path, locales: list[str], *, all_sets: bool, sets: list[str
     # entries (keyed by id+language) so a card photographed in any configured language matches.
     seen: set[tuple[str, str]] = set()
     entries: list[ImageHashEntry] = []
-    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
+    limits = httpx.Limits(max_connections=_CONCURRENCY * 2, max_keepalive_connections=_CONCURRENCY)
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0), limits=limits) as client:
         for locale in locales:
             for entry in await _build_locale(client, locale, all_sets=all_sets, sets=sets):
                 key = (entry.identity.canonical_id, entry.identity.language)
