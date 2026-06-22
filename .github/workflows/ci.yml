@@ -74,12 +74,16 @@ jobs:
       - name: Install (workspace root)
         working-directory: .
         run: npm install --legacy-peer-deps --no-audit --no-fund
-      - run: npx tsc --noEmit
-      - run: npm test
-      - name: Build native + web bundles (the real compile)
+      # Build BEFORE typecheck: expo-router's typed-routes generate app/.expo/types/router.d.ts
+      # during export, and `tsc --noEmit` needs them to know about every route (e.g. /sign-in).
+      # On a fresh checkout that file doesn't exist yet, so running tsc first fails with phantom
+      # "route has no overlap" errors. Generating routes first makes the typecheck see real routes.
+      - name: Build native + web bundles (the real compile, also generates route types)
         run: |
           npx expo export --platform android --output-dir dist
           npx expo export --platform web --output-dir dist-web
+      - run: npx tsc --noEmit
+      - run: npm test
       - name: Render screenshots of the running app
         run: |
           npm install --no-save playwright
