@@ -40,16 +40,17 @@ class VisualRecognitionProvider:
         visual_resolver: VisualCardResolver,
         fallback: RecognitionProvider,
         *,
-        max_match_distance: int = 14,
+        max_match_distance: int = 84,
     ) -> None:
         self._store = store
         self._reader = reader
         self._index = image_index
         self._resolver = visual_resolver
         self._fallback = fallback
-        # Above this Hamming distance the nearest catalog art is not a real match (the card is
-        # outside the built index) — defer to the text/catalog path rather than assert a wrong,
-        # far artwork hit. Calibrated from the observed gap: true matches ≤ ~8, distinct art ≥ ~14.
+        # Above this Hamming distance (over the 384-bit YCbCr hash) the nearest catalog art is not
+        # a real match (the card is outside the built index) — defer to the text/catalog path
+        # rather than assert a wrong, far artwork hit. Scaled 6× from the original 64-bit cutoff
+        # of 14 to track the wider hash; validated against real captures after the index rebuild.
         self._max_match_distance = max_match_distance
 
     async def recognize(self, bundle: CaptureBundle) -> RecognitionResult:

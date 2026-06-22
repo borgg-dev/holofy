@@ -201,10 +201,10 @@ class Settings(BaseSettings):
     # break reprint ties; when it's absent the recognizer transparently falls back to the
     # OCR-against-TCGdex text path, so the index is a data deployment, not a code switch.
     image_index_path: str = "./data/image_index.json"
-    # Above this Hamming distance (0–64) the nearest catalog artwork isn't a real match — the
-    # card is outside the built index — so the recognizer defers to the text path instead of
-    # asserting a far, wrong hit. Calibrated from the observed gap: true matches ≤ ~8 bits.
-    recognition_visual_max_distance: int = 14
+    # Above this Hamming distance (over the 384-bit YCbCr hash) the nearest catalog artwork isn't
+    # a real match — the card is outside the built index — so the recognizer defers to the text
+    # path instead of asserting a far, wrong hit. Scaled 6× from the original 64-bit cutoff of 14.
+    recognition_visual_max_distance: int = 84
 
     # Below this top-1 confidence the scan flow must ask the user to confirm rather than
     # commit a guess — getting a high-value variant wrong is the product's worst failure.

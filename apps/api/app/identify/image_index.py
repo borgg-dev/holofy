@@ -21,20 +21,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from app.identify.vision.phash import hamming_distance
+from app.identify.vision.phash import _HASH_BITS, hamming_distance
 from app.schemas.cards import CardIdentity, Variant
 
 
 @dataclass(frozen=True, slots=True)
 class ImageMatch:
-    """One artwork hit: the catalog identity and how far its hash sat from the query (0–64)."""
+    """One artwork hit: the catalog identity and how far its hash sat from the query (0–_HASH_BITS)."""
 
     identity: CardIdentity
     distance: int
 
     @property
     def similarity(self) -> float:
-        return 1.0 - self.distance / 64.0
+        return 1.0 - self.distance / _HASH_BITS
 
 
 @dataclass(frozen=True, slots=True)
