@@ -24,8 +24,8 @@ from io import BytesIO
 
 from app.identify.catalog import CardRead
 from app.identify.collector_number import search_collector_number
-from app.identify.vision.detect import detect_card_crop
 from app.identify.vision.ocr import OcrEngine, OcrToken
+from app.identify.vision.rectify import rectify_card
 
 logger = logging.getLogger("holofy.recognition")
 
@@ -47,25 +47,38 @@ class VisionCardReader:
     async def read(self, images: Sequence[bytes]) -> CardRead:
         if not images:
             return CardRead(quality=0.0)
+        # Localize and flatten the card once; OCR reads the upright rectified crop (slanted text
+        # is what wrecked number/name reads). The same crop is hashed by the visual matcher
+        # upstream, so the provider rectifies once and hands the image to read_image — this path
+        # stays for callers that only have bytes.
+        rect = rectify_card(images[0])
+        return await self.read_image(rect.image, rect.quality, fallback_bytes=images[0])
 
-        crop = detect_card_crop(images[0])
-        # OCR is blocking CPU work — keep it off the event loop. Read the detected crop first
-        # (it focuses OCR on the card); if that yields nothing usable, fall back to the full
-        # frame so a poor brightness-based crop can't silently blind the reader.
-        tokens = await asyncio.to_thread(self._engine.read_text, crop.image)
-        height = crop.image.shape[0]
+    async def read_image(
+        self, image: np.ndarray, quality: float, *, fallback_bytes: bytes | None = None
+    ) -> CardRead:
+        """Parse identity cues from an already-rectified card image (RGB ndarray).
+
+        The provider rectifies the capture once and shares the crop between the visual matcher
+        and this reader, so OCR and the artwork hash see the exact same upright card.
+        """
+        # OCR is blocking CPU work — keep it off the event loop.
+        tokens = await asyncio.to_thread(self._engine.read_text, image)
+        height = image.shape[0]
         number, number_conf = self._best_number(tokens, height)
         name, name_conf = self._name(tokens, height)
-        if name is None and number is None:
-            full = await asyncio.to_thread(self._read_full_frame, images[0])
+        if name is None and number is None and fallback_bytes is not None:
+            # The rectified crop yielded nothing legible — try the full frame so a tight or
+            # mis-localized crop can't silently blind the reader.
+            full = await asyncio.to_thread(self._read_full_frame, fallback_bytes)
             if full is not None:
                 tokens, height = full
                 number, number_conf = self._best_number(tokens, height)
                 name, name_conf = self._name(tokens, height)
 
         if not tokens:
-            logger.info("recognition.read no_tokens detect_q=%.3f", crop.quality)
-            return CardRead(quality=round(crop.quality * 0.2, 4))
+            logger.info("recognition.read no_tokens detect_q=%.3f", quality)
+            return CardRead(quality=round(quality * 0.2, 4))
 
         # Quality reflects how confidently the *identity* cues were read. The collector number
         # is the load-bearing cue when present, but a confidently-read name is a real signal in
@@ -78,15 +91,15 @@ class VisionCardReader:
             ocr_conf = name_conf
         else:
             ocr_conf = 0.4 * (sum(t.confidence for t in tokens) / len(tokens))
-        quality = round(float(crop.quality) * float(ocr_conf), 4)
+        read_quality = round(float(quality) * float(ocr_conf), 4)
         logger.info(
             "recognition.read name=%r number=%r name_conf=%.2f num_conf=%.2f detect_q=%.3f quality=%.3f ntokens=%d",
-            name, number, name_conf, number_conf, crop.quality, quality, len(tokens),
+            name, number, name_conf, number_conf, quality, read_quality, len(tokens),
         )
         return CardRead(
             collector_number=number,
             name=name,
-            quality=quality,
+            quality=read_quality,
         )
 
     def _read_full_frame(self, image_bytes: bytes) -> tuple[list[OcrToken], int] | None:

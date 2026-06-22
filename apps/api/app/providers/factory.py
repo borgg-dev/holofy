@@ -77,18 +77,35 @@ def build_recognition_provider(
             # Imported lazily: the OCR stack (onnxruntime) is only needed for this backend, so
             # mock/test runs never pay its import cost. The provider reads the uploaded stills
             # from the same capture store the pre-grade uses.
+            from app.identify.image_index import load_image_index
             from app.identify.presence import HeuristicCardPresence
             from app.identify.provider import InHouseRecognitionProvider
             from app.identify.resolver import CardResolver
             from app.identify.vision.ocr import RapidOcrEngine
             from app.identify.vision.reader import VisionCardReader
+            from app.identify.visual_provider import VisualRecognitionProvider
+            from app.identify.visual_resolver import VisualCardResolver
 
             catalog, catalog_client = build_catalog_index(settings)
-            provider = InHouseRecognitionProvider(
+            reader = VisionCardReader(RapidOcrEngine())
+            # The OCR-against-TCGdex text recognizer: the fallback for cards not yet fingerprinted
+            # in the artwork index (and the whole recognizer when no index is deployed).
+            text_provider = InHouseRecognitionProvider(
                 store=capture_store,
-                reader=VisionCardReader(RapidOcrEngine()),
+                reader=reader,
                 resolver=CardResolver(catalog),
                 presence=HeuristicCardPresence(),
+            )
+            # Visual-first when an artwork index is present; a missing/empty index makes the
+            # wrapper a transparent pass-through to the text provider (see VisualRecognitionProvider).
+            image_index = load_image_index(settings.image_index_path)
+            provider = VisualRecognitionProvider(
+                store=capture_store,
+                reader=reader,
+                image_index=image_index,
+                visual_resolver=VisualCardResolver(),
+                fallback=text_provider,
+                max_match_distance=settings.recognition_visual_max_distance,
             )
             return provider, catalog_client
         case unknown:  # pragma: no cover - guards an unwired enum value

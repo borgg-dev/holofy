@@ -69,14 +69,15 @@ async def test_mock_pricing_unknown_card_raises_price_unavailable() -> None:
 
 @pytest.mark.asyncio
 async def test_factory_defaults_to_real_backends() -> None:
-    # The production defaults are the real providers: the in-house OCR recognizer (resolving
-    # against the live TCGdex catalog, so it owns an HTTP client) and TCGdex pricing.
-    from app.identify.provider import InHouseRecognitionProvider
+    # The production default recognizer is the in-house visual-first recognizer: it matches a
+    # card by its artwork (perceptual-hash index) and falls back to the OCR-against-TCGdex text
+    # path for cards not yet fingerprinted — so it still owns the live TCGdex catalog client.
+    from app.identify.visual_provider import VisualRecognitionProvider
 
     settings = Settings()
     recognizer, recognizer_client = build_recognition_provider(settings, MockCaptureStore())
     try:
-        assert isinstance(recognizer, InHouseRecognitionProvider)
+        assert isinstance(recognizer, VisualRecognitionProvider)
         assert recognizer_client is not None  # default catalog is tcgdex → owns a client
     finally:
         if recognizer_client is not None:
