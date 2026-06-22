@@ -110,38 +110,52 @@ async def _fingerprint_card(
         )
 
 
-async def build(out: Path, locale: str, *, all_sets: bool, sets: list[str]) -> int:
+async def _build_locale(client: httpx.AsyncClient, locale: str, *, all_sets: bool, sets: list[str]) -> list[ImageHashEntry]:
+    set_ids = await _list_set_ids(client, locale, all_sets=all_sets, sets=sets)
+    log.info("fingerprinting %d set(s) in locale %s", len(set_ids), locale)
+
+    card_ids: list[str] = []
+    for set_id in set_ids:
+        ids = await _set_card_ids(client, locale, set_id)
+        log.info("  [%s] %s: %d cards", locale, set_id, len(ids))
+        card_ids.extend(ids)
+
+    sem = asyncio.Semaphore(_CONCURRENCY)
+    results = await asyncio.gather(*(_fingerprint_card(client, locale, cid, sem) for cid in card_ids))
+    return [e for e in results if e is not None]
+
+
+async def build(out: Path, locales: list[str], *, all_sets: bool, sets: list[str]) -> int:
+    # A card is printed per language — a French Charizard is "Dracaufeu" with French text, so its
+    # artwork hashes differently from the English print. We fingerprint each locale and union the
+    # entries (keyed by id+language) so a card photographed in any configured language matches.
+    seen: set[tuple[str, str]] = set()
+    entries: list[ImageHashEntry] = []
     async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
-        set_ids = await _list_set_ids(client, locale, all_sets=all_sets, sets=sets)
-        log.info("fingerprinting %d set(s) in locale %s", len(set_ids), locale)
-
-        card_ids: list[str] = []
-        for set_id in set_ids:
-            ids = await _set_card_ids(client, locale, set_id)
-            log.info("  %s: %d cards", set_id, len(ids))
-            card_ids.extend(ids)
-
-        sem = asyncio.Semaphore(_CONCURRENCY)
-        results = await asyncio.gather(
-            *(_fingerprint_card(client, locale, cid, sem) for cid in card_ids)
-        )
-        entries = [e for e in results if e is not None]
+        for locale in locales:
+            for entry in await _build_locale(client, locale, all_sets=all_sets, sets=sets):
+                key = (entry.identity.canonical_id, entry.identity.language)
+                if key not in seen:
+                    seen.add(key)
+                    entries.append(entry)
 
     out.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"locale": locale, "count": len(entries), "cards": [entry_to_dict(e) for e in entries]}
+    payload = {"locales": locales, "count": len(entries), "cards": [entry_to_dict(e) for e in entries]}
     out.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-    log.info("wrote %d fingerprints → %s", len(entries), out)
+    log.info("wrote %d fingerprints across %s → %s", len(entries), locales, out)
     return len(entries)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build the TCGdex artwork pHash index.")
     parser.add_argument("--out", type=Path, default=Path("data/image_index.json"))
-    parser.add_argument("--locale", default="en")
+    # Match the recognizer's configured locales (HOLOFY_TCGDEX_RECOGNITION_LOCALES): English +
+    # French cover the two largest Latin-script communities the OCR/art match reads today.
+    parser.add_argument("--locales", nargs="+", default=["en", "fr"])
     parser.add_argument("--all", action="store_true", help="fingerprint every set (slow)")
     parser.add_argument("--sets", nargs="*", default=list(_DEFAULT_SETS))
     args = parser.parse_args()
-    count = asyncio.run(build(args.out, args.locale, all_sets=args.all, sets=args.sets))
+    count = asyncio.run(build(args.out, args.locales, all_sets=args.all, sets=args.sets))
     if count == 0:
         log.error("no fingerprints written — check connectivity / set ids")
         sys.exit(1)

@@ -59,6 +59,10 @@ services:
       HOLOFY_LOG_JSON: "true"
     volumes:
       - captures:/data/captures
+      # The artwork match index is managed data, not baked into the image: mount it from the
+      # host so it can be rebuilt (scripts/build_image_index.py --all) and picked up on a plain
+      # API restart, without rebuilding the image.
+      - ../apps/api/data:/app/data
     depends_on:
       db:
         condition: service_healthy
