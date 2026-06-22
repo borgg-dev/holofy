@@ -44,6 +44,13 @@ class PriceUnavailableError(HolofyError):
     code = "price_unavailable"
 
 
+class CollectionItemNotFoundError(HolofyError):
+    """The holding to remove/update doesn't exist for this user — already gone, or never theirs."""
+
+    status_code = 404
+    code = "collection_item_not_found"
+
+
 class CaptureNotFoundError(HolofyError):
     """A pre-grade referenced a capture that doesn't resolve — an unknown/expired upload.
 

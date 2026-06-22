@@ -514,6 +514,10 @@ export function fixtureAddToCollection(
   return { ...item };
 }
 
+export function fixtureRemoveFromCollection(id: string): void {
+  collection = collection.filter((item) => item.id !== id);
+}
+
 function sumCollection(items: WireCollectionItem[]): { total: number; count: number } {
   let total = 0;
   let count = 0;

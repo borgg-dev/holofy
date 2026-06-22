@@ -9,6 +9,7 @@ import {
   authenticityFixtureFor,
   batchScanFixture,
   fixtureAddToCollection,
+  fixtureRemoveFromCollection,
   fixtureCollection,
   fixtureNoteConsentedAuthenticity,
   fixtureNoteConsentedPregrade,
@@ -138,6 +139,8 @@ export interface HolofyClient {
    */
   batchScan(req: BatchScanRequest): Promise<BatchScan>;
   addToCollection(req: AddToCollectionRequest): Promise<CollectionItem>;
+  /** Remove one holding from the Vault by its id. Idempotent from the user's view. */
+  removeFromCollection(id: string): Promise<void>;
   listCollection(): Promise<CollectionItem[]>;
   portfolio(): Promise<Portfolio>;
   /** Honest pre-grade: an `estimated` range + sub-scores, or a `retake` with reasons. */
@@ -278,6 +281,10 @@ export function createHttpClient(config: HttpClientConfig): HolofyClient {
         }),
       });
       return mapCollectionItem(wire);
+    },
+
+    async removeFromCollection(id) {
+      await request<void>(`/collection/${id}`, { method: "DELETE" });
     },
 
     async listCollection() {
@@ -429,6 +436,10 @@ export function createFixtureClient(config: FixtureClientConfig = {}): HolofyCli
     async addToCollection({ canonicalId, condition, quantity }) {
       await wait();
       return mapCollectionItem(fixtureAddToCollection(canonicalId, condition, quantity));
+    },
+    async removeFromCollection(id) {
+      await wait();
+      fixtureRemoveFromCollection(id);
     },
     async listCollection() {
       await wait();

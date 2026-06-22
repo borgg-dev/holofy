@@ -12,7 +12,11 @@ from __future__ import annotations
 import uuid
 from decimal import Decimal
 
-from app.core.errors import CardNotFoundError, PriceUnavailableError
+from app.core.errors import (
+    CardNotFoundError,
+    CollectionItemNotFoundError,
+    PriceUnavailableError,
+)
 from app.db.models.collection import CollectionItem
 from app.db.repositories import CardRepository, CollectionRepository
 from app.providers.base import PricingProvider
@@ -62,6 +66,16 @@ class CollectionService:
         # Reuse the loaded card so the valuation doesn't re-query for the relationship.
         item.card = card
         return await self._value_item(item)
+
+    async def remove(self, user_id: uuid.UUID, item_id: uuid.UUID) -> None:
+        """Remove a holding from the user's collection. A missing/foreign id is a 404 — the
+        delete is owner-scoped, so a user can only ever remove their own card."""
+        removed = await self._collection.remove(user_id=user_id, item_id=item_id)
+        if not removed:
+            raise CollectionItemNotFoundError(
+                "No such card in your collection.",
+                details={"item_id": str(item_id)},
+            )
 
     async def list_valued(self, user_id: uuid.UUID) -> CollectionResponse:
         items = await self._collection.list_for_user(user_id)
