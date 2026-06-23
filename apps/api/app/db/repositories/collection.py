@@ -4,7 +4,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -77,6 +77,18 @@ class CollectionRepository:
                 CollectionItem.id == item_id,
                 CollectionItem.user_id == user_id,
             )
+        )
+        return bool(result.rowcount)
+
+    async def set_condition(
+        self, *, user_id: uuid.UUID, item_id: uuid.UUID, condition: CardCondition
+    ) -> bool:
+        """Set a holding's condition, scoped to its owner (a pre-grade writing back what it assessed).
+        Returns False if no such row was the user's — a foreign/missing id is silently ignored."""
+        result = await self._session.execute(
+            update(CollectionItem)
+            .where(CollectionItem.id == item_id, CollectionItem.user_id == user_id)
+            .values(condition=condition)
         )
         return bool(result.rowcount)
 

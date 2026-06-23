@@ -52,6 +52,48 @@ def test_pregrade_estimates_a_probability_range_with_disclaimer(client) -> None:
     assert axes == {"centering", "corners", "edges", "surface"}
 
 
+def test_pregrade_returns_estimated_condition_and_your_copy_value(client) -> None:  # noqa: ANN001
+    # A scan lands a priced card; pre-grading it estimates a condition and a "your copy" value
+    # (the guide scaled by that condition), alongside the baseline guide.
+    headers = auth_header()
+    scan = client.post("/scan", json={"bundle_id": "mock-high-confidence"}, headers=headers)
+    canonical_id = scan.json()["card"]["identity"]["canonical_id"]
+
+    res = client.post(
+        "/pregrade",
+        json={"capture_ref": "capture-centered", "card_id": canonical_id},
+        headers=headers,
+    )
+    body = res.json()
+    assert body["status"] == PregradeStatus.ESTIMATED
+    assert body["estimated_condition"] is not None  # a condition is named from the grade band
+    assert body["baseline_value_eur"] is not None  # the card was priceable (mock prices it)
+    assert body["condition_adjusted_value_eur"] is not None
+
+
+def test_pregrade_writes_the_detected_condition_back_to_the_holding(client) -> None:  # noqa: ANN001
+    headers = auth_header()
+    scan = client.post("/scan", json={"bundle_id": "mock-high-confidence"}, headers=headers)
+    canonical_id = scan.json()["card"]["identity"]["canonical_id"]
+    add = client.post("/collection", json={"canonical_id": canonical_id}, headers=headers)
+    item = add.json()
+    assert item["condition"] == "not_assessed"  # a scan doesn't claim a condition
+
+    res = client.post(
+        "/pregrade",
+        json={"capture_ref": "capture-centered", "card_id": canonical_id, "collection_item_id": item["id"]},
+        headers=headers,
+    )
+    detected = res.json()["estimated_condition"]
+    assert detected is not None
+
+    # The Vault now reflects the assessed condition, with a condition-adjusted value beside the guide.
+    listed = client.get("/collection", headers=headers).json()
+    row = next(r for r in listed if r["id"] == item["id"])
+    assert row["condition"] == detected  # written back — no longer "not_assessed"
+    assert row["condition_adjusted_unit_value_eur"] is not None
+
+
 def test_pregrade_refuses_full_bleed_capture_with_a_retake_not_a_500(client) -> None:  # noqa: ANN001
     response = client.post(
         "/pregrade", json={"capture_ref": "capture-full-bleed"}, headers=auth_header()

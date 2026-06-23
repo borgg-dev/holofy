@@ -26,15 +26,23 @@ from app.api.dependencies import (
     get_current_user,
     get_datalake_sink,
     get_pregrade_service,
+    get_pricing_provider,
     get_rate_limiter,
     get_session,
     get_settings,
 )
 from app.config import Settings
-from app.core.errors import CaptureNotFoundError, QuotaExceededError
+from app.core.errors import (
+    CaptureNotFoundError,
+    CardNotFoundError,
+    PriceUnavailableError,
+    QuotaExceededError,
+)
 from app.datalake.base import DataLakeSink
 from app.datalake.emit import emit_pregrade
 from app.db.models import User
+from app.db.repositories import CollectionRepository
+from app.providers.base import PricingProvider
 from app.db.repositories import CardRepository, PreGradeRepository
 from app.grading.capture_store import CaptureNotFoundError as CaptureMissing
 from app.grading.capture_store import CaptureStore
@@ -64,6 +72,7 @@ async def pregrade(
     user: User = Depends(get_current_user),
     service: PregradeService = Depends(get_pregrade_service),
     store: CaptureStore = Depends(get_capture_store),
+    pricing: PricingProvider = Depends(get_pricing_provider),
     limiter: RateLimiter = Depends(get_rate_limiter),
     settings: Settings = Depends(get_settings),
     session: AsyncSession = Depends(get_session),
@@ -91,10 +100,27 @@ async def pregrade(
             details={"capture_ref": request.capture_ref},
         ) from exc
 
+    # The card being graded (if this capture was resolved to one) — its near-mint guide price is the
+    # baseline the service scales by the estimated condition into a "your copy" value.
+    card_obj = (
+        await CardRepository(session).get_by_canonical_id(request.card_id)
+        if request.card_id
+        else None
+    )
     capture = _GradingCaptureRef(
         capture_ref=request.capture_ref, image_count=request.image_count
     )
-    result = await service.pregrade(capture, image=image)
+    result = await service.pregrade(
+        capture, image=image, reference_value_eur=await _baseline_value(pricing, card_obj)
+    )
+
+    # Persist the detected condition back onto the user's holding, if the pre-grade named one — so
+    # the Vault reflects what the app assessed (the whole point: the app categorises the card, not
+    # the user). Owner-scoped; a missing/foreign item is silently ignored.
+    if request.collection_item_id is not None and result.estimated_condition is not None:
+        await CollectionRepository(session).set_condition(
+            user_id=user.id, item_id=request.collection_item_id, condition=result.estimated_condition
+        )
 
     # Each capture inherits the account's standing consent — never the wire flag directly.
     # An explicit opt-in grants the account first; otherwise the account preference governs.
@@ -118,6 +144,20 @@ async def pregrade(
     # (consent-off) pre-grade is the user's history and nothing more.
     await emit_pregrade(data_lake, record)
     return result
+
+
+async def _baseline_value(pricing: PricingProvider, card_obj):  # noqa: ANN001
+    """The card's near-mint guide value, or ``None`` when it isn't priceable — a missing price is a
+    long-tail fact, never a reason to fail the pre-grade."""
+    if card_obj is None:
+        return None
+    try:
+        quote = await pricing.price(
+            card_obj.canonical_id, name=card_obj.name, collector_number=card_obj.collector_number
+        )
+        return quote.value
+    except (PriceUnavailableError, CardNotFoundError):
+        return None
 
 
 async def _resolve_card_id(session: AsyncSession, canonical_id: str | None):

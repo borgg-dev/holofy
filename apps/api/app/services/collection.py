@@ -18,6 +18,7 @@ from app.core.errors import (
     PriceUnavailableError,
 )
 from app.db.models.collection import CollectionItem
+from app.grading.grade_condition import adjust_value
 from app.db.repositories import CardRepository, CollectionRepository
 from app.providers.base import PricingProvider
 from app.schemas.cards import CardIdentity, PriceQuote, Variant
@@ -96,6 +97,10 @@ class CollectionService:
         )
         unit = quote.value if quote is not None else None
         line = unit * item.quantity if unit is not None else None
+        # "Your copy" value: the guide scaled by the holding's assessed condition (a no-op for
+        # near-mint / not-assessed). An estimate the client shows beside the guide figure.
+        adj_unit = adjust_value(unit, item.condition)
+        adj_line = adjust_value(line, item.condition)
         return CollectionItemValuation(
             id=str(item.id),
             identity=_identity_of(item.card),
@@ -106,6 +111,8 @@ class CollectionService:
             price=quote,
             unit_value_eur=unit,
             line_value_eur=line,
+            condition_adjusted_unit_value_eur=adj_unit,
+            condition_adjusted_line_value_eur=adj_line,
             valued_at=quote.as_of if quote is not None else None,
             price_source=quote.source if quote is not None else None,
         )
