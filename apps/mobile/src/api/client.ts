@@ -78,6 +78,12 @@ export type ScanRequest = {
   imageCount?: number;
   /** Opt this capture into the training lake. Off unless explicitly set (GDPR, charter §3.5). */
   trainingConsent?: boolean;
+  /**
+   * The user's language (ISO code, e.g. "en"/"fr"). Advisory: the server uses it only to break an
+   * EN·FR same-name twin tie (identical art + number, e.g. "Pikachu") toward the user's market —
+   * the print the photo can't distinguish but their locale can. Omitted ⇒ such ties confirm.
+   */
+  preferredLanguage?: string;
 };
 
 export type BatchScanRequest = {
@@ -244,7 +250,7 @@ export function createHttpClient(config: HttpClientConfig): HolofyClient {
       return { ref: wire.ref, imageCount: wire.image_count };
     },
 
-    async scan({ bundleId, imageCount = 1, trainingConsent = false }) {
+    async scan({ bundleId, imageCount = 1, trainingConsent = false, preferredLanguage }) {
       const wire = await request<WireScanResponse>("/scan", {
         method: "POST",
         body: JSON.stringify({
@@ -252,6 +258,8 @@ export function createHttpClient(config: HttpClientConfig): HolofyClient {
           image_count: imageCount,
           // Only sent as opt-in; the server defaults it off, so omitting it never consents.
           training_consent: trainingConsent,
+          // Advisory locale to resolve EN·FR twin ties; omitted when unknown (server confirms then).
+          preferred_language: preferredLanguage,
         }),
       });
       return mapScanResponse(wire);

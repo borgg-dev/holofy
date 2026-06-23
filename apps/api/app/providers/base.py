@@ -36,6 +36,11 @@ class CaptureBundle(Protocol):
 
     bundle_id: str
     image_count: int
+    # The user's language preference (ISO code, e.g. "en"/"fr"), if the client sent one. Lets the
+    # recognizer break an otherwise-unresolvable EN·FR same-name twin tie toward the user's market
+    # — the picture can't, but their locale can. Optional: providers read it defensively (a missing
+    # value ⇒ the honest confirm behaviour), so a bundle without it is still valid.
+    preferred_language: str | None
 
 
 @runtime_checkable

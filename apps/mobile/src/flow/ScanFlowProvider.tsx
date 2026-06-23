@@ -17,6 +17,7 @@ import {
   type ScanChoice,
   type ScanResult,
 } from "@/api";
+import { deviceLanguage } from "@/i18n/deviceLanguage";
 
 // The scan → reveal/confirm → add flow's shared state. expo-router moves between the
 // route files; this context carries the in-flight scan result and the add-to-Vault
@@ -134,7 +135,7 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
     async (bundleId: string) => {
       setScan({ status: "scanning", bundleId });
       try {
-        const result = await api.scan({ bundleId, trainingConsent });
+        const result = await api.scan({ bundleId, trainingConsent, preferredLanguage: deviceLanguage() });
         setScan({ status: "ready", bundleId, result });
         // A confident match goes straight to reveal; an ambiguous one waits for confirm.
         setRevealChoice(

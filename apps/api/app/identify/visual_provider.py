@@ -104,7 +104,9 @@ class VisualRecognitionProvider:
             )
             return None
         read = await self._reader.read_image(oriented_image, rect.quality, fallback_bytes=image)
-        result = self._resolver.resolve(matches, read, rect.quality)
+        result = self._resolver.resolve(
+            matches, read, rect.quality, preferred_language=getattr(bundle, "preferred_language", None)
+        )
         logger.info(
             "recognition.recognize embedding bundle=%s found_quad=%s q=%.3f cos=%.4f top=%.3f cand=%d",
             bundle.bundle_id,
@@ -129,7 +131,9 @@ class VisualRecognitionProvider:
             )
             return await self._fallback.recognize(bundle)
         read = await self._reader.read_image(oriented_image, rect.quality, fallback_bytes=image)
-        result = self._resolver.resolve(matches, read, rect.quality)
+        result = self._resolver.resolve(
+            matches, read, rect.quality, preferred_language=getattr(bundle, "preferred_language", None)
+        )
         logger.info(
             "recognition.recognize hash bundle=%s found_quad=%s q=%.3f nearest=%d top=%.3f cand=%d",
             bundle.bundle_id,

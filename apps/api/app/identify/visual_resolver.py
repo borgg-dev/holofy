@@ -59,7 +59,9 @@ _AMBIGUITY_DELTA = 0.12
 _CONFIRM_CAP = 0.6
 
 
-def _gate_ambiguous_leader(ranked: list[tuple["CardIdentity", float]]) -> list[tuple["CardIdentity", float]]:
+def _gate_ambiguous_leader(
+    ranked: list[tuple["CardIdentity", float]], preferred_language: str | None = None
+) -> list[tuple["CardIdentity", float]]:
     """Hold an ambiguous result in the confirm band so nothing auto-commits a guess.
 
     When the top two fused scores sit within ``_AMBIGUITY_DELTA``, no signal pulled the leader
@@ -70,9 +72,28 @@ def _gate_ambiguous_leader(ranked: list[tuple["CardIdentity", float]]) -> list[t
     pair was held at 0.6 while an unrelated 87/130 print stayed at 0.98 and committed). Capping the
     full list keeps the genuinely-likely cards on top (order is preserved) while guaranteeing an
     ambiguous scan asks rather than commits.
+
+    The one tie a *locale* can break: when the ambiguity is purely a language twin — every tied
+    member shares the leader's name and collector number, differing only in language (a card and
+    its EN·FR counterpart, which the picture cannot separate because the spelling is identical, e.g.
+    "Pikachu") — and the user has a language preference matching exactly one tied member, that
+    member commits. The user's locale tells us which market's print they actually hold, which the
+    art genuinely cannot. This never overrides text evidence: a discriminative name read already
+    pulls the right-language print clear *before* this gate fires, so we only reach here when the
+    names match and only language separates the tie.
     """
     if len(ranked) < 2 or ranked[0][1] - ranked[1][1] >= _AMBIGUITY_DELTA:
         return ranked
+    leader = ranked[0][0]
+    cluster = [(i, s) for i, s in ranked if ranked[0][1] - s < _AMBIGUITY_DELTA]
+    if preferred_language:
+        twins = all(i.name == leader.name and i.collector_number == leader.collector_number for i, _ in cluster)
+        preferred = [i for i, _ in cluster if i.language == preferred_language]
+        if twins and len(preferred) == 1:
+            chosen = preferred[0]
+            # The chosen twin keeps its (committing) score; everything else drops to confirm so it
+            # leads cleanly and nothing else can auto-commit.
+            return [(i, s if i is chosen else min(s, _CONFIRM_CAP)) for i, s in ranked]
     return [(identity, min(score, _CONFIRM_CAP)) for identity, score in ranked]
 
 
@@ -87,7 +108,13 @@ def _name_matches(read_name: str | None, card_name: str) -> bool:
 class VisualCardResolver:
     """Rank artwork matches into a ``RecognitionResult``, corroborated by the OCR read."""
 
-    def resolve(self, matches: list[ScoredMatch], read: CardRead, quality: float) -> RecognitionResult:
+    def resolve(
+        self,
+        matches: list[ScoredMatch],
+        read: CardRead,
+        quality: float,
+        preferred_language: str | None = None,
+    ) -> RecognitionResult:
         if not matches:
             return RecognitionResult(candidates=[])
 
@@ -112,7 +139,7 @@ class VisualCardResolver:
         # art-nearest one (same-art pair: art ties, the number's boost decides). Rank by the
         # fused score, then gate the decision on how clearly the leader stands out.
         ranked.sort(key=lambda r: r[1], reverse=True)
-        ranked = _gate_ambiguous_leader(ranked)
+        ranked = _gate_ambiguous_leader(ranked, preferred_language)
         # Re-sort after the gate: capping an ambiguous top cluster to the confirm band can drop it
         # below an uncapped lower candidate, so the emitted order (and thus the flow's top pick)
         # must reflect the *final* confidences, not the pre-cap ranking.

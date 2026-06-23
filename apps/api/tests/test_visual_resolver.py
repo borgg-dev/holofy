@@ -18,13 +18,13 @@ _CONFIRM_THRESHOLD = 0.70
 _FLOOR = 0.35
 
 
-def _identity(canonical_id: str, name: str, set_name: str, number: str) -> CardIdentity:
+def _identity(canonical_id: str, name: str, set_name: str, number: str, language: str = "en") -> CardIdentity:
     return CardIdentity(
         canonical_id=canonical_id,
         name=name,
         set_name=set_name,
         collector_number=number,
-        language="en",
+        language=language,
         variant=Variant.HOLO,
     )
 
@@ -76,13 +76,13 @@ def test_numerator_only_read_does_not_pin_a_reprint() -> None:
     assert result.needs_confirmation(_CONFIRM_THRESHOLD)
 
 
-# EN·FR twins: same artwork, *same* collector number, separable only by the printed name.
-_PIKA_EN = _identity("base-en", "Pikachu", "Base Set", "58/102")
-_PIKA_FR = _identity("base-fr", "Pikachu", "Base Set", "58/102")
+# EN·FR twins: same artwork, *same* collector number and name — separable only by language.
+_PIKA_EN = _identity("base-en", "Pikachu", "Base Set", "58/102", language="en")
+_PIKA_FR = _identity("base-fr", "Pikachu", "Base Set", "58/102", language="fr")
 _PIKA_OTHER = _identity("xy-130", "Pikachu", "XY", "87/130")  # a different, unrelated Pikachu print
 # EN·FR twins whose *names* differ (the language-discriminable case).
-_CHARIZARD_EN = _identity("base-en-4", "Charizard", "Base Set", "4/102")
-_DRACAUFEU_FR = _identity("base-fr-4", "Dracaufeu", "Base Set", "4/102")
+_CHARIZARD_EN = _identity("base-en-4", "Charizard", "Base Set", "4/102", language="en")
+_DRACAUFEU_FR = _identity("base-fr-4", "Dracaufeu", "Base Set", "4/102", language="fr")
 
 
 def test_ambiguous_top_caps_whole_list_so_a_lower_card_cannot_leapfrog() -> None:
@@ -122,6 +122,38 @@ def test_same_name_twins_without_language_signal_stay_in_confirm() -> None:
     result = VisualCardResolver().resolve(matches, CardRead(name="Pikachu", collector_number="58/102"), quality=0.85)
 
     assert result.needs_confirmation(_CONFIRM_THRESHOLD)
+
+
+def test_language_preference_breaks_a_pure_twin_tie() -> None:
+    # The picture can't separate the EN and FR "Pikachu" 58/102, but the user's locale tells us
+    # which market's print they hold — so a French preference commits the French twin.
+    matches = [ImageMatch(_PIKA_EN, distance=4), ImageMatch(_PIKA_FR, distance=4)]
+    read = CardRead(name="Pikachu", collector_number="58/102")
+    result = VisualCardResolver().resolve(matches, read, quality=0.85, preferred_language="fr")
+
+    assert result.candidates[0].identity.canonical_id == "base-fr"
+    assert result.candidates[0].identity.language == "fr"
+    assert not result.needs_confirmation(_CONFIRM_THRESHOLD)
+
+
+def test_language_preference_does_not_force_a_reprint_tie() -> None:
+    # Two *different* printings (different numbers) are a genuine ambiguity the number must resolve;
+    # a language preference must not auto-commit one — they are not language twins. Both are 'en'
+    # here, so a French preference matches neither and the pair stays in confirm.
+    matches = [ImageMatch(_EMBER_A, distance=4), ImageMatch(_EMBER_B, distance=4)]
+    result = VisualCardResolver().resolve(matches, CardRead(name="Emberwyrm"), quality=0.85, preferred_language="fr")
+
+    assert result.needs_confirmation(_CONFIRM_THRESHOLD)
+
+
+def test_language_preference_never_overrides_a_discriminative_name() -> None:
+    # Text evidence dominates the locale prior: the read name "Dracaufeu" pins the French print even
+    # when the user's preference is English — the name pulls it clear before the locale gate fires.
+    matches = [ImageMatch(_CHARIZARD_EN, distance=4), ImageMatch(_DRACAUFEU_FR, distance=4)]
+    result = VisualCardResolver().resolve(matches, CardRead(name="Dracaufeu"), quality=0.85, preferred_language="en")
+
+    assert result.candidates[0].identity.canonical_id == "base-fr-4"
+    assert not result.needs_confirmation(_CONFIRM_THRESHOLD)
 
 
 def test_low_localization_quality_caps_confidence() -> None:
