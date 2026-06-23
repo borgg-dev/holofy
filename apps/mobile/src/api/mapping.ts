@@ -243,6 +243,9 @@ export function mapPregrade(w: WirePregradeResponse): Pregrade {
       },
       subScores: w.sub_scores.map(mapSubScore),
       confidence: w.confidence,
+      estimatedCondition: w.estimated_condition,
+      baselineValueEur: parseMoney(w.baseline_value_eur ?? null),
+      conditionAdjustedValueEur: parseMoney(w.condition_adjusted_value_eur ?? null),
       disclaimer: w.disclaimer,
       experimental: w.experimental ?? true,
     };

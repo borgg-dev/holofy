@@ -92,8 +92,9 @@ type ScanFlowValue = {
   ) => Promise<number>;
   /** The in-flight / settled pre-grade for the card the user is grading. */
   pregrade: PregradeState;
-  /** Run the pre-grade on a captured multi-angle bundle; stores the estimated/retake result. */
-  runPregrade: (captureRef: string) => Promise<Pregrade | null>;
+  /** Run the pre-grade on a captured multi-angle bundle; stores the estimated/retake result. When
+   *  a Vault holding id is given, the detected condition is written back onto it. */
+  runPregrade: (captureRef: string, collectionItemId?: string | null) => Promise<Pregrade | null>;
   /** Clear the pre-grade back to idle — e.g. on leaving the gauge for a fresh re-scan. */
   resetPregrade: () => void;
   /** The in-flight / settled authenticity screening for the card being checked. */
@@ -160,7 +161,7 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
   );
 
   const addToVault = useCallback(
-    async (identity: CardIdentity, condition: Condition = "near_mint") => {
+    async (identity: CardIdentity, condition: Condition = "not_assessed") => {
       try {
         await api.addToCollection({ canonicalId: identity.canonicalId, condition });
         setVaultRevision((n) => n + 1);
@@ -202,7 +203,7 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
   const bulkAddToVault = useCallback(
     async (
       additions: { canonicalId: string; quantity: number }[],
-      condition: Condition = "near_mint"
+      condition: Condition = "not_assessed"
     ) => {
       const results = await Promise.all(
         additions.map((a) =>
@@ -220,12 +221,13 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
   );
 
   const runPregrade = useCallback(
-    async (captureRef: string) => {
+    async (captureRef: string, collectionItemId?: string | null) => {
       setPregrade({ status: "assessing" });
       try {
         const result = await api.pregrade({
           captureRef,
           cardId: revealChoice?.identity.canonicalId ?? null,
+          collectionItemId: collectionItemId ?? null,
           trainingConsent,
         });
         setPregrade({ status: "ready", result });

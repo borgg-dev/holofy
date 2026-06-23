@@ -103,6 +103,8 @@ export type PregradeRequest = {
   captureRef: string;
   /** Catalog card this capture is of, when a scan already resolved it. */
   cardId?: string | null;
+  /** The Vault holding being graded — the detected condition is written back onto it. */
+  collectionItemId?: string | null;
   /** Opt this capture into the training lake. Off unless explicitly set (GDPR, charter §3.5). */
   trainingConsent?: boolean;
 };
@@ -305,12 +307,13 @@ export function createHttpClient(config: HttpClientConfig): HolofyClient {
       return mapPortfolio(wire);
     },
 
-    async pregrade({ captureRef, cardId, trainingConsent = false }) {
+    async pregrade({ captureRef, cardId, collectionItemId, trainingConsent = false }) {
       const wire = await request<WirePregradeResponse>("/pregrade", {
         method: "POST",
         body: JSON.stringify({
           capture_ref: captureRef,
           card_id: cardId ?? null,
+          collection_item_id: collectionItemId ?? null,
           training_consent: trainingConsent,
         }),
       });

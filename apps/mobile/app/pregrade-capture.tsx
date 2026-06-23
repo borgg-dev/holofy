@@ -1,4 +1,4 @@
-import { Redirect, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 
 import { useApi } from "@/api";
 import { useScanFlow } from "@/flow/ScanFlowProvider";
@@ -14,6 +14,9 @@ export default function PregradeCapture() {
   const router = useRouter();
   const api = useApi();
   const { revealChoice, runPregrade } = useScanFlow();
+  // When launched from a Vault card, the holding id rides along so the detected condition is
+  // written back onto that card (the Vault then reflects what the app assessed).
+  const { holdingId } = useLocalSearchParams<{ holdingId?: string }>();
 
   if (!revealChoice) return <Redirect href="/scan" />;
 
@@ -22,7 +25,7 @@ export default function PregradeCapture() {
       onBack={() => router.back()}
       onComplete={async (stills) => {
         const { ref } = await api.uploadCapture(stills);
-        await runPregrade(ref);
+        await runPregrade(ref, holdingId ?? null);
         router.replace("/pregrade");
       }}
     />

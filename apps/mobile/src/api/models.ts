@@ -337,6 +337,12 @@ export type PregradeEstimate = {
   subScores: SubScore[];
   /** 0–1 overall confidence across the four axes. */
   confidence: number;
+  /** The condition the grade band implies (e.g. "light_played"), or null if not derived. */
+  estimatedCondition: Condition | null;
+  /** The near-mint guide value (EUR major units), and "your copy" — the guide scaled to the
+   *  estimated condition. Null when the card wasn't priceable. Both estimates, shown together. */
+  baselineValueEur: number | null;
+  conditionAdjustedValueEur: number | null;
   disclaimer: string;
   /** Centering pre-grade is an in-house beta — the UI shows a "Beta" label so the estimate
    *  is never read as authoritative. */

@@ -18,9 +18,13 @@ measured in-house (``app.grading.centering``); corners/edges/surface are bought 
 
 from __future__ import annotations
 
+import uuid
+from decimal import Decimal
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.db.models.enums import CardCondition
 
 # Pre-grade is framed against the PSA 1–10 scale because that is the scale collectors price
 # and reason against — but always as a *range over* it, never a point on it.
@@ -94,6 +98,11 @@ class PregradeRequest(BaseModel):
 
     capture_ref: str = Field(min_length=1, max_length=512)
     card_id: str | None = Field(default=None, description="Catalog card id this capture is of, if known.")
+    # The Vault holding being graded, if the pre-grade was launched from one. When set, the detected
+    # condition is written back onto that holding so the Vault reflects what the app assessed.
+    collection_item_id: uuid.UUID | None = Field(
+        default=None, description="Vault holding to write the detected condition back to, if any."
+    )
 
     # How many angles the capture bundle holds, mirroring the scan contract's ``image_count``.
     # The grading provider reasons about it (surface/holo defects need multiple angles), so a
@@ -131,6 +140,15 @@ class PregradeResponse(BaseModel):
     probability: GradeProbabilityRange | None = None
     sub_scores: list[SubScore] | None = None
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+
+    # The card's estimated condition (from the grade band) and what that implies for value: the
+    # near-mint guide price, and "your copy" — the guide scaled to the estimated condition. The
+    # adjusted value is an estimate (standard condition discounts), shown alongside the guide so the
+    # number is never opaque. ``baseline_value_eur``/``condition_adjusted_value_eur`` are present only
+    # when the card was priceable (a value comp exists).
+    estimated_condition: CardCondition | None = None
+    baseline_value_eur: Decimal | None = None
+    condition_adjusted_value_eur: Decimal | None = None
 
     # Present when status == retake: human-facing reasons to re-capture (e.g. glare, skew,
     # full-bleed card with no measurable border).

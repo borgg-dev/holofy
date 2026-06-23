@@ -24,8 +24,15 @@ class Variant(StrEnum):
 
 
 class CardCondition(StrEnum):
-    """Cardmarket condition grades — the scale EU collectors price against."""
+    """Cardmarket condition grades — the scale EU collectors price against.
 
+    ``NOT_ASSESSED`` is the honest default for a freshly *scanned* card: the scan identifies the
+    card, it does not judge its condition. A card is only assigned a real condition once the user
+    pre-grades it (a deliberate, multi-angle look). So the Vault shows "not assessed" + the market
+    guide until then, never a near-mint claim nothing measured.
+    """
+
+    NOT_ASSESSED = "not_assessed"
     MINT = "mint"
     NEAR_MINT = "near_mint"
     EXCELLENT = "excellent"

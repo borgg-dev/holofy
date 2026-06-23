@@ -9,6 +9,7 @@ export type WireVariant = "normal" | "holo" | "reverse_holo" | "first_edition" |
 
 /** apps/api/app/db/models/enums.py :: CardCondition */
 export type WireCondition =
+  | "not_assessed"
   | "mint"
   | "near_mint"
   | "excellent"
@@ -160,6 +161,7 @@ export type WireGradeProbabilityRange = {
 export type WirePregradeRequest = {
   capture_ref: string;
   card_id?: string | null;
+  collection_item_id?: string | null;
 };
 
 /**
@@ -174,6 +176,9 @@ export type WirePregradeResponse = {
   probability: WireGradeProbabilityRange | null;
   sub_scores: WireSubScore[] | null;
   confidence: number | null;
+  estimated_condition: WireCondition | null;
+  baseline_value_eur: string | null;
+  condition_adjusted_value_eur: string | null;
   reasons: string[] | null;
 };
 

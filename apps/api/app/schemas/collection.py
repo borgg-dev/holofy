@@ -19,7 +19,9 @@ from app.schemas.cards import CardIdentity, PriceQuote
 
 class AddCollectionItemRequest(BaseModel):
     canonical_id: str = Field(min_length=1)
-    condition: CardCondition = CardCondition.NEAR_MINT
+    # A scan doesn't judge condition, so a card enters the Vault unassessed — its real condition is
+    # set when the user pre-grades it. (An explicit condition may still be passed.)
+    condition: CardCondition = CardCondition.NOT_ASSESSED
     quantity: int = Field(default=1, ge=1)
     # What the collector paid, for the cost-basis vs current-value delta. Non-negative €.
     acquired_price_eur: Decimal | None = Field(default=None, ge=0)
@@ -47,6 +49,11 @@ class CollectionItemValuation(BaseModel):
     price: PriceQuote | None
     unit_value_eur: Decimal | None
     line_value_eur: Decimal | None
+    # "Your copy" value: the guide figures scaled to this holding's *assessed* condition (set by a
+    # pre-grade). Equal to the guide when the condition is near-mint or not assessed; lower for a
+    # worn card. ``None`` mirrors the guide being ``None``. An estimate, shown beside the guide.
+    condition_adjusted_unit_value_eur: Decimal | None = None
+    condition_adjusted_line_value_eur: Decimal | None = None
     valued_at: datetime | None
     price_source: str | None
 

@@ -23,12 +23,15 @@ mirroring how the scan flow is wired.
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from app.grading.centering import (
     CenteringError,
     CenteringResult,
     QualityBand,
     measure_centering,
 )
+from app.grading.grade_condition import adjust_value, grade_to_condition
 from app.providers.base import GradingCapture, GradingProvider
 from app.schemas.grading import (
     GradeProbabilityRange,
@@ -79,6 +82,7 @@ class PregradeService:
         capture: GradingCapture,
         *,
         image: bytes,
+        reference_value_eur: "Decimal | None" = None,
     ) -> PregradeResponse:
         """Estimate a grade range for a capture, or refuse if it can't be read honestly.
 
@@ -106,11 +110,18 @@ class PregradeService:
         sub_scores = [_centering_sub_score(centering), *await self._grading.grade(capture)]
         probability, confidence = _compose(sub_scores)
 
+        # Translate the grade band into a condition, and (when the card is priceable) into a
+        # "your copy" value — the near-mint guide scaled by the standard condition discount.
+        condition = grade_to_condition(probability.likely_low, probability.likely_high)
+        adjusted = adjust_value(reference_value_eur, condition)
         return PregradeResponse(
             status=PregradeStatus.ESTIMATED,
             probability=probability,
             sub_scores=sub_scores,
             confidence=confidence,
+            estimated_condition=condition,
+            baseline_value_eur=reference_value_eur,
+            condition_adjusted_value_eur=adjusted,
         )
 
 
