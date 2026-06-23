@@ -97,6 +97,10 @@ class AuthenticityCapture(Protocol):
 
     capture_ref: str
     image_count: int
+    # The catalog id the capture was resolved to, if known — lets the provider compare the capture
+    # to *that* card's genuine reference artwork (the embedding reference signal). Optional: read
+    # defensively, so a capture without it just skips that signal.
+    canonical_id: str | None
 
 
 @runtime_checkable

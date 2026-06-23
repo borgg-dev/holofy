@@ -67,6 +67,7 @@ class _AuthenticityCaptureRef:
 
     capture_ref: str
     image_count: int
+    canonical_id: str | None = None
 
 
 @router.post(
@@ -121,7 +122,9 @@ async def assess_authenticity(
         ) from exc
 
     capture = _AuthenticityCaptureRef(
-        capture_ref=request.capture_ref, image_count=request.image_count
+        capture_ref=request.capture_ref,
+        image_count=request.image_count,
+        canonical_id=card.canonical_id,
     )
     result = await service.assess(
         capture,

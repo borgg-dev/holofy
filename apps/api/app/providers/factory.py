@@ -223,8 +223,23 @@ def build_authenticity_provider(
         case AuthenticityBackend.MOCK:
             return MockAuthenticityProvider()
         case AuthenticityBackend.INHOUSE:
+            from app.identify.embedding_index import (
+                embeddings_path_for,
+                load_embedding_index,
+            )
             from app.providers.authenticity.inhouse import InHouseAuthenticityProvider
 
-            return InHouseAuthenticityProvider(capture_store)
+            # Share the recognizer's embedding index + model for the artwork-reference signal; a
+            # missing/undeployed pair degrades the provider to its visual+catalog reads (the index
+            # loads empty and the signal is simply skipped).
+            embeddings_path = settings.image_embeddings_path or str(
+                embeddings_path_for(settings.image_index_path)
+            )
+            embedding_index = load_embedding_index(settings.image_index_path, embeddings_path)
+            return InHouseAuthenticityProvider(
+                capture_store,
+                embedding_index=embedding_index,
+                model_path=settings.recognition_model_path,
+            )
         case unknown:  # pragma: no cover - guards an unwired enum value
             raise ValueError(f"unsupported authenticity backend: {unknown}")

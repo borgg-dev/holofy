@@ -59,6 +59,17 @@ class EmbeddingImageIndex:
     # (N, EMBED_DIM) float32, every row L2-normalized — cosine is then a plain dot product.
     matrix: np.ndarray
 
+    def reference(self, canonical_id: str) -> np.ndarray | None:
+        """The catalog reference embedding for a specific card — the genuine artwork a capture is
+        compared against for the authenticity reference check. Keyed by canonical id (any indexed
+        language; the artwork embeds near-identically across EN/FR). ``None`` if not in the index."""
+        if not hasattr(self, "_by_canonical"):
+            self._by_canonical: dict[str, int] = {}
+            for i, identity in enumerate(self.identities):
+                self._by_canonical.setdefault(identity.canonical_id, i)
+        row = self._by_canonical.get(canonical_id)
+        return None if row is None else self.matrix[row]
+
     def query(self, vector: np.ndarray, *, k: int = 8) -> list[EmbeddingMatch]:
         if self.matrix.shape[0] == 0:
             return []
