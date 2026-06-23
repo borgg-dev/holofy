@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { AccessibilityInfo, ScrollView, StyleSheet, View } from "react-native";
 
 import type { PregradeEstimate } from "@/api";
-import { Button, Screen, Skeleton, Text } from "@/components";
+import { Button, Screen, Skeleton, Text, ValueText } from "@/components";
+import { conditionLabel } from "@/screens/shared/format";
 import { useTheme } from "@/theme";
 import { GaugeArc } from "./GaugeArc";
 import { SubScoreRow } from "./SubScoreRow";
@@ -47,6 +48,7 @@ export function PregradeGaugeScreen({
 }) {
   const theme = useTheme();
   const { range, subScores, confidence, disclaimer, experimental } = estimate;
+  const { estimatedCondition, baselineValueEur, conditionAdjustedValueEur } = estimate;
   const verdict = verdictFor(range);
   const surfaceLimited = subScores.some((s) => s.axis === "surface" && s.provenance === "limited");
 
@@ -100,6 +102,30 @@ export function PregradeGaugeScreen({
             {confidenceLine(confidencePercent(confidence))}
           </Text>
         </View>
+
+        {/* Estimated condition + what it implies for this copy's value (vs the near-mint guide). */}
+        {estimatedCondition ? (
+          <View style={{ gap: theme.space["2"] }}>
+            <Text variant="overline" tone="tertiary">
+              ESTIMATED CONDITION
+            </Text>
+            <Text variant="titleMd" tone="primary">
+              {conditionLabel(estimatedCondition)}
+            </Text>
+            {baselineValueEur != null ? (
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: theme.space["2"] }}>
+                <View style={{ gap: theme.space["1"] }}>
+                  <Text variant="caption" tone="tertiary">Market value (guide)</Text>
+                  <ValueText amount={baselineValueEur} variant="titleMd" tone="secondary" />
+                </View>
+                <View style={{ gap: theme.space["1"], alignItems: "flex-end" }}>
+                  <Text variant="caption" tone="tertiary">Your copy (est.)</Text>
+                  <ValueText amount={conditionAdjustedValueEur ?? baselineValueEur} variant="titleMd" />
+                </View>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
         {/* Sub-scores. */}
         <View style={{ gap: theme.space["5"] }}>

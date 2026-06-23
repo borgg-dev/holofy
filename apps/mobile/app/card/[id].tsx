@@ -77,7 +77,7 @@ export default function CardDetail() {
       <CardDetailScreen
         state={state}
         onBack={back}
-        onGrade={() => router.push("/pregrade-capture")}
+        onGrade={() => router.push({ pathname: "/pregrade-capture", params: { holdingId: id } })}
         onAuthenticity={() => router.push("/authenticity-capture")}
         onRemove={() => setConfirmingRemove(true)}
       />

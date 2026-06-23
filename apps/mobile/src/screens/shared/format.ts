@@ -7,6 +7,7 @@ import type { CardIdentity, Condition, PriceQuote } from "@/api";
 
 /** Human label for a wire Condition enum — never shows the raw snake_case key. */
 const CONDITION_LABEL: Record<Condition, string> = {
+  not_assessed: "Not assessed",
   mint: "Mint",
   near_mint: "Near mint",
   excellent: "Excellent",

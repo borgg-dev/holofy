@@ -158,6 +158,9 @@ export const PREGRADE_ESTIMATED: WirePregradeResponse = {
     { axis: "surface", score: 7.0, confidence: 0.42 },
   ],
   confidence: 0.78,
+  estimated_condition: "near_mint",
+  baseline_value_eur: "289.00",
+  condition_adjusted_value_eur: "289.00",
   reasons: null,
 };
 
@@ -167,6 +170,9 @@ export const PREGRADE_RETAKE: WirePregradeResponse = {
   disclaimer: PREGRADE_DISCLAIMER,
   probability: null,
   sub_scores: null,
+  estimated_condition: null,
+  baseline_value_eur: null,
+  condition_adjusted_value_eur: null,
   confidence: null,
   reasons: [
     "The card is tilted — shoot straight down so the borders stay parallel.",
