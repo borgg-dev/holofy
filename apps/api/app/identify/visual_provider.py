@@ -36,6 +36,25 @@ from app.storage.base import CaptureNotFoundError
 logger = logging.getLogger("holofy.recognition")
 
 
+def _merge_matches(embedding_matches: list, anchored: list) -> list:
+    """Union the embedding nearest-neighbours with the OCR-anchored cards.
+
+    The anchored cards are kept *unconditionally* — they're what the OCR collector-number identified,
+    and they exist precisely because the raw embedding under-ranked them, so they must not be culled
+    by cosine. We keep all anchored, then fill the rest of the slot budget with the highest-cosine
+    embedding candidates. The resolver re-ranks with the OCR number/name boosts, so an anchored card
+    can still win on a confident read even though its bare cosine sits below the wrong matches'."""
+    result = list(anchored)
+    seen = {m.identity.canonical_id for m in result}
+    for match in sorted(embedding_matches, key=lambda m: m.cosine, reverse=True):
+        if len(result) >= 8:
+            break
+        if match.identity.canonical_id not in seen:
+            seen.add(match.identity.canonical_id)
+            result.append(match)
+    return result
+
+
 class VisualRecognitionProvider:
     def __init__(
         self,
@@ -93,26 +112,40 @@ class VisualRecognitionProvider:
         """Embedding path. Returns a result, or None to abstain to the next tier."""
         try:
             oriented_image, matches = self._best_orientation_embed(rect.image)
+            # OCR reads the rectifier's *upright* crop, not the embedding's best-match orientation:
+            # a wrong card can score highest upside-down, and OCR on an inverted crop reads nothing,
+            # throwing away the strongest identity signal. The rectifier already orients upright.
+            read = await self._reader.read_image(rect.image, rect.quality, fallback_bytes=image)
+            # OCR-anchored candidates: when OCR reads a collector number, pull the catalog cards that
+            # actually carry it (scored by the upright embedding) into the candidate set — so a card
+            # the OCR clearly identifies isn't lost when the raw nearest-neighbours mis-ranked it.
+            if read.collector_number:
+                upright = embed(rect.image, model_path=self._model_path)
+                anchored = self._embedding_index.match_read(
+                    upright, name=read.name, collector_number=read.collector_number
+                )
+                matches = _merge_matches(matches, anchored)
         except EmbeddingModelUnavailable as exc:
             logger.warning("recognition.recognize embedding_unavailable bundle=%s — %s", bundle.bundle_id, exc)
             return None
-        if not matches or matches[0].cosine < self._min_similarity:
+        best_cos = max((m.cosine for m in matches), default=None)
+        if best_cos is None or best_cos < self._min_similarity:
             logger.info(
                 "recognition.recognize embedding_miss bundle=%s nearest=%s → next tier",
                 bundle.bundle_id,
-                round(matches[0].cosine, 4) if matches else None,
+                round(best_cos, 4) if best_cos is not None else None,
             )
             return None
-        read = await self._reader.read_image(oriented_image, rect.quality, fallback_bytes=image)
         result = self._resolver.resolve(
             matches, read, rect.quality, preferred_language=getattr(bundle, "preferred_language", None)
         )
         logger.info(
-            "recognition.recognize embedding bundle=%s found_quad=%s q=%.3f cos=%.4f top=%.3f cand=%d",
+            "recognition.recognize embedding bundle=%s found_quad=%s q=%.3f cos=%.4f ocr=%r top=%.3f cand=%d",
             bundle.bundle_id,
             rect.found_quad,
             rect.quality,
-            matches[0].cosine,
+            best_cos,
+            read.collector_number,
             result.candidates[0].confidence if result.candidates else 0.0,
             len(result.candidates),
         )

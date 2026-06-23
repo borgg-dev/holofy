@@ -22,6 +22,7 @@ from pathlib import Path
 
 import numpy as np
 
+from app.identify.collector_number import NumberMatch, match_strength, parse_collector_number
 from app.identify.image_index import _entry_from_dict
 from app.identify.vision.embed import EMBED_DIM
 from app.schemas.cards import CardIdentity
@@ -69,6 +70,37 @@ class EmbeddingImageIndex:
                 self._by_canonical.setdefault(identity.canonical_id, i)
         row = self._by_canonical.get(canonical_id)
         return None if row is None else self.matrix[row]
+
+    def match_read(
+        self, vector: np.ndarray, *, name: str | None = None, collector_number: str | None = None, k: int = 4
+    ) -> list[EmbeddingMatch]:
+        """Index cards whose collector number matches an OCR read, scored by cosine to the capture.
+
+        The recognizer is embedding-first, but the embedding can mis-rank a card it *has* (a wrong
+        card scoring higher than the right one). When the OCR reads a clear collector number, this
+        surfaces the catalog cards that actually carry that number so the resolver can prefer the
+        OCR-pinned one — recovering the identity the raw nearest-neighbours dropped. Numerator-bucketed
+        so it stays O(matches), not O(catalog)."""
+        if not collector_number or self.matrix.shape[0] == 0:
+            return []
+        read = parse_collector_number(collector_number)
+        if read is None or read.numerator is None:
+            return []
+        if not hasattr(self, "_by_numerator"):
+            self._by_numerator: dict[int, list[int]] = {}
+            for i, identity in enumerate(self.identities):
+                num = parse_collector_number(identity.collector_number).numerator
+                if num is not None:
+                    self._by_numerator.setdefault(num, []).append(i)
+        rows = self._by_numerator.get(read.numerator, [])
+        if not rows:
+            return []
+        # Prefer rows whose full number matches exactly (n/total), else any numerator match.
+        exact = [r for r in rows if match_strength(read, parse_collector_number(self.identities[r].collector_number)) is NumberMatch.EXACT]
+        pool = exact or rows
+        sims = self.matrix[pool] @ vector.astype(np.float32)
+        order = np.argsort(-sims)[: min(k, len(pool))]
+        return [EmbeddingMatch(identity=self.identities[pool[o]], cosine=float(sims[o])) for o in order]
 
     def query(self, vector: np.ndarray, *, k: int = 8) -> list[EmbeddingMatch]:
         if self.matrix.shape[0] == 0:
