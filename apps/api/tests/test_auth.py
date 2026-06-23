@@ -191,6 +191,96 @@ def test_session_token_subject_is_opaque_not_the_email(auth_client) -> None:  # 
     assert "@" not in payload["sub"]
 
 
+# ── Password reset, email verification, session revocation ────────────────────
+
+
+def _link_token(client) -> str:  # noqa: ANN001
+    """Pull the token out of the link in the last (logged) email."""
+    msg = client.app.state.email_sender.last_message
+    assert msg is not None, "expected an email to have been sent"
+    return msg.body.split("token=")[1].split()[0].strip()
+
+
+def test_password_reset_full_flow(auth_client) -> None:  # noqa: ANN001
+    _register(auth_client, password="originalpass1")
+    # Request a reset — neutral 202 ack, an email is sent for the real account.
+    ack = auth_client.post("/auth/password/forgot", json={"email": "collector@example.com"})
+    assert ack.status_code == 202
+    token = _link_token(auth_client)
+
+    # Complete the reset → signs the user back in with a working bearer.
+    res = auth_client.post("/auth/password/reset", json={"token": token, "password": "brandnewpass2"})
+    assert res.status_code == 200
+    new_token = res.json()["access_token"]
+    assert auth_client.get("/auth/me", headers={"Authorization": f"Bearer {new_token}"}).status_code == 200
+
+    # The new password logs in; the old one no longer does.
+    assert auth_client.post("/auth/login", json={"email": "collector@example.com", "password": "brandnewpass2"}).status_code == 200
+    assert auth_client.post("/auth/login", json={"email": "collector@example.com", "password": "originalpass1"}).status_code == 401
+
+
+def test_forgot_password_does_not_enumerate(auth_client) -> None:  # noqa: ANN001
+    _register(auth_client)
+    auth_client.app.state.email_sender.last_message = None
+    # An unknown email gets the same 202 ack — and crucially, no email is sent.
+    res = auth_client.post("/auth/password/forgot", json={"email": "nobody@example.com"})
+    assert res.status_code == 202
+    assert auth_client.app.state.email_sender.last_message is None
+    # The real account's ack body is identical.
+    known = auth_client.post("/auth/password/forgot", json={"email": "collector@example.com"})
+    assert known.json()["detail"] == res.json()["detail"]
+
+
+def test_reset_revokes_existing_sessions(auth_client) -> None:  # noqa: ANN001
+    old_token = _register(auth_client, password="originalpass1").json()["access_token"]
+    auth = {"Authorization": f"Bearer {old_token}"}
+    assert auth_client.get("/auth/me", headers=auth).status_code == 200  # valid before reset
+
+    auth_client.post("/auth/password/forgot", json={"email": "collector@example.com"})
+    token = _link_token(auth_client)
+    assert auth_client.post("/auth/password/reset", json={"token": token, "password": "brandnewpass2"}).status_code == 200
+
+    # The pre-reset session is now revoked even though its signature/expiry are still valid.
+    assert auth_client.get("/auth/me", headers=auth).status_code == 401
+
+
+def test_reset_token_is_single_use(auth_client) -> None:  # noqa: ANN001
+    _register(auth_client, password="originalpass1")
+    auth_client.post("/auth/password/forgot", json={"email": "collector@example.com"})
+    token = _link_token(auth_client)
+    assert auth_client.post("/auth/password/reset", json={"token": token, "password": "brandnewpass2"}).status_code == 200
+    # Re-using the link after the password changed fails (the fingerprint no longer matches).
+    again = auth_client.post("/auth/password/reset", json={"token": token, "password": "thirdpass33"})
+    assert again.status_code == 401
+
+
+def test_reset_rejects_a_garbage_token(auth_client) -> None:  # noqa: ANN001
+    _register(auth_client)
+    assert auth_client.post("/auth/password/reset", json={"token": "not.a.token", "password": "whatever123"}).status_code == 401
+
+
+def test_email_verification_flow(auth_client) -> None:  # noqa: ANN001
+    token = _register(auth_client).json()["access_token"]
+    auth = {"Authorization": f"Bearer {token}"}
+    assert auth_client.post("/auth/email/verify/request", headers=auth).status_code == 202
+    verify_token = _link_token(auth_client)
+    res = auth_client.post("/auth/email/verify", json={"token": verify_token})
+    assert res.status_code == 200 and res.json()["email"] == "collector@example.com"
+    # A reset token can't be replayed as a verification (purpose mismatch).
+    auth_client.post("/auth/password/forgot", json={"email": "collector@example.com"})
+    reset_token = _link_token(auth_client)
+    assert auth_client.post("/auth/email/verify", json={"token": reset_token}).status_code == 401
+
+
+def test_logout_all_revokes_every_session(auth_client) -> None:  # noqa: ANN001
+    token = _register(auth_client).json()["access_token"]
+    auth = {"Authorization": f"Bearer {token}"}
+    assert auth_client.get("/auth/me", headers=auth).status_code == 200
+    assert auth_client.post("/auth/logout-all", headers=auth).status_code == 204
+    # The token used to make the request is itself now invalid.
+    assert auth_client.get("/auth/me", headers=auth).status_code == 401
+
+
 # ── Unit-level: the primitives ────────────────────────────────────────────────
 
 

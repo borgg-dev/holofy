@@ -193,9 +193,12 @@ function HoldingRow({ item, onPress }: { item: CollectionItem; onPress?: () => v
   const theme = useTheme();
   const { format } = useCurrency();
   const value = itemValue(item);
+  // The native USD line price (TCGplayer × quantity), shown instead of an FX conversion when the
+  // user views in USD and a US-market quote exists for this card.
+  const usdLine = item.price?.usdValue != null ? item.price.usdValue * item.quantity : null;
   const a11y = `${item.identity.name}, ${conditionLabel(item.condition)}${
     item.quantity > 1 ? `, quantity ${item.quantity}` : ""
-  }, ${value != null ? format(value) : "no recent sales"}`;
+  }, ${value != null ? format(value, { usdValue: usdLine }) : "no recent sales"}`;
 
   const inner = (
     <FoilSurface level="raised" padded={false} style={[styles.row, { padding: theme.space["5"] }]}>
@@ -217,7 +220,7 @@ function HoldingRow({ item, onPress }: { item: CollectionItem; onPress?: () => v
         </View>
         <View style={[styles.rowValue, { gap: theme.space["2"] }]}>
           {value != null ? (
-            <ValueText amount={value} variant="titleMd" />
+            <ValueText amount={value} usdValue={usdLine} variant="titleMd" />
           ) : (
             <Text variant="bodySm" tone="secondary">
               No € comp

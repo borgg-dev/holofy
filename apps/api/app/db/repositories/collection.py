@@ -89,3 +89,9 @@ class CollectionRepository:
             .order_by(CollectionItem.created_at)
         )
         return list((await self._session.execute(stmt)).scalars())
+
+    async def distinct_holder_ids(self) -> list[uuid.UUID]:
+        """Every user that currently holds at least one card — the accounts the daily portfolio
+        snapshot job needs to value. Distinct user ids only; the job values each in turn."""
+        stmt = select(CollectionItem.user_id).distinct()
+        return list((await self._session.execute(stmt)).scalars())

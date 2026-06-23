@@ -126,6 +126,39 @@ def test_portfolio_snapshot_writes_and_reads_back_as_series(client) -> None:  # 
     assert Decimal(snapshots[0]["total_value_eur"]) == Decimal("289.00")
 
 
+def test_snapshot_all_due_covers_every_holder_and_is_idempotent(client) -> None:  # noqa: ANN001
+    # Two distinct accounts each hold a card; the daily job must snapshot both, once.
+    a, b = auth_header("holder-a"), auth_header("holder-b")
+    assert _scan_and_add(client, a).status_code == 201
+    assert _scan_and_add(client, b).status_code == 201
+
+    from app.db.repositories import CardRepository, CollectionRepository, PortfolioRepository
+    from app.services.collection import CollectionService
+    from app.services.portfolio import PortfolioService
+
+    async def run_due() -> int:
+        factory = client.app.state.session_factory
+        async with factory() as session:
+            service = PortfolioService(
+                collection=CollectionService(
+                    cards=CardRepository(session),
+                    collection=CollectionRepository(session),
+                    pricing=client.app.state.pricing_provider,
+                ),
+                portfolio=PortfolioRepository(session),
+            )
+            written = await service.snapshot_all_due()
+            await session.commit()
+            return written
+
+    assert client.portal.call(run_due) == 2  # both holders pinned
+    assert client.portal.call(run_due) == 0  # within the interval → no duplicate day
+
+    # The series now carries one honest point for a holder.
+    history = client.get("/portfolio/snapshots", headers=a)
+    assert len(history.json()["snapshots"]) == 1
+
+
 def test_collection_is_scoped_to_the_authenticated_user(client) -> None:  # noqa: ANN001
     owner = auth_header("owner")
     _scan_and_add(client, owner, quantity=1)

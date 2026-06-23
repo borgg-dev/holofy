@@ -24,6 +24,11 @@ class AuthenticatedUser:
 
     provider: str
     subject: str
+    # When the credential was issued (epoch seconds, sub-second precision), if it carries that — the
+    # session bearer does. ``get_current_user`` compares it to ``User.sessions_valid_from`` to honour
+    # a revocation. ``None`` for credentials without an issue time (the dev token), which are simply
+    # not epoch-revocable.
+    issued_at: float | None = None
 
 
 @runtime_checkable

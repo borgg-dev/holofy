@@ -46,7 +46,11 @@ class TcgdexPricingProvider:
     def __init__(self, client: TcgdexClient) -> None:
         self._client = client
 
-    async def price(self, canonical_id: str) -> PriceQuote:
+    async def price(
+        self, canonical_id: str, *, name: str | None = None, collector_number: str | None = None
+    ) -> PriceQuote:
+        # TCGdex keys by the same canonical id the recognizer uses, so the name/number fallback key
+        # is unused here — accepted only to satisfy the shared seam.
         try:
             reading = await self._client.fetch_cardmarket_price(canonical_id)
         except CardNotFound as exc:

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { convertFromEur, formatFromEur, parseCurrency } from "../currency";
+import { convertFromEur, formatFromEur, formatNative, parseCurrency } from "../currency";
 
 describe("currency helpers", () => {
   it("parseCurrency narrows valid values and defaults the rest", () => {
@@ -29,5 +29,15 @@ describe("currency helpers", () => {
     assert.match(usd, /\$/);
     assert.match(usd, /317/);
     assert.doesNotMatch(usd, /289/); // it is the CONVERTED figure, not the raw EUR one
+  });
+
+  it("formatNative renders a raw amount already in the currency (no conversion)", () => {
+    // A native TCGplayer USD quote is shown as-is, never multiplied by a rate.
+    const usd = formatNative(630.39, "USD");
+    assert.match(usd, /\$/);
+    assert.match(usd, /630/);
+    const eur = formatNative(265, "EUR");
+    assert.match(eur, /€/);
+    assert.match(eur, /265/);
   });
 });

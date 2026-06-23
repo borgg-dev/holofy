@@ -36,6 +36,11 @@ class CaptureBundle(Protocol):
 
     bundle_id: str
     image_count: int
+    # The user's language preference (ISO code, e.g. "en"/"fr"), if the client sent one. Lets the
+    # recognizer break an otherwise-unresolvable EN·FR same-name twin tie toward the user's market
+    # — the picture can't, but their locale can. Optional: providers read it defensively (a missing
+    # value ⇒ the honest confirm behaviour), so a bundle without it is still valid.
+    preferred_language: str | None
 
 
 @runtime_checkable
@@ -45,7 +50,13 @@ class RecognitionProvider(Protocol):
 
 @runtime_checkable
 class PricingProvider(Protocol):
-    async def price(self, canonical_id: str) -> PriceQuote: ...
+    async def price(
+        self, canonical_id: str, *, name: str | None = None, collector_number: str | None = None
+    ) -> PriceQuote:
+        """Price a card. ``name``/``collector_number`` are an optional fallback key: a provider whose
+        ids don't line up 1:1 with the recognizer's (e.g. a USD market keyed differently) can recover
+        the card by name+number when the id misses. Providers that key purely by id ignore them."""
+        ...
 
 
 class GradingCapture(Protocol):
@@ -86,6 +97,10 @@ class AuthenticityCapture(Protocol):
 
     capture_ref: str
     image_count: int
+    # The catalog id the capture was resolved to, if known — lets the provider compare the capture
+    # to *that* card's genuine reference artwork (the embedding reference signal). Optional: read
+    # defensively, so a capture without it just skips that signal.
+    canonical_id: str | None
 
 
 @runtime_checkable

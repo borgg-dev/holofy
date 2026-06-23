@@ -77,6 +77,10 @@ def build_recognition_provider(
             # Imported lazily: the OCR stack (onnxruntime) is only needed for this backend, so
             # mock/test runs never pay its import cost. The provider reads the uploaded stills
             # from the same capture store the pre-grade uses.
+            from app.identify.embedding_index import (
+                embeddings_path_for,
+                load_embedding_index,
+            )
             from app.identify.image_index import load_image_index
             from app.identify.presence import HeuristicCardPresence
             from app.identify.provider import InHouseRecognitionProvider
@@ -98,13 +102,23 @@ def build_recognition_provider(
             )
             # Visual-first when an artwork index is present; a missing/empty index makes the
             # wrapper a transparent pass-through to the text provider (see VisualRecognitionProvider).
+            # The embedding index (learned descriptor) is primary; the perceptual-hash index is the
+            # fallback for a partial deploy. Both are loaded from build artefacts that degrade to
+            # empty when undeployed, so this is a data step, not a code switch.
             image_index = load_image_index(settings.image_index_path)
+            embeddings_path = settings.image_embeddings_path or str(
+                embeddings_path_for(settings.image_index_path)
+            )
+            embedding_index = load_embedding_index(settings.image_index_path, embeddings_path)
             provider = VisualRecognitionProvider(
                 store=capture_store,
                 reader=reader,
                 image_index=image_index,
                 visual_resolver=VisualCardResolver(),
                 fallback=text_provider,
+                embedding_index=embedding_index,
+                model_path=settings.recognition_model_path,
+                min_similarity=settings.recognition_visual_min_similarity,
                 max_match_distance=settings.recognition_visual_max_distance,
             )
             return provider, catalog_client
@@ -112,12 +126,26 @@ def build_recognition_provider(
             raise ValueError(f"unsupported recognition backend: {unknown}")
 
 
+class _CloseAll:
+    """Close several HTTP clients as one — the lifespan only knows to ``aclose`` the single handle
+    the factory returns, but the pokémontcg provider owns its own client *and* a TCGdex fallback."""
+
+    def __init__(self, *closeables: object) -> None:
+        self._closeables = closeables
+
+    async def aclose(self) -> None:
+        for c in self._closeables:
+            closer = getattr(c, "aclose", None)
+            if closer is not None:
+                await closer()
+
+
 def build_pricing_provider(
     settings: Settings,
-) -> tuple[PricingProvider, TcgdexClient | None]:
-    """Return the configured pricing provider and the HTTP client it owns, if any.
+) -> tuple[PricingProvider, object | None]:
+    """Return the configured pricing provider and the HTTP client(s) it owns, if any.
 
-    The caller (app lifespan) keeps the client to close it on shutdown; for the mock there
+    The caller (app lifespan) keeps the handle to ``aclose`` it on shutdown; for the mock there
     is nothing to close, hence ``None``.
     """
     match settings.pricing_provider:
@@ -129,9 +157,38 @@ def build_pricing_provider(
                 locale=settings.tcgdex_locale,
                 timeout_seconds=settings.tcgdex_timeout_seconds,
             )
-            return TcgdexPricingProvider(client), client
+            return _cached(TcgdexPricingProvider(client), settings), client
+        case PricingBackend.POKEMONTCG:
+            from app.providers.pricing.pokemontcg import PokemonTcgClient
+            from app.providers.pricing.pokemontcg_provider import PokemonTcgPricingProvider
+
+            pt_client = PokemonTcgClient(
+                api_root=settings.pokemontcg_api_root,
+                api_key=settings.pokemontcg_api_key,
+                timeout_seconds=settings.pokemontcg_timeout_seconds,
+            )
+            # Cardmarket-EUR fallback for cards pokémontcg.io doesn't carry, so EUR coverage never
+            # drops below the TCGdex baseline while USD is added for everything it does carry.
+            tcgdex_client = TcgdexClient(
+                api_root=settings.tcgdex_api_root,
+                locale=settings.tcgdex_locale,
+                timeout_seconds=settings.tcgdex_timeout_seconds,
+            )
+            provider = PokemonTcgPricingProvider(
+                pt_client, fallback=TcgdexPricingProvider(tcgdex_client)
+            )
+            # A TTL cache fronts the network sources so the Vault's per-card pricing doesn't fan out
+            # to dozens of upstream calls per view (or trip a keyless rate limit).
+            return _cached(provider, settings), _CloseAll(pt_client, tcgdex_client)
         case unknown:  # pragma: no cover - guards an unwired enum value
             raise ValueError(f"unsupported pricing backend: {unknown}")
+
+
+def _cached(provider: PricingProvider, settings: Settings) -> PricingProvider:
+    """Front a network pricing provider with the in-memory TTL read-through cache."""
+    from app.providers.pricing.cache import CachedPricingProvider
+
+    return CachedPricingProvider(provider, ttl_seconds=settings.pricing_cache_ttl_seconds)
 
 
 def build_grading_provider(
@@ -166,8 +223,23 @@ def build_authenticity_provider(
         case AuthenticityBackend.MOCK:
             return MockAuthenticityProvider()
         case AuthenticityBackend.INHOUSE:
+            from app.identify.embedding_index import (
+                embeddings_path_for,
+                load_embedding_index,
+            )
             from app.providers.authenticity.inhouse import InHouseAuthenticityProvider
 
-            return InHouseAuthenticityProvider(capture_store)
+            # Share the recognizer's embedding index + model for the artwork-reference signal; a
+            # missing/undeployed pair degrades the provider to its visual+catalog reads (the index
+            # loads empty and the signal is simply skipped).
+            embeddings_path = settings.image_embeddings_path or str(
+                embeddings_path_for(settings.image_index_path)
+            )
+            embedding_index = load_embedding_index(settings.image_index_path, embeddings_path)
+            return InHouseAuthenticityProvider(
+                capture_store,
+                embedding_index=embedding_index,
+                model_path=settings.recognition_model_path,
+            )
         case unknown:  # pragma: no cover - guards an unwired enum value
             raise ValueError(f"unsupported authenticity backend: {unknown}")

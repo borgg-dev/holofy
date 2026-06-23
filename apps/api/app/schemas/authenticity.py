@@ -44,6 +44,11 @@ class SignalKind(StrEnum):
     HOLO_SIGNATURE = "holo_signature"  # foil reflectance across tilt angles
     FONT_LAYOUT = "font_layout"  # typography / layout deviation vs reference
     CARDSTOCK = "cardstock"  # texture / stock / edge cues
+    # Holistic artwork match: the captured card's whole printed face vs the genuine catalog
+    # reference, by learned embedding (the recognizer's descriptor). A high match *reassures*
+    # (the art is consistent with the real printing); it deliberately never accuses on a low one,
+    # which a close-up or poor capture also produces — so it speaks only to consistency.
+    ARTWORK_MATCH = "artwork_match"
     CATALOG_EXISTENCE = "catalog_existence"  # was this (set, number, variant, era) ever printed
 
 
@@ -103,6 +108,10 @@ class SignalDetail(StrEnum):
         "Edge or surface texture differs from the reference stock — worth a closer look by a professional."
     )
     STOCK_OUT_OF_FRAME = "The card edges are out of frame, so the stock and texture can't be assessed."
+
+    # Artwork match (whole printed face vs the genuine catalog reference, by learned embedding).
+    ARTWORK_MATCHES_REFERENCE = "The card's artwork is consistent with the reference for this card."
+    ARTWORK_NOT_COMPARED = "The capture couldn't be matched against the reference artwork closely enough to compare."
 
     # Catalog cross-check (the resolved set/number/variant tuple vs the reference catalog).
     CATALOG_PRINTING_CONFIRMED = "This set, number and variant matches a printing in the reference catalog."

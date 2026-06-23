@@ -10,6 +10,7 @@ import {
   convertFromEur,
   fetchEurRate,
   formatFromEur,
+  formatNative,
   parseCurrency,
   type DisplayCurrency,
 } from "./currency";
@@ -21,8 +22,14 @@ type CurrencyContextValue = {
   setCurrency: (currency: DisplayCurrency) => void;
   /** Convert an EUR amount to the display currency at the current rate. */
   convert: (amountEur: number) => number;
-  /** Format an EUR amount in the display currency (converting first). */
-  format: (amountEur: number) => string;
+  /**
+   * Format an EUR amount in the display currency. When the display currency is USD and a native
+   * USD market price (`usdValue`, real TCGplayer) is supplied, it's shown as-is — a real US-market
+   * quote, not an FX conversion; otherwise the EUR amount is converted at the current rate.
+   */
+  format: (amountEur: number, opts?: { usdValue?: number | null }) => string;
+  /** Whether the USD shown for a card is the real native market price vs an FX conversion. */
+  isNativeUsd: (usdValue: number | null | undefined) => boolean;
   /** True when the displayed currency is a conversion of EUR (so the UI can say so). */
   isConverted: boolean;
   /** The EUR→currency rate in use (1 for EUR), and the date it was published (null = fallback). */
@@ -37,6 +44,7 @@ const DEFAULT_VALUE: CurrencyContextValue = {
   setCurrency: () => {},
   convert: (amountEur) => amountEur,
   format: (amountEur) => formatFromEur(amountEur, DEFAULT_CURRENCY, 1),
+  isNativeUsd: () => false,
   isConverted: false,
   rate: 1,
   rateAsOf: null,
@@ -104,7 +112,11 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       currency,
       setCurrency,
       convert: (amountEur: number) => convertFromEur(amountEur, rate),
-      format: (amountEur: number) => formatFromEur(amountEur, currency, rate),
+      format: (amountEur: number, opts?: { usdValue?: number | null }) =>
+        currency === "USD" && opts?.usdValue != null
+          ? formatNative(opts.usdValue, "USD")
+          : formatFromEur(amountEur, currency, rate),
+      isNativeUsd: (usdValue: number | null | undefined) => currency === "USD" && usdValue != null,
       isConverted: currency !== "EUR",
       rate,
       rateAsOf: currency === "EUR" ? null : rates[currency]?.asOf ?? null,

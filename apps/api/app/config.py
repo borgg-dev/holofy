@@ -46,6 +46,14 @@ class CatalogBackend(StrEnum):
 class PricingBackend(StrEnum):
     MOCK = "mock"
     TCGDEX = "tcgdex"
+    # pokémontcg.io: native USD (TCGplayer) + EUR (Cardmarket), with a TCGdex EUR fallback.
+    POKEMONTCG = "pokemontcg"
+
+
+class EmailBackend(StrEnum):
+    # Logs the message (and its link) instead of delivering — local + the closed beta. A real SMTP/
+    # API transport drops in behind the same EmailSender seam by configuration.
+    LOGGING = "logging"
 
 
 class GradingBackend(StrEnum):
@@ -173,6 +181,15 @@ class Settings(BaseSettings):
     auth_throttle_max_per_email: int = 8
     auth_throttle_max_per_ip: int = 30
 
+    # Transactional email (password-reset / verify links). Logging backend for local + beta.
+    email_provider: EmailBackend = EmailBackend.LOGGING
+    # Base URL the emailed links point at — the app deep-link / web origin. Reset/verify links are
+    # ``{app_base_url}/auth/reset?token=…`` and ``…/auth/verify?token=…``.
+    app_base_url: str = "https://holofy.shugo.io"
+    # One hour to use a reset link; one day to confirm an email. Short enough to bound a leaked link.
+    password_reset_ttl_seconds: int = 3600
+    email_verify_ttl_seconds: int = 86400
+
     # Daily scan quota per account. The launch plan's freemium tier is 8/day (master plan §4),
     # but that's a *monetization* limit for paying-vs-free — during the free beta there's no
     # billing and near-zero per-scan cost (in-house OCR + open TCGdex), so this is a generous
@@ -183,6 +200,17 @@ class Settings(BaseSettings):
     # Only consulted when rate_limit_provider == redis — the shared counter store the whole
     # fleet's limiter reads/writes so the daily quota holds across instances.
     redis_url: str = "redis://localhost:6379/0"
+
+    # Consulted when pricing_provider == pokemontcg. Native USD (TCGplayer) + EUR (Cardmarket) in
+    # one source; falls back to TCGdex EUR for cards it doesn't carry. A free key (no charge) lifts
+    # the rate limit and is sent when set; the API also serves modest volume keyless.
+    pokemontcg_api_root: str = "https://api.pokemontcg.io/v2"
+    pokemontcg_api_key: str | None = None
+    pokemontcg_timeout_seconds: float = 10.0
+    # TTL (seconds) for the in-memory pricing read-through cache fronting the network sources, so the
+    # Vault's per-card pricing doesn't fan out to the upstream on every view. 12h: market guides move
+    # daily, and the cache simply rewarms after a deploy. Misses are cached a quarter of this.
+    pricing_cache_ttl_seconds: float = 43200.0
 
     # Only consulted when pricing_provider == tcgdex. No key required — TCGdex is open.
     tcgdex_api_root: str = "https://api.tcgdex.net/v2"
@@ -205,6 +233,19 @@ class Settings(BaseSettings):
     # a real match — the card is outside the built index — so the recognizer defers to the text
     # path instead of asserting a far, wrong hit. Scaled 6× from the original 64-bit cutoff of 14.
     recognition_visual_max_distance: int = 84
+    # The DINOv2 embedding model (ONNX), the primary recognition descriptor. Exported once by
+    # scripts/export_recognition_model.py and deployed alongside the index (a data artefact, not
+    # committed). When present, the recognizer matches by learned embedding first; when absent it
+    # transparently falls back to the perceptual-hash index, then to the OCR/text path.
+    recognition_model_path: str = "./data/recognition_model.onnx"
+    # The catalog embedding matrix sidecar (float16 .npy, row-aligned to image_index_path). Defaults
+    # to the index path with a .f16.npy suffix when blank.
+    image_embeddings_path: str = ""
+    # Below this cosine similarity the nearest catalog embedding isn't a real match — the card is
+    # outside the built index — so the recognizer abstains to the hash/text tier rather than assert
+    # a far, wrong hit. Calibrated against the real-capture eval set (distinct cards ~0.65, a true
+    # match clears ~0.78).
+    recognition_visual_min_similarity: float = 0.70
 
     # Below this top-1 confidence the scan flow must ask the user to confirm rather than
     # commit a guess — getting a high-value variant wrong is the product's worst failure.

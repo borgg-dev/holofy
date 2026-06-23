@@ -60,6 +60,13 @@ class User(TimestampMixin, Base):
     # at the boundary); ``password_hash`` is a self-describing scrypt digest, never plaintext.
     email: Mapped[str | None] = mapped_column(String(320), unique=True)
     password_hash: Mapped[str | None] = mapped_column(Text)
+    # When the email was confirmed via a verification link (null = unverified). The account works
+    # unverified during the beta; this records ownership for when a flow needs it.
+    email_verified_at: Mapped[datetime | None] = mapped_column(Timestamp)
+    # Session epoch for revocation: a session bearer is rejected if it was issued before this
+    # instant. A password reset (and an explicit "log out everywhere") bumps it to now, so every
+    # token minted earlier stops working — the revocation the stateless bearer otherwise lacks.
+    sessions_valid_from: Mapped[datetime | None] = mapped_column(Timestamp)
 
     # --- Account-level training consent: the durable source of truth for the moat. ---
     # Off by default. ``training_consent_at`` stamps when it was granted; revoking clears the

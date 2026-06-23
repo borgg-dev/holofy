@@ -34,12 +34,14 @@ from PIL import Image
 # directly as a script too.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from app.identify.embedding_index import embeddings_path_for  # noqa: E402
 from app.identify.image_index import ImageHashEntry, entry_to_dict  # noqa: E402
 from app.identify.tcgdex_catalog import (  # noqa: E402
     _collector_number,
     _image_url,
     _primary_variant,
 )
+from app.identify.vision.embed import EMBED_DIM, embed  # noqa: E402
 from app.identify.vision.phash import phash  # noqa: E402
 from app.schemas.cards import CardIdentity  # noqa: E402
 
@@ -97,8 +99,8 @@ async def _set_card_ids(client: httpx.AsyncClient, locale: str, set_id: str) -> 
 
 
 async def _fingerprint_card(
-    client: httpx.AsyncClient, locale: str, card_id: str, sem: asyncio.Semaphore
-) -> ImageHashEntry | None:
+    client: httpx.AsyncClient, locale: str, card_id: str, sem: asyncio.Semaphore, model_path: str
+) -> tuple[ImageHashEntry, "np.ndarray"] | None:
     async with sem:
         card = await _get_json(client, f"{_API_ROOT}/{locale}/cards/{card_id}")
         if not isinstance(card, dict):
@@ -117,10 +119,14 @@ async def _fingerprint_card(
             return None
 
         number_str = _collector_number(card)
-        # phash is numpy-heavy CPU work; run it off the event loop so it overlaps the many
-        # in-flight downloads instead of serializing the whole crawl behind hashing.
-        card_phash = await asyncio.to_thread(phash, arr)
-        return ImageHashEntry(
+        # phash and the DINOv2 embedding are both CPU-heavy; run them off the event loop so they
+        # overlap the many in-flight downloads instead of serializing the crawl behind compute.
+        # The embedding is the primary descriptor (the .npy sidecar); the hash stays as a fallback.
+        card_phash, vector = await asyncio.gather(
+            asyncio.to_thread(phash, arr),
+            asyncio.to_thread(embed, arr, model_path=model_path),
+        )
+        entry = ImageHashEntry(
             identity=CardIdentity(
                 canonical_id=card["id"],
                 name=card["name"],
@@ -132,9 +138,12 @@ async def _fingerprint_card(
             ),
             phash=card_phash,
         )
+        return entry, vector
 
 
-async def _build_locale(client: httpx.AsyncClient, locale: str, *, all_sets: bool, sets: list[str]) -> list[ImageHashEntry]:
+async def _build_locale(
+    client: httpx.AsyncClient, locale: str, *, all_sets: bool, sets: list[str], model_path: str
+) -> list[tuple[ImageHashEntry, "np.ndarray"]]:
     set_ids = await _list_set_ids(client, locale, all_sets=all_sets, sets=sets)
     log.info("fingerprinting %d set(s) in locale %s", len(set_ids), locale)
 
@@ -145,29 +154,44 @@ async def _build_locale(client: httpx.AsyncClient, locale: str, *, all_sets: boo
         card_ids.extend(ids)
 
     sem = asyncio.Semaphore(_CONCURRENCY)
-    results = await asyncio.gather(*(_fingerprint_card(client, locale, cid, sem) for cid in card_ids))
-    return [e for e in results if e is not None]
+    results = await asyncio.gather(
+        *(_fingerprint_card(client, locale, cid, sem, model_path) for cid in card_ids)
+    )
+    return [r for r in results if r is not None]
 
 
-async def build(out: Path, locales: list[str], *, all_sets: bool, sets: list[str]) -> int:
+async def build(out: Path, locales: list[str], *, all_sets: bool, sets: list[str], model_path: str) -> int:
     # A card is printed per language — a French Charizard is "Dracaufeu" with French text, so its
-    # artwork hashes differently from the English print. We fingerprint each locale and union the
-    # entries (keyed by id+language) so a card photographed in any configured language matches.
+    # picture embeds/hashes differently from the English print. We fingerprint each locale and union
+    # the entries (keyed by id+language) so a card photographed in any configured language matches.
     seen: set[tuple[str, str]] = set()
     entries: list[ImageHashEntry] = []
+    vectors: list["np.ndarray"] = []
     limits = httpx.Limits(max_connections=_CONCURRENCY * 2, max_keepalive_connections=_CONCURRENCY)
     async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0), limits=limits) as client:
         for locale in locales:
-            for entry in await _build_locale(client, locale, all_sets=all_sets, sets=sets):
+            for entry, vector in await _build_locale(
+                client, locale, all_sets=all_sets, sets=sets, model_path=model_path
+            ):
                 key = (entry.identity.canonical_id, entry.identity.language)
                 if key not in seen:
                     seen.add(key)
                     entries.append(entry)
+                    vectors.append(vector)
 
     out.parent.mkdir(parents=True, exist_ok=True)
     payload = {"locales": locales, "count": len(entries), "cards": [entry_to_dict(e) for e in entries]}
     out.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-    log.info("wrote %d fingerprints across %s → %s", len(entries), locales, out)
+    # The embedding matrix, row-aligned to ``cards`` and stored float16 (half the bytes, negligible
+    # cosine error). This sidecar is the primary recognition descriptor; the JSON's phash is fallback.
+    matrix = (
+        np.stack(vectors).astype(np.float16)
+        if vectors
+        else np.zeros((0, EMBED_DIM), dtype=np.float16)
+    )
+    vec_path = embeddings_path_for(out)
+    np.save(vec_path, matrix)
+    log.info("wrote %d fingerprints + %s embeddings across %s → %s, %s", len(entries), matrix.shape, locales, out, vec_path)
     return len(entries)
 
 
@@ -179,8 +203,16 @@ def main() -> None:
     parser.add_argument("--locales", nargs="+", default=["en", "fr"])
     parser.add_argument("--all", action="store_true", help="fingerprint every set (slow)")
     parser.add_argument("--sets", nargs="*", default=list(_DEFAULT_SETS))
+    parser.add_argument(
+        "--model",
+        type=Path,
+        default=Path("data/recognition_model.onnx"),
+        help="the exported DINOv2 ONNX model used for the embedding sidecar",
+    )
     args = parser.parse_args()
-    count = asyncio.run(build(args.out, args.locales, all_sets=args.all, sets=args.sets))
+    count = asyncio.run(
+        build(args.out, args.locales, all_sets=args.all, sets=args.sets, model_path=str(args.model))
+    )
     if count == 0:
         log.error("no fingerprints written — check connectivity / set ids")
         sys.exit(1)

@@ -29,6 +29,12 @@ class CaptureBundleRef(BaseModel):
     bundle_id: str = Field(min_length=1)
     image_count: int = Field(default=1, ge=1)
 
+    # The user's language preference (ISO code from the app locale, e.g. "en"/"fr"). Optional and
+    # advisory: the recognizer uses it only to break an EN·FR same-name twin tie (identical art and
+    # number, e.g. "Pikachu") toward the user's market — the print the art can't distinguish but
+    # their locale can. Absent ⇒ such ties honestly route to confirm.
+    preferred_language: str | None = Field(default=None, max_length=8)
+
     # An at-capture opt-in — the first-capture prompt's "yes". Defaults off (GDPR, §3.5) and
     # carries no per-record meaning on its own: when set, the server grants the *account*, and
     # this scan (and every future one) then inherits that standing consent. The record's

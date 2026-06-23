@@ -167,6 +167,10 @@ export type PriceQuote = {
   currency: string;
   /** Major units (euros), or null for a long-tail card with no liquid comp. */
   value: number | null;
+  /** The card's native US-market price (TCGplayer, USD major units), or null/absent when no USD
+   *  market carries it. A real market quote shown for the USD view — not an FX conversion of
+   *  `value`. Optional so a price built without it (fixtures, legacy) is still valid. */
+  usdValue?: number | null;
   /** Which statistic `value` is — "trend" | "avg_30d" | … (PriceBasis). */
   basis: string;
   low: number | null;

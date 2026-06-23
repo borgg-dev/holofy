@@ -87,6 +87,7 @@ export function mapPrice(w: WirePriceQuote | null): PriceQuote | null {
     canonicalId: w.canonical_id,
     currency: w.currency,
     value: parseMoney(w.value),
+    usdValue: parseMoney(w.usd_value ?? null),
     basis: w.basis,
     low: parseMoney(w.low),
     avg30: parseMoney(w.avg30),

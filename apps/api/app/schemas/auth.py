@@ -40,6 +40,29 @@ class LoginRequest(_EmailMixin):
     password: str = Field(min_length=1, max_length=200)
 
 
+class ForgotPasswordRequest(_EmailMixin):
+    """Start a password reset for an email. The response is always the same (no enumeration)."""
+
+
+class ResetPasswordRequest(BaseModel):
+    """Complete a reset: the emailed token + the new password (same floor as register)."""
+
+    token: str = Field(min_length=1, max_length=2000)
+    password: str = Field(min_length=8, max_length=200)
+
+
+class VerifyEmailRequest(BaseModel):
+    """Confirm an email address with the emailed token."""
+
+    token: str = Field(min_length=1, max_length=2000)
+
+
+class MessageResponse(BaseModel):
+    """A neutral acknowledgement for flows that must not reveal account state (reset request)."""
+
+    detail: str
+
+
 class AuthUser(BaseModel):
     """The account identity the client holds onto — opaque id + the login email."""
 

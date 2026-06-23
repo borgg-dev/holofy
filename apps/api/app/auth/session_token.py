@@ -28,9 +28,14 @@ _SEPARATOR = "."
 
 
 def issue_session_token(subject: str, *, secret: str, ttl_seconds: int) -> str:
-    """Mint a signed, expiring token for ``subject`` (the user's stable auth subject)."""
-    now = int(time.time())
-    payload = {"sub": subject, "iat": now, "exp": now + int(ttl_seconds)}
+    """Mint a signed, expiring token for ``subject`` (the user's stable auth subject).
+
+    ``iat`` is sub-second so the session-revocation epoch can tell a token minted *just before* a
+    reset from the replacement minted *just after* it — a whole-second stamp can't, and would
+    wrongly revoke the fresh token issued in the same second as the epoch bump.
+    """
+    now = time.time()
+    payload = {"sub": subject, "iat": now, "exp": int(now) + int(ttl_seconds)}
     payload_b64 = _b64(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
     return f"{payload_b64}{_SEPARATOR}{_sign(payload_b64, secret)}"
 
@@ -53,11 +58,12 @@ class SessionTokenAuthProvider:
             payload = json.loads(_unb64(payload_b64))
             subject = str(payload["sub"])
             exp = int(payload["exp"])
+            issued_at = float(payload["iat"])
         except (ValueError, KeyError, TypeError) as exc:
             raise InvalidCredentialError("Session token payload is unreadable.") from exc
         if exp < int(time.time()):
             raise InvalidCredentialError("Session token has expired.")
-        return AuthenticatedUser(provider=PROVIDER_NAME, subject=subject)
+        return AuthenticatedUser(provider=PROVIDER_NAME, subject=subject, issued_at=issued_at)
 
 
 def _sign(payload_b64: str, secret: str) -> str:
