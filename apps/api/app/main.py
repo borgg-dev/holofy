@@ -43,6 +43,7 @@ from app.providers.factory import (
     build_pricing_provider,
     build_recognition_provider,
 )
+from app.email.factory import build_email_sender
 from app.ratelimit.factory import build_rate_limiter
 from app.storage.factory import build_capture_store
 
@@ -72,6 +73,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.authenticity_provider = build_authenticity_provider(
         settings, app.state.capture_store
     )
+    # Transactional email transport (reset/verify links), built once and shared like a provider.
+    app.state.email_sender = build_email_sender(settings)
     # The consented-capture training lake. Built once and held on state so a single sink (and
     # for the real backend, its one connection pool) is shared across requests, like a provider.
     app.state.datalake_sink = build_datalake_sink(settings)

@@ -9,6 +9,7 @@ stateless ``ScanService`` — are assembled here from those singletons.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from datetime import timezone
 
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -25,6 +26,7 @@ from app.core.errors import (
     NotAuthenticatedError,
 )
 from app.datalake.base import DataLakeSink
+from app.email.base import EmailSender
 from app.db.models import User
 from app.db.repositories import (
     CardRepository,
@@ -82,6 +84,10 @@ def get_authenticity_provider(request: Request) -> AuthenticityProvider:
 
 def get_capture_store(request: Request) -> CaptureStore:
     return request.app.state.capture_store
+
+
+def get_email_sender(request: Request) -> "EmailSender":
+    return request.app.state.email_sender
 
 
 def get_capture_storage(request: Request) -> CaptureStorage:
@@ -160,6 +166,16 @@ async def get_current_user(
         user = await users.create(
             auth_provider=identity.provider, auth_subject=identity.subject
         )
+    # Session revocation: a token issued before the account's session epoch (a password reset or an
+    # explicit log-out-everywhere bumps it) is rejected even though its signature/expiry are valid.
+    # The stored instant is UTC, but SQLite hands it back tz-naive — treat a naive value as UTC so
+    # the epoch comparison can't skew by the host's local offset.
+    epoch = user.sessions_valid_from
+    if epoch is not None and identity.issued_at is not None:
+        if epoch.tzinfo is None:
+            epoch = epoch.replace(tzinfo=timezone.utc)
+        if identity.issued_at < epoch.timestamp():
+            raise InvalidCredentialError("This session has been signed out. Please log in again.")
     return user
 
 

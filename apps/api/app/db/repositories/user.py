@@ -82,6 +82,24 @@ class UserRepository:
         user.training_consent_revoked_at = utcnow()
         await self._session.flush()
 
+    async def set_password(self, user: User, *, password_hash: str) -> None:
+        """Replace the password hash and revoke every existing session (bump the epoch), so a reset
+        both lets the user back in and locks out any session a thief may hold."""
+        user.password_hash = password_hash
+        user.sessions_valid_from = utcnow()
+        await self._session.flush()
+
+    async def mark_email_verified(self, user: User) -> None:
+        """Stamp the email as confirmed. Idempotent: keeps the original verification time."""
+        if user.email_verified_at is None:
+            user.email_verified_at = utcnow()
+            await self._session.flush()
+
+    async def revoke_sessions(self, user: User) -> None:
+        """Log the account out everywhere — every token issued before now stops verifying."""
+        user.sessions_valid_from = utcnow()
+        await self._session.flush()
+
     async def delete(self, user: User) -> None:
         """Erase a user and every owned row (collection, scans, snapshots) via cascade.
 

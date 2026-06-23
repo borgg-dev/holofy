@@ -50,6 +50,12 @@ class PricingBackend(StrEnum):
     POKEMONTCG = "pokemontcg"
 
 
+class EmailBackend(StrEnum):
+    # Logs the message (and its link) instead of delivering — local + the closed beta. A real SMTP/
+    # API transport drops in behind the same EmailSender seam by configuration.
+    LOGGING = "logging"
+
+
 class GradingBackend(StrEnum):
     # Corners/edges/surface. ``inhouse`` is our owned classical-CV condition reader (no per-
     # scan vendor fee); ``mock`` is the deterministic fixture for tests. Centering is always
@@ -174,6 +180,15 @@ class Settings(BaseSettings):
     auth_throttle_window_seconds: int = 300
     auth_throttle_max_per_email: int = 8
     auth_throttle_max_per_ip: int = 30
+
+    # Transactional email (password-reset / verify links). Logging backend for local + beta.
+    email_provider: EmailBackend = EmailBackend.LOGGING
+    # Base URL the emailed links point at — the app deep-link / web origin. Reset/verify links are
+    # ``{app_base_url}/auth/reset?token=…`` and ``…/auth/verify?token=…``.
+    app_base_url: str = "https://holofy.shugo.io"
+    # One hour to use a reset link; one day to confirm an email. Short enough to bound a leaked link.
+    password_reset_ttl_seconds: int = 3600
+    email_verify_ttl_seconds: int = 86400
 
     # Daily scan quota per account. The launch plan's freemium tier is 8/day (master plan §4),
     # but that's a *monetization* limit for paying-vs-free — during the free beta there's no
