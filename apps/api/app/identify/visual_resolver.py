@@ -33,7 +33,17 @@ _NUMBER_BOOST: dict[NumberMatch, float] = {
     NumberMatch.PARTIAL: 0.08,  # numerator only → narrows
     NumberMatch.NONE: 0.0,
 }
-_NAME_BOOST = 0.05
+# A discriminative name read must be *decisive*, like an exact collector number — because the
+# index holds both the English and French print of every card, and a same-art EN/FR twin shares
+# the artwork (so the embedding ties them) AND usually the collector number (so the number boost
+# lifts both equally). The *name* is then the only separator, and only when the localized names
+# actually differ ("Dracaufeu" vs "Charizard"): there the read pins the language and must clear the
+# ambiguity gate to commit. When the names match across languages ("Pikachu" = "Pikachu"), no
+# candidate is boosted over the other, the pair stays tied, and the flow honestly routes to confirm
+# — we genuinely cannot tell EN from FR from the picture, and the price differs by market. Hence the
+# boost is set above _AMBIGUITY_DELTA so a discriminative name decides, while a same-name reprint or
+# same-name twin stays ambiguous and a differing collector number still does the reprint tie-break.
+_NAME_BOOST = 0.18
 # Localization quality cap: never a hard multiplier (that forced clean cards to perpetually
 # confirm). 0.7 floor means even a loosely-framed but correctly-matched card stays decisive.
 _QUALITY_FLOOR = 0.7
@@ -50,21 +60,20 @@ _CONFIRM_CAP = 0.6
 
 
 def _gate_ambiguous_leader(ranked: list[tuple["CardIdentity", float]]) -> list[tuple["CardIdentity", float]]:
-    """Hold a non-decisive leader (and its near-tie peers) in the confirm band.
+    """Hold an ambiguous result in the confirm band so nothing auto-commits a guess.
 
     When the top two fused scores sit within ``_AMBIGUITY_DELTA``, no signal pulled the leader
-    clear — the same-art reprint case ADR 0002 guards. Every candidate within that gap of the
-    leader is capped to ``_CONFIRM_CAP`` so the pair lands together below the commit threshold
-    and the flow surfaces both for the user to confirm, rather than committing the arbitrary
-    nearer hash. (Capping only the leader would leave a tied peer ranked above it.)
+    clear — the same-art reprint / same-name EN·FR twin case (ADR 0002). The whole result is then
+    capped to ``_CONFIRM_CAP``: the tied leaders land below the commit threshold for the user to
+    pick between, and — crucially — a *lower, non-tied* candidate can't keep its uncapped score and
+    leapfrog the capped leaders into a wrong auto-commit (the failure where a correct EN·FR 58/102
+    pair was held at 0.6 while an unrelated 87/130 print stayed at 0.98 and committed). Capping the
+    full list keeps the genuinely-likely cards on top (order is preserved) while guaranteeing an
+    ambiguous scan asks rather than commits.
     """
     if len(ranked) < 2 or ranked[0][1] - ranked[1][1] >= _AMBIGUITY_DELTA:
         return ranked
-    leader = ranked[0][1]
-    return [
-        (identity, min(score, _CONFIRM_CAP)) if leader - score < _AMBIGUITY_DELTA else (identity, score)
-        for identity, score in ranked
-    ]
+    return [(identity, min(score, _CONFIRM_CAP)) for identity, score in ranked]
 
 
 def _name_matches(read_name: str | None, card_name: str) -> bool:
@@ -104,6 +113,10 @@ class VisualCardResolver:
         # fused score, then gate the decision on how clearly the leader stands out.
         ranked.sort(key=lambda r: r[1], reverse=True)
         ranked = _gate_ambiguous_leader(ranked)
+        # Re-sort after the gate: capping an ambiguous top cluster to the confirm band can drop it
+        # below an uncapped lower candidate, so the emitted order (and thus the flow's top pick)
+        # must reflect the *final* confidences, not the pre-cap ranking.
+        ranked.sort(key=lambda r: r[1], reverse=True)
         return RecognitionResult(
             candidates=[
                 RecognitionCandidate(identity=identity, confidence=round(min(_MAX_RAW, score), 4))

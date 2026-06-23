@@ -143,9 +143,9 @@ class VisualRecognitionProvider:
 
     def _best_orientation_embed(self, image: "np.ndarray"):
         """Embed all four right-angle rotations; keep the one whose nearest catalog embedding is
-        closest. The embedding (like a hash) is not rotation-invariant, and the rectifier's
-        upright guess can be 90°/180° off; this aligns the crop to the upright catalog and feeds
-        that same oriented crop to OCR."""
+        closest. The embedding (like a hash) is not rotation-invariant, and the rectifier's upright
+        guess can be 90°/180° off; this aligns the crop to the upright catalog and feeds that same
+        oriented crop to OCR."""
         best_image = image
         best_matches: list = []
         for k in range(4):
