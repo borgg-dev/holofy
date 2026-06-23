@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { useApi, type CollectionItem } from "@/api";
 import { useScanFlow } from "@/flow/ScanFlowProvider";
+import { ConfirmDialog } from "@/components";
 import { CardDetailScreen } from "@/screens/detail/CardDetailScreen";
 
 // A Vault holding's detail route. The list passes the holding id; there's no single-item
@@ -17,8 +17,10 @@ export default function CardDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const api = useApi();
-  const { confirmChoice } = useScanFlow();
+  const { confirmChoice, notifyVaultChanged } = useScanFlow();
   const [state, setState] = useState<DetailState>("loading");
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -50,38 +52,46 @@ export default function CardDetail() {
     [router]
   );
 
-  // Remove this holding, behind a confirm (a Vault deletion is destructive and shouldn't be a
-  // one-tap accident). On success — or even if the delete races a refresh — we return to the
-  // Vault, which re-fetches and reflects the change.
-  const remove = useCallback(() => {
+  // Removing a holding is destructive, so it goes behind the themed confirm dialog rather than
+  // a one-tap action. On confirm we delete, signal the Vault to refetch (it stays mounted behind
+  // this route, so it wouldn't otherwise notice), then return to it — which now reflects the change.
+  const confirmRemove = useCallback(() => {
     if (!id) return;
-    Alert.alert("Remove from Vault?", "This card will be removed from your collection.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: () => {
-          void (async () => {
-            try {
-              await api.removeFromCollection(id);
-            } catch {
-              // Surface nothing noisy here; returning to the Vault re-fetches the true state.
-            } finally {
-              back();
-            }
-          })();
-        },
-      },
-    ]);
-  }, [api, id, back]);
+    setRemoving(true);
+    void (async () => {
+      try {
+        await api.removeFromCollection(id);
+        notifyVaultChanged();
+      } catch {
+        // Surface nothing noisy here; returning to the Vault re-fetches the true state.
+      } finally {
+        setRemoving(false);
+        setConfirmingRemove(false);
+        back();
+      }
+    })();
+  }, [api, id, notifyVaultChanged, back]);
 
   return (
-    <CardDetailScreen
-      state={state}
-      onBack={back}
-      onGrade={() => router.push("/pregrade-capture")}
-      onAuthenticity={() => router.push("/authenticity-capture")}
-      onRemove={remove}
-    />
+    <>
+      <CardDetailScreen
+        state={state}
+        onBack={back}
+        onGrade={() => router.push("/pregrade-capture")}
+        onAuthenticity={() => router.push("/authenticity-capture")}
+        onRemove={() => setConfirmingRemove(true)}
+      />
+      <ConfirmDialog
+        visible={confirmingRemove}
+        title="Remove from Vault?"
+        message="This card will be removed from your collection. You can always scan it back in."
+        confirmLabel="Remove"
+        cancelLabel="Cancel"
+        destructive
+        busy={removing}
+        onConfirm={confirmRemove}
+        onCancel={() => setConfirmingRemove(false)}
+      />
+    </>
   );
 }

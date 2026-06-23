@@ -71,8 +71,10 @@ type ScanFlowValue = {
   confirmChoice: (choice: ScanChoice) => void;
   /** Commit a chosen identity to the Vault. Returns true on success. */
   addToVault: (identity: CardIdentity, condition?: Condition) => Promise<boolean>;
-  /** Monotonic counter bumped on every successful add — Vault screens refetch on change. */
+  /** Monotonic counter bumped on every add/removal — Vault screens refetch on change. */
   vaultRevision: number;
+  /** Signal that the Vault's contents changed elsewhere (e.g. a card removed from detail). */
+  notifyVaultChanged: () => void;
   /** The in-flight / settled rapid-stack batch the review screen renders. */
   batch: BatchState;
   /** Run POST /scan/batch on a session's flipped capture refs; stores the deduped result. */
@@ -170,6 +172,11 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
   );
 
   const confirmChoice = useCallback((choice: ScanChoice) => setRevealChoice(choice), []);
+
+  // Bumped after a mutation the Vault list doesn't make itself — e.g. a removal from the card
+  // detail. The Vault tab stays mounted behind the detail route, so without this its data is
+  // stale on back-nav; the revision change retriggers its load.
+  const notifyVaultChanged = useCallback(() => setVaultRevision((n) => n + 1), []);
 
   const runBatchScan = useCallback(
     async (captureRefs: string[]) => {
@@ -273,6 +280,7 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
       confirmChoice,
       addToVault,
       vaultRevision,
+      notifyVaultChanged,
       batch,
       runBatchScan,
       resetBatch,
@@ -296,6 +304,7 @@ export function ScanFlowProvider({ children }: { children: ReactNode }) {
       confirmChoice,
       addToVault,
       vaultRevision,
+      notifyVaultChanged,
       batch,
       runBatchScan,
       resetBatch,

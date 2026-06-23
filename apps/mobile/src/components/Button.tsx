@@ -13,6 +13,8 @@ type Props = {
   disabled?: boolean;
   /** Renders an inline spinner-dot row and disables; for in-flight actions. */
   busy?: boolean;
+  /** A destructive action (delete/remove): swaps the accent for the error red. */
+  destructive?: boolean;
   accessibilityHint?: string;
   style?: ViewStyle;
 };
@@ -26,12 +28,16 @@ export function Button({
   tier = "primary",
   disabled = false,
   busy = false,
+  destructive = false,
   accessibilityHint,
   style,
 }: Props) {
   const theme = useTheme();
   const inactive = disabled || busy;
   const primary = tier === "primary";
+  // A destructive action recolors the accent to the error red, keeping the same tier shapes.
+  const fill = destructive ? theme.color.errorRed : theme.color.accent;
+  const fillPressed = destructive ? withAlpha(theme.color.errorRed, 0.82) : theme.color.accentPressed;
 
   return (
     <Pressable
@@ -49,12 +55,12 @@ export function Button({
           opacity: inactive ? 0.45 : 1,
         },
         tier === "primary" && {
-          backgroundColor: pressed ? theme.color.accentPressed : theme.color.accent,
+          backgroundColor: pressed ? fillPressed : fill,
         },
         tier === "secondary" && {
           borderWidth: 1.5,
-          borderColor: theme.color.accent,
-          backgroundColor: pressed ? withAlpha(theme.color.accent, 0.12) : "transparent",
+          borderColor: fill,
+          backgroundColor: pressed ? withAlpha(fill, 0.12) : "transparent",
         },
         tier === "tertiary" && {
           backgroundColor: pressed ? withAlpha(theme.color.textPrimary, 0.06) : "transparent",
@@ -67,6 +73,7 @@ export function Button({
         <Text
           variant={primary ? "titleMd" : "label"}
           tone={primary ? "onAccent" : tier === "secondary" ? "accent" : "secondary"}
+          style={destructive && !primary ? { color: theme.color.errorRed } : undefined}
         >
           {label}
         </Text>
