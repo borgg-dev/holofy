@@ -54,6 +54,20 @@ To test locally against the server before building, run the web/dev app pointed 
 make mobile-watch-live HOLOFY_API_URL=https://api.yourdomain.com
 ```
 
+## Daily portfolio snapshots (value-over-time)
+The Vault's trend chart needs one value point per account per day. A small job pins them:
+
+```
+docker exec deploy-api-1 python scripts/snapshot_portfolios.py
+```
+
+It's idempotent (an account already snapshotted today is skipped), so a re-run is safe. Wire it to
+the host's cron to run nightly — e.g. `crontab -e` and add:
+
+```
+15 3 * * * docker exec deploy-api-1 python scripts/snapshot_portfolios.py >> /var/log/holofy-snapshots.log 2>&1
+```
+
 ## Notes for the test phase
 - **Training-data lake** runs in `mock` mode (not persisted) — fine for a test; the real
   EU-region lake writer drops in behind the same seam when you go further.

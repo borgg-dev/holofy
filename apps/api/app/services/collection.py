@@ -40,6 +40,10 @@ class CollectionService:
         self._collection = collection
         self._pricing = pricing
 
+    async def holder_ids(self) -> list[uuid.UUID]:
+        """Every account currently holding a card — the set the daily snapshot job values."""
+        return await self._collection.distinct_holder_ids()
+
     async def add(
         self, user_id: uuid.UUID, request: AddCollectionItemRequest
     ) -> CollectionItemValuation:

@@ -84,6 +84,27 @@ class PortfolioService:
         )
         return total
 
+    async def snapshot_all_due(self, *, min_interval_hours: float = 20.0) -> int:
+        """Snapshot every holder whose last snapshot is older than ``min_interval_hours`` (or who
+        has none). The daily job calls this; the interval makes it idempotent — a second run the
+        same day is a no-op — and tolerant of an off-schedule run, so the value-over-time series
+        accrues one honest point per day without duplicates. Returns how many were written."""
+        from datetime import UTC, datetime, timedelta
+
+        cutoff = datetime.now(UTC) - timedelta(hours=min_interval_hours)
+        written = 0
+        for user_id in await self._collection.holder_ids():
+            latest = await self._portfolio.latest(user_id)
+            if latest is not None:
+                captured = latest.captured_at
+                if captured.tzinfo is None:
+                    captured = captured.replace(tzinfo=UTC)
+                if captured > cutoff:
+                    continue  # already snapshotted within the window — skip to stay daily
+            await self.snapshot(user_id)
+            written += 1
+        return written
+
     async def history(
         self, user_id: uuid.UUID, *, limit: int | None = None
     ) -> PortfolioHistoryResponse:
