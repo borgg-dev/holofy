@@ -177,6 +177,21 @@ def _embed_provider(store, embedding_index, reader, fallback, *, hash_index=None
     )
 
 
+def test_merge_matches_keeps_anchored_below_higher_cosine_neighbours() -> None:
+    # The whole point of the OCR anchor: a card the OCR identified must survive the merge even when
+    # the (wrong) embedding nearest-neighbours all out-cosine it — else it never reaches the resolver.
+    from app.identify.embedding_index import EmbeddingMatch
+    from app.identify.visual_provider import _merge_matches
+
+    embedding = [EmbeddingMatch(_identity(f"wrong-{i}"), cosine=0.78 - i * 0.01) for i in range(8)]
+    anchored = [EmbeddingMatch(_identity("the-right-card"), cosine=0.72)]
+
+    merged = _merge_matches(embedding, anchored)
+
+    assert any(m.identity.canonical_id == "the-right-card" for m in merged), "anchored card was culled"
+    assert len(merged) <= 8
+
+
 @pytest.mark.asyncio
 async def test_embedding_hit_resolves(monkeypatch) -> None:  # noqa: ANN001
     monkeypatch.setattr("app.identify.visual_provider.embed", lambda img, *, model_path: np.zeros(384, np.float32))

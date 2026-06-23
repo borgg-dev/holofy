@@ -48,6 +48,30 @@ def test_query_ranks_by_cosine() -> None:
     assert matches[0].cosine > matches[1].cosine > matches[2].cosine
 
 
+def test_match_read_finds_cards_by_collector_number() -> None:
+    # The OCR-anchor lookup: a read number surfaces the catalog cards carrying it, scored by cosine
+    # — even when their bare cosine sits below unrelated nearest-neighbours.
+    ids = [
+        _identity("right"),  # the OCR'd card
+        _identity("other"),
+        _identity("right-fr"),
+    ]
+    ids[0] = CardIdentity(canonical_id="right", name="Togepi", set_name="SV", collector_number="083/197",
+                          language="en", variant=Variant.HOLO)
+    ids[1] = CardIdentity(canonical_id="other", name="Pidgey", set_name="SV", collector_number="017/197",
+                          language="en", variant=Variant.HOLO)
+    ids[2] = CardIdentity(canonical_id="right-fr", name="Togepi", set_name="SV", collector_number="083/197",
+                          language="fr", variant=Variant.HOLO)
+    mat = np.stack([_unit(1, 0), _unit(0, 1), _unit(0.9, 0.1)])
+    index = EmbeddingImageIndex(identities=ids, matrix=mat)
+
+    hits = index.match_read(_unit(1, 0), name="Togepi", collector_number="83/197")
+    names = {(m.identity.canonical_id) for m in hits}
+    assert names == {"right", "right-fr"}  # both 83/197 prints, not the 17/197 card
+    # No number read → nothing anchored (this lookup keys on the number).
+    assert index.match_read(_unit(1, 0), name="Togepi", collector_number=None) == []
+
+
 def test_empty_index_returns_no_matches() -> None:
     index = EmbeddingImageIndex(identities=[], matrix=np.zeros((0, EMBED_DIM), np.float32))
     assert index.query(_unit(1, 0), k=8) == []
