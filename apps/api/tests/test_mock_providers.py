@@ -15,6 +15,7 @@ from app.providers.factory import (
     build_pricing_provider,
     build_recognition_provider,
 )
+from app.providers.pricing.cache import CachedPricingProvider
 from app.providers.pricing.mock import MockPricingProvider
 from app.providers.pricing.tcgdex_provider import TcgdexPricingProvider
 from app.providers.recognition.mock import MockRecognitionProvider
@@ -85,7 +86,10 @@ async def test_factory_defaults_to_real_backends() -> None:
 
     provider, client = build_pricing_provider(settings)
     try:
-        assert isinstance(provider, TcgdexPricingProvider)
+        # The real pricing provider is fronted by the TTL read-through cache (network sources must
+        # not be hit per-card on every Vault view); the cached inner is the TCGdex provider.
+        assert isinstance(provider, CachedPricingProvider)
+        assert isinstance(provider._inner, TcgdexPricingProvider)
         assert client is not None
     finally:
         if client is not None:
@@ -97,7 +101,8 @@ async def test_factory_builds_tcgdex_pricing_and_owns_a_client() -> None:
     settings = Settings(pricing_provider=PricingBackend.TCGDEX)
     provider, client = build_pricing_provider(settings)
     try:
-        assert isinstance(provider, TcgdexPricingProvider)
+        assert isinstance(provider, CachedPricingProvider)
+        assert isinstance(provider._inner, TcgdexPricingProvider)
         assert client is not None
     finally:
         if client is not None:

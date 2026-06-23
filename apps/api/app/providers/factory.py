@@ -157,7 +157,7 @@ def build_pricing_provider(
                 locale=settings.tcgdex_locale,
                 timeout_seconds=settings.tcgdex_timeout_seconds,
             )
-            return TcgdexPricingProvider(client), client
+            return _cached(TcgdexPricingProvider(client), settings), client
         case PricingBackend.POKEMONTCG:
             from app.providers.pricing.pokemontcg import PokemonTcgClient
             from app.providers.pricing.pokemontcg_provider import PokemonTcgPricingProvider
@@ -177,9 +177,18 @@ def build_pricing_provider(
             provider = PokemonTcgPricingProvider(
                 pt_client, fallback=TcgdexPricingProvider(tcgdex_client)
             )
-            return provider, _CloseAll(pt_client, tcgdex_client)
+            # A TTL cache fronts the network sources so the Vault's per-card pricing doesn't fan out
+            # to dozens of upstream calls per view (or trip a keyless rate limit).
+            return _cached(provider, settings), _CloseAll(pt_client, tcgdex_client)
         case unknown:  # pragma: no cover - guards an unwired enum value
             raise ValueError(f"unsupported pricing backend: {unknown}")
+
+
+def _cached(provider: PricingProvider, settings: Settings) -> PricingProvider:
+    """Front a network pricing provider with the in-memory TTL read-through cache."""
+    from app.providers.pricing.cache import CachedPricingProvider
+
+    return CachedPricingProvider(provider, ttl_seconds=settings.pricing_cache_ttl_seconds)
 
 
 def build_grading_provider(

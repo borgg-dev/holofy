@@ -192,6 +192,10 @@ class Settings(BaseSettings):
     pokemontcg_api_root: str = "https://api.pokemontcg.io/v2"
     pokemontcg_api_key: str | None = None
     pokemontcg_timeout_seconds: float = 10.0
+    # TTL (seconds) for the in-memory pricing read-through cache fronting the network sources, so the
+    # Vault's per-card pricing doesn't fan out to the upstream on every view. 12h: market guides move
+    # daily, and the cache simply rewarms after a deploy. Misses are cached a quarter of this.
+    pricing_cache_ttl_seconds: float = 43200.0
 
     # Only consulted when pricing_provider == tcgdex. No key required — TCGdex is open.
     tcgdex_api_root: str = "https://api.tcgdex.net/v2"
