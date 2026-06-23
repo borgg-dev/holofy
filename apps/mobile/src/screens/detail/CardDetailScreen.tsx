@@ -80,7 +80,12 @@ export function CardDetailScreen({ state, onBack, onGrade, onAuthenticity, onRem
           </Text>
           {total != null ? (
             <>
-              <ValueText amount={total} currency={price?.currency ?? "EUR"} variant="displayXl" />
+              <ValueText
+                amount={total}
+                usdValue={price?.usdValue != null ? Math.round(price.usdValue * item.quantity * 100) / 100 : null}
+                currency={price?.currency ?? "EUR"}
+                variant="displayXl"
+              />
               {trend ? (
                 <View style={[styles.trendRow, { gap: theme.space["3"] }]}>
                   <TrendPill trend={trend} />

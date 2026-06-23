@@ -13,9 +13,10 @@ export const settingsCopy = {
   appearanceHint: "System follows your device. Light and Dark override it.",
 
   currencyOverline: "CURRENCY",
-  // Honest framing: prices are sourced in EUR (Cardmarket); USD is a live FX conversion, not a
-  // US-market quote. The collector should never read a converted figure as a TCGplayer price.
-  currencyHint: "Prices come from Cardmarket in EUR. USD is converted at today's rate — a display aid, not a US-market price.",
+  // Honest framing: EUR is Cardmarket. USD shows the real US market (TCGplayer) when we have it for
+  // a card, and otherwise an FX conversion of the EUR — so a converted figure is never misread as a
+  // live TCGplayer price for cards we can't quote natively.
+  currencyHint: "EUR is Cardmarket. USD shows the US market (TCGplayer) where available, otherwise converted from EUR at today's rate.",
 
   planRowLabel: "Plan",
   planRowValue: "Free (beta)",

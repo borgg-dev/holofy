@@ -96,7 +96,7 @@ export function StripThumb({ entry, fresh }: Props) {
             {read.identity.name}
           </Text>
           {read.price?.value != null ? (
-            <ValueText amount={read.price.value} currency={read.price.currency} variant="body" />
+            <ValueText amount={read.price.value} usdValue={read.price.usdValue} currency={read.price.currency} variant="body" />
           ) : (
             <Text variant="caption" tone="secondary">
               No € comp

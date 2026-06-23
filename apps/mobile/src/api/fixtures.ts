@@ -65,16 +65,18 @@ function price(
   canonicalId: string,
   value: string,
   avg30: string,
-  low: string
+  low: string,
+  usdValue: string | null = null
 ): WirePriceQuote {
   return {
     canonical_id: canonicalId,
     currency: "EUR",
     value,
+    usd_value: usdValue,
     basis: "trend",
     low,
     avg30,
-    source: "cardmarket",
+    source: "cardmarket+tcgplayer",
     as_of: AS_OF,
     age_hours: 6,
     listing_url: null,

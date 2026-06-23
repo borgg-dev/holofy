@@ -103,7 +103,7 @@ function ChoiceRow({
         </Text>
       </View>
       {price?.value != null ? (
-        <ValueText amount={price.value} currency={price.currency} variant="titleMd" />
+        <ValueText amount={price.value} usdValue={price.usdValue} currency={price.currency} variant="titleMd" />
       ) : (
         <Text variant="caption" tone="secondary">
           No € comp

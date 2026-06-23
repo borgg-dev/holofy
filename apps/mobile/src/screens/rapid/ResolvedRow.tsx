@@ -26,8 +26,9 @@ export function ResolvedRow({ item, selected, onToggle, onGrade }: Props) {
   const { format } = useCurrency();
   const value = item.price?.value;
   const totalValue = value != null ? value * item.count : null;
+  const usdTotal = item.price?.usdValue != null ? item.price.usdValue * item.count : null;
   const a11y = `${item.identity.name}, ${identitySubline(item.identity)}, ${
-    totalValue != null ? format(totalValue) : "no recent sales"
+    totalValue != null ? format(totalValue, { usdValue: usdTotal }) : "no recent sales"
   }${item.count > 1 ? `, ${item.count} copies` : ""}`;
 
   return (
@@ -88,7 +89,7 @@ export function ResolvedRow({ item, selected, onToggle, onGrade }: Props) {
 
         <View style={styles.value}>
           {totalValue != null ? (
-            <ValueText amount={totalValue} currency={item.price!.currency} variant="titleMd" />
+            <ValueText amount={totalValue} usdValue={usdTotal} currency={item.price!.currency} variant="titleMd" />
           ) : (
             <Text variant="bodySm" tone="secondary">
               No € comp

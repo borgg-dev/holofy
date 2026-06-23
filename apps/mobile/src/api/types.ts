@@ -49,6 +49,7 @@ export type WirePriceQuote = {
   canonical_id: string;
   currency: string;
   value: string | null;
+  usd_value?: string | null;
   basis: string;
   low: string | null;
   avg30: string | null;

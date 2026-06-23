@@ -136,7 +136,7 @@ function ChoiceRow({
           </View>
           <View style={styles.choicePrice}>
             {price?.value != null ? (
-              <ValueText amount={price.value} currency={price.currency} variant="titleLg" />
+              <ValueText amount={price.value} usdValue={price.usdValue} currency={price.currency} variant="titleLg" />
             ) : (
               <Text variant="bodySm" tone="secondary">
                 No € comp

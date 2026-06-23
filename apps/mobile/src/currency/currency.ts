@@ -39,16 +39,20 @@ export function convertFromEur(amountEur: number, rate: number): number {
   return amountEur * rate;
 }
 
-/** Format an EUR amount in the chosen display currency (converting first). */
-export function formatFromEur(amountEur: number, currency: DisplayCurrency, rate: number): string {
+/** Format a raw amount already in `currency` (no conversion). */
+export function formatNative(amount: number, currency: DisplayCurrency): string {
   const { locale } = CURRENCY_META[currency];
-  const value = convertFromEur(amountEur, rate);
   try {
-    return new Intl.NumberFormat(locale, { style: "currency", currency }).format(value);
+    return new Intl.NumberFormat(locale, { style: "currency", currency }).format(amount);
   } catch {
     // Hermes ships Intl, but guard a missing-locale build so a price still renders.
-    return `${CURRENCY_META[currency].symbol}${value.toFixed(2)}`;
+    return `${CURRENCY_META[currency].symbol}${amount.toFixed(2)}`;
   }
+}
+
+/** Format an EUR amount in the chosen display currency (converting first). */
+export function formatFromEur(amountEur: number, currency: DisplayCurrency, rate: number): string {
+  return formatNative(convertFromEur(amountEur, rate), currency);
 }
 
 export type RateResult = { rate: number; asOf: string | null };
