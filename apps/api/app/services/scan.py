@@ -132,7 +132,9 @@ class ScanService:
             card=ScannedCard(
                 identity=top.identity,
                 confidence=top.confidence,
-                price=await self._price_or_none(top.identity.canonical_id),
+                price=await self._price_or_none(
+                    top.identity.canonical_id, top.identity.name, top.identity.collector_number
+                ),
             ),
             top_confidence=top.confidence,
             dedupe_key=top.identity.canonical_id,
@@ -217,19 +219,25 @@ class ScanService:
             ConfirmationChoice(
                 identity=candidate.identity,
                 confidence=candidate.confidence,
-                price=await self._price_or_none(candidate.identity.canonical_id),
+                price=await self._price_or_none(
+                    candidate.identity.canonical_id,
+                    candidate.identity.name,
+                    candidate.identity.collector_number,
+                ),
             )
             for candidate in top_two
         ]
 
-    async def _price_or_none(self, canonical_id: str) -> PriceQuote | None:
+    async def _price_or_none(
+        self, canonical_id: str, name: str | None = None, collector_number: str | None = None
+    ) -> PriceQuote | None:
         # A missing price is a long-tail fact, not a scan failure — the identity still stands
         # and the UI shows "no price yet". This covers both an explicit "no comp" and a card
         # the pricing catalog simply doesn't carry (``card_not_found``): recognition can
         # legitimately resolve a card the pricing source hasn't got, and that must not 404 the
         # whole scan. Other pricing faults (upstream down) still propagate.
         try:
-            return await self._pricing.price(canonical_id)
+            return await self._pricing.price(canonical_id, name=name, collector_number=collector_number)
         except (PriceUnavailableError, CardNotFoundError):
             return None
 

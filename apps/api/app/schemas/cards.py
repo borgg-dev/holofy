@@ -113,6 +113,11 @@ class PriceQuote(BaseModel):
     basis: str
     low: Decimal | None = None
     avg30: Decimal | None = None
+    # The card's *native* US-market price (TCGplayer "market"), when a USD-market source has it.
+    # ``value`` stays the EUR (Cardmarket) figure the EUR-denominated portfolio totals on; this is
+    # the honest US price the client shows when the user views in USD — a real market quote, not an
+    # FX conversion of the EUR. ``None`` when no USD market carries the card (e.g. EU-only prints).
+    usd_value: Decimal | None = None
     source: str
     as_of: datetime
     age_hours: float

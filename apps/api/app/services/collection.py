@@ -87,7 +87,9 @@ class CollectionService:
         return CollectionResponse(items=valued, total_value_eur=total)
 
     async def _value_item(self, item: CollectionItem) -> CollectionItemValuation:
-        quote = await self._quote_or_none(item.card.canonical_id)
+        quote = await self._quote_or_none(
+            item.card.canonical_id, item.card.name, item.card.collector_number
+        )
         unit = quote.value if quote is not None else None
         line = unit * item.quantity if unit is not None else None
         return CollectionItemValuation(
@@ -104,9 +106,11 @@ class CollectionService:
             price_source=quote.source if quote is not None else None,
         )
 
-    async def _quote_or_none(self, canonical_id: str) -> PriceQuote | None:
+    async def _quote_or_none(
+        self, canonical_id: str, name: str | None = None, collector_number: str | None = None
+    ) -> PriceQuote | None:
         try:
-            return await self._pricing.price(canonical_id)
+            return await self._pricing.price(canonical_id, name=name, collector_number=collector_number)
         except (PriceUnavailableError, CardNotFoundError):
             return None
 

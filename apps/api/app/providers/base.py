@@ -50,7 +50,13 @@ class RecognitionProvider(Protocol):
 
 @runtime_checkable
 class PricingProvider(Protocol):
-    async def price(self, canonical_id: str) -> PriceQuote: ...
+    async def price(
+        self, canonical_id: str, *, name: str | None = None, collector_number: str | None = None
+    ) -> PriceQuote:
+        """Price a card. ``name``/``collector_number`` are an optional fallback key: a provider whose
+        ids don't line up 1:1 with the recognizer's (e.g. a USD market keyed differently) can recover
+        the card by name+number when the id misses. Providers that key purely by id ignore them."""
+        ...
 
 
 class GradingCapture(Protocol):

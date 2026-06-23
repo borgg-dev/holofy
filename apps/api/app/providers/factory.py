@@ -126,12 +126,26 @@ def build_recognition_provider(
             raise ValueError(f"unsupported recognition backend: {unknown}")
 
 
+class _CloseAll:
+    """Close several HTTP clients as one — the lifespan only knows to ``aclose`` the single handle
+    the factory returns, but the pokémontcg provider owns its own client *and* a TCGdex fallback."""
+
+    def __init__(self, *closeables: object) -> None:
+        self._closeables = closeables
+
+    async def aclose(self) -> None:
+        for c in self._closeables:
+            closer = getattr(c, "aclose", None)
+            if closer is not None:
+                await closer()
+
+
 def build_pricing_provider(
     settings: Settings,
-) -> tuple[PricingProvider, TcgdexClient | None]:
-    """Return the configured pricing provider and the HTTP client it owns, if any.
+) -> tuple[PricingProvider, object | None]:
+    """Return the configured pricing provider and the HTTP client(s) it owns, if any.
 
-    The caller (app lifespan) keeps the client to close it on shutdown; for the mock there
+    The caller (app lifespan) keeps the handle to ``aclose`` it on shutdown; for the mock there
     is nothing to close, hence ``None``.
     """
     match settings.pricing_provider:
@@ -144,6 +158,26 @@ def build_pricing_provider(
                 timeout_seconds=settings.tcgdex_timeout_seconds,
             )
             return TcgdexPricingProvider(client), client
+        case PricingBackend.POKEMONTCG:
+            from app.providers.pricing.pokemontcg import PokemonTcgClient
+            from app.providers.pricing.pokemontcg_provider import PokemonTcgPricingProvider
+
+            pt_client = PokemonTcgClient(
+                api_root=settings.pokemontcg_api_root,
+                api_key=settings.pokemontcg_api_key,
+                timeout_seconds=settings.pokemontcg_timeout_seconds,
+            )
+            # Cardmarket-EUR fallback for cards pokémontcg.io doesn't carry, so EUR coverage never
+            # drops below the TCGdex baseline while USD is added for everything it does carry.
+            tcgdex_client = TcgdexClient(
+                api_root=settings.tcgdex_api_root,
+                locale=settings.tcgdex_locale,
+                timeout_seconds=settings.tcgdex_timeout_seconds,
+            )
+            provider = PokemonTcgPricingProvider(
+                pt_client, fallback=TcgdexPricingProvider(tcgdex_client)
+            )
+            return provider, _CloseAll(pt_client, tcgdex_client)
         case unknown:  # pragma: no cover - guards an unwired enum value
             raise ValueError(f"unsupported pricing backend: {unknown}")
 

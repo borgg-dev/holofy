@@ -31,7 +31,9 @@ class MockPricingProvider:
     def __init__(self, *, as_of: datetime | None = None) -> None:
         self._as_of = as_of or datetime(2026, 6, 18, tzinfo=timezone.utc)
 
-    async def price(self, canonical_id: str) -> PriceQuote:
+    async def price(
+        self, canonical_id: str, *, name: str | None = None, collector_number: str | None = None
+    ) -> PriceQuote:
         priced = _PRICES.get(canonical_id)
         if priced is None:
             raise PriceUnavailableError(

@@ -46,6 +46,8 @@ class CatalogBackend(StrEnum):
 class PricingBackend(StrEnum):
     MOCK = "mock"
     TCGDEX = "tcgdex"
+    # pokémontcg.io: native USD (TCGplayer) + EUR (Cardmarket), with a TCGdex EUR fallback.
+    POKEMONTCG = "pokemontcg"
 
 
 class GradingBackend(StrEnum):
@@ -183,6 +185,13 @@ class Settings(BaseSettings):
     # Only consulted when rate_limit_provider == redis — the shared counter store the whole
     # fleet's limiter reads/writes so the daily quota holds across instances.
     redis_url: str = "redis://localhost:6379/0"
+
+    # Consulted when pricing_provider == pokemontcg. Native USD (TCGplayer) + EUR (Cardmarket) in
+    # one source; falls back to TCGdex EUR for cards it doesn't carry. A free key (no charge) lifts
+    # the rate limit and is sent when set; the API also serves modest volume keyless.
+    pokemontcg_api_root: str = "https://api.pokemontcg.io/v2"
+    pokemontcg_api_key: str | None = None
+    pokemontcg_timeout_seconds: float = 10.0
 
     # Only consulted when pricing_provider == tcgdex. No key required — TCGdex is open.
     tcgdex_api_root: str = "https://api.tcgdex.net/v2"
