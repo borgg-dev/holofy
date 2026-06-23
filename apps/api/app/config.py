@@ -205,6 +205,19 @@ class Settings(BaseSettings):
     # a real match — the card is outside the built index — so the recognizer defers to the text
     # path instead of asserting a far, wrong hit. Scaled 6× from the original 64-bit cutoff of 14.
     recognition_visual_max_distance: int = 84
+    # The DINOv2 embedding model (ONNX), the primary recognition descriptor. Exported once by
+    # scripts/export_recognition_model.py and deployed alongside the index (a data artefact, not
+    # committed). When present, the recognizer matches by learned embedding first; when absent it
+    # transparently falls back to the perceptual-hash index, then to the OCR/text path.
+    recognition_model_path: str = "./data/recognition_model.onnx"
+    # The catalog embedding matrix sidecar (float16 .npy, row-aligned to image_index_path). Defaults
+    # to the index path with a .f16.npy suffix when blank.
+    image_embeddings_path: str = ""
+    # Below this cosine similarity the nearest catalog embedding isn't a real match — the card is
+    # outside the built index — so the recognizer abstains to the hash/text tier rather than assert
+    # a far, wrong hit. Calibrated against the real-capture eval set (distinct cards ~0.65, a true
+    # match clears ~0.78).
+    recognition_visual_min_similarity: float = 0.70
 
     # Below this top-1 confidence the scan flow must ask the user to confirm rather than
     # commit a guess — getting a high-value variant wrong is the product's worst failure.

@@ -24,6 +24,13 @@ from typing import Protocol
 from app.identify.vision.phash import _HASH_BITS, hamming_distance
 from app.schemas.cards import CardIdentity, Variant
 
+# Hamming distance → base visual score, over the 384-bit YCbCr hash. A true match lands at a
+# small fraction of the bits while distinct artwork sits far higher, so this falloff keeps the
+# true card high and pushes unrelated cards toward the floor. The resolver consumes this 0–1
+# ``base_score`` rather than the raw distance, so its OCR boosts/thresholds are descriptor-neutral
+# — the same resolver ranks both hash matches and embedding matches (see ``embedding_index``).
+_PHASH_FALLOFF = 144.0
+
 
 @dataclass(frozen=True, slots=True)
 class ImageMatch:
@@ -36,6 +43,11 @@ class ImageMatch:
     def similarity(self) -> float:
         return 1.0 - self.distance / _HASH_BITS
 
+    @property
+    def base_score(self) -> float:
+        """The descriptor-neutral 0–1 confidence the resolver ranks on (hash falloff)."""
+        return max(0.0, 1.0 - self.distance / _PHASH_FALLOFF)
+
 
 @dataclass(frozen=True, slots=True)
 class ImageHashEntry:
@@ -43,6 +55,17 @@ class ImageHashEntry:
 
     identity: CardIdentity
     phash: int
+
+
+class ScoredMatch(Protocol):
+    """What the resolver needs from a match, regardless of which descriptor produced it: the
+    catalog identity and a 0–1 base confidence. Both ``ImageMatch`` (hash) and ``EmbeddingMatch``
+    (cosine) satisfy this, so one resolver ranks either."""
+
+    @property
+    def identity(self) -> CardIdentity: ...
+    @property
+    def base_score(self) -> float: ...
 
 
 class ImageMatchIndex(Protocol):

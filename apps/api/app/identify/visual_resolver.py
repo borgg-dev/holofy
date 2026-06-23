@@ -24,15 +24,8 @@ from __future__ import annotations
 
 from app.identify.catalog import CardRead, _normalize_name
 from app.identify.collector_number import NumberMatch, match_strength, parse_collector_number
-from app.identify.image_index import ImageMatch
+from app.identify.image_index import ScoredMatch
 from app.schemas.cards import CardIdentity, RecognitionCandidate, RecognitionResult
-
-# Hamming distance → visual base score, over the 384-bit YCbCr hash. Scaled from the original
-# 64-bit calibration (falloff 24) by the 6× bit increase: a true match lands at a small fraction
-# of the bits while distinct artwork sits far higher, so this falloff keeps the true card high
-# and pushes unrelated cards toward the floor. Because the score normalises distance by this
-# falloff, every downstream boost/threshold in 0–1 score space stays calibrated across bit lengths.
-_VISUAL_FALLOFF = 144.0
 
 # Collector-number agreement on top of the visual score.
 _NUMBER_BOOST: dict[NumberMatch, float] = {
@@ -54,10 +47,6 @@ _AMBIGUITY_DELTA = 0.12
 # An ambiguous top is held in the confirm band (below the 0.70 commit threshold, above the 0.35
 # recognition floor) so the flow surfaces both candidates instead of silently committing one.
 _CONFIRM_CAP = 0.6
-
-
-def _visual_score(distance: int) -> float:
-    return max(0.0, 1.0 - distance / _VISUAL_FALLOFF)
 
 
 def _gate_ambiguous_leader(ranked: list[tuple["CardIdentity", float]]) -> list[tuple["CardIdentity", float]]:
@@ -89,7 +78,7 @@ def _name_matches(read_name: str | None, card_name: str) -> bool:
 class VisualCardResolver:
     """Rank artwork matches into a ``RecognitionResult``, corroborated by the OCR read."""
 
-    def resolve(self, matches: list[ImageMatch], read: CardRead, quality: float) -> RecognitionResult:
+    def resolve(self, matches: list[ScoredMatch], read: CardRead, quality: float) -> RecognitionResult:
         if not matches:
             return RecognitionResult(candidates=[])
 
@@ -99,9 +88,11 @@ class VisualCardResolver:
 
         # Score unclipped so the differentiating signals (a number that pins one reprint) survive
         # to the ranking and ambiguity comparison; _MAX_RAW is applied only to the emitted value.
+        # ``base_score`` is the descriptor's own 0–1 confidence — hash falloff or calibrated cosine
+        # — so this fusion is identical whether the matches came from the hash or embedding index.
         ranked: list[tuple[CardIdentity, float]] = []
         for match in matches:
-            base = _visual_score(match.distance)
+            base = match.base_score
             number_match = match_strength(read_number, parse_collector_number(match.identity.collector_number))
             base += _NUMBER_BOOST[number_match]
             if _name_matches(read_name, match.identity.name):

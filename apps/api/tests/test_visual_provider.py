@@ -16,7 +16,9 @@ import pytest
 from PIL import Image
 
 from app.identify.catalog import CardRead
+from app.identify.embedding_index import EmbeddingMatch
 from app.identify.image_index import ImageMatch
+from app.identify.vision.embed import EmbeddingModelUnavailable
 from app.identify.visual_provider import VisualRecognitionProvider
 from app.identify.visual_resolver import VisualCardResolver
 from app.schemas.cards import CardIdentity, RecognitionCandidate, RecognitionResult, Variant
@@ -142,3 +144,85 @@ async def test_unresolvable_capture_recognizes_nothing() -> None:
     result = await provider.recognize(_Bundle(bundle_id="never-uploaded"))
 
     assert result.candidates == []
+
+
+# --- Embedding tier (primary) ------------------------------------------------------------------
+# The embedding model is faked: the provider's only contract with it is "embed the crop, query the
+# embedding index, abstain below the cosine cutoff." We stub the embed() call and a cosine index so
+# the routing — embedding hit vs miss-to-hash vs model-unavailable — is what's under test.
+
+
+class _FakeEmbeddingIndex:
+    def __init__(self, matches: list[EmbeddingMatch], size: int = 100) -> None:
+        self._matches = matches
+        self._size = size
+
+    def query(self, vector, *, k: int = 8):  # noqa: ANN001, ARG002
+        return self._matches[:k]
+
+    def __len__(self) -> int:
+        return self._size
+
+
+def _embed_provider(store, embedding_index, reader, fallback, *, hash_index=None, min_similarity=0.70):
+    return VisualRecognitionProvider(
+        store=store,
+        reader=reader,
+        image_index=hash_index if hash_index is not None else _FakeIndex([], size=0),
+        visual_resolver=VisualCardResolver(),
+        fallback=fallback,
+        embedding_index=embedding_index,
+        model_path="fake-model.onnx",
+        min_similarity=min_similarity,
+    )
+
+
+@pytest.mark.asyncio
+async def test_embedding_hit_resolves(monkeypatch) -> None:  # noqa: ANN001
+    monkeypatch.setattr("app.identify.visual_provider.embed", lambda img, *, model_path: np.zeros(384, np.float32))
+    store = InMemoryCaptureStorage()
+    ref = await store.save([_png()])
+    matches = [EmbeddingMatch(_identity("base1-4"), cosine=0.86), EmbeddingMatch(_identity("base1-9"), cosine=0.66)]
+    fallback = _FakeFallback(_SENTINEL)
+    provider = _embed_provider(store, _FakeEmbeddingIndex(matches), _FakeReader(CardRead(name="Charizard")), fallback)
+
+    result = await provider.recognize(_Bundle(bundle_id=ref))
+
+    assert result.candidates[0].identity.canonical_id == "base1-4"
+    assert fallback.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_embedding_miss_falls_through_to_hash(monkeypatch) -> None:  # noqa: ANN001
+    monkeypatch.setattr("app.identify.visual_provider.embed", lambda img, *, model_path: np.zeros(384, np.float32))
+    store = InMemoryCaptureStorage()
+    ref = await store.save([_png()])
+    # Embedding's nearest sits below the cosine cutoff → abstain to the hash tier, which has a hit.
+    emb = _FakeEmbeddingIndex([EmbeddingMatch(_identity("unrelated"), cosine=0.61)])
+    hash_hit = _FakeIndex([ImageMatch(_identity("base1-4"), distance=3)])
+    fallback = _FakeFallback(_SENTINEL)
+    provider = _embed_provider(store, emb, _FakeReader(CardRead(name="Charizard")), fallback, hash_index=hash_hit)
+
+    result = await provider.recognize(_Bundle(bundle_id=ref))
+
+    assert result.candidates[0].identity.canonical_id == "base1-4"
+    assert fallback.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_embedding_model_unavailable_falls_back(monkeypatch) -> None:  # noqa: ANN001
+    def _boom(img, *, model_path):  # noqa: ANN001, ARG001
+        raise EmbeddingModelUnavailable("no model")
+
+    monkeypatch.setattr("app.identify.visual_provider.embed", _boom)
+    store = InMemoryCaptureStorage()
+    ref = await store.save([_png()])
+    emb = _FakeEmbeddingIndex([EmbeddingMatch(_identity("base1-4"), cosine=0.9)])
+    fallback = _FakeFallback(_SENTINEL)
+    # No hash index → a model that won't load defers all the way to the text fallback.
+    provider = _embed_provider(store, emb, _FakeReader(CardRead(name="Charizard")), fallback)
+
+    result = await provider.recognize(_Bundle(bundle_id=ref))
+
+    assert result is _SENTINEL
+    assert fallback.calls == 1

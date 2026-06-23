@@ -1,7 +1,13 @@
 .deps/
+.embed-build/
 .venv/
 __pycache__/
 *.pyc
 .pytest_cache/
 .env
 *.db
+# Recognition build artefacts — deployed alongside the index as data, not committed.
+# (85MB ONNX model; the full-catalog index + its embedding sidecar.)
+data/recognition_model.onnx
+data/image_index.full.json
+data/image_index.full.f16.npy
