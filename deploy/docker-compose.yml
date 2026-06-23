@@ -48,7 +48,9 @@ services:
       # Real providers are the defaults (in-house OCR + TCGdex); pinned here for clarity.
       HOLOFY_RECOGNITION_PROVIDER: inhouse
       HOLOFY_CATALOG_PROVIDER: tcgdex
-      HOLOFY_PRICING_PROVIDER: tcgdex
+      # Native multi-market pricing (TCGplayer USD + Cardmarket EUR via pokemontcg.io), with a
+      # TCGdex EUR fallback and a TTL read-through cache. Overridable in deploy/.env.
+      HOLOFY_PRICING_PROVIDER: ${HOLOFY_PRICING_PROVIDER:-pokemontcg}
       HOLOFY_GRADING_PROVIDER: inhouse
       HOLOFY_AUTHENTICITY_PROVIDER: inhouse
       # Card images persist to disk on the mounted volume below (durable across redeploys).
