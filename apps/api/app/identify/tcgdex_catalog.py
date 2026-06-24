@@ -21,6 +21,7 @@ import httpx
 
 from app.core.errors import UpstreamUnavailableError
 from app.identify.catalog import CardRead, CatalogCard
+from app.identify.catalog_name_index import CatalogNameIndex
 from app.identify.collector_number import parse_collector_number
 from app.providers.pricing.tcgdex import CardNotFound, TcgdexClient
 from app.schemas.cards import CardIdentity, Variant
@@ -41,9 +42,18 @@ class TcgdexCatalogIndex:
     the same language the OCR read — which is what lets the resolver corroborate the name.
     """
 
-    def __init__(self, client: TcgdexClient, *, locales: Sequence[str] = ("en",)) -> None:
+    def __init__(
+        self,
+        client: TcgdexClient,
+        *,
+        locales: Sequence[str] = ("en",),
+        name_index: "CatalogNameIndex | None" = None,
+    ) -> None:
         self._client = client
         self._locales = tuple(locales) or ("en",)
+        # Accent-insensitive recall: consulted only when the direct (accent-sensitive) search
+        # returns nothing, so a diacritic the OCR dropped doesn't silently lose the card.
+        self._name_index = name_index
 
     async def find(self, read: CardRead) -> Sequence[CatalogCard]:
         if not read.name:
@@ -86,6 +96,13 @@ class TcgdexCatalogIndex:
             if number is not None and number.numerator is not None:
                 briefs = [b for b in briefs if _brief_numerator(b) == number.numerator] or briefs
             ids = [b["id"] for b in briefs[:_MAX_CANDIDATES] if b.get("id")]
+            # Direct search found nothing — the name likely carries a diacritic the OCR dropped
+            # (TCGdex's name filter is accent-sensitive). Recover via the de-accented name index.
+            if not ids and self._name_index is not None:
+                numerator = number.numerator if number is not None else None
+                ids = (await self._name_index.lookup(name, locale, numerator=numerator))[
+                    :_MAX_CANDIDATES
+                ]
             cards = await asyncio.gather(*(self._resolve(card_id, locale) for card_id in ids))
         except httpx.HTTPError as exc:
             # Surface as the typed upstream error; find() decides whether any locale survived.
