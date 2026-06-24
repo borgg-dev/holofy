@@ -83,6 +83,45 @@ async def test_find_without_a_name_returns_nothing() -> None:
 
 
 @pytest.mark.asyncio
+async def test_accented_name_misses_direct_search_but_recovers_via_name_index() -> None:
+    # The reported bug: OCR reads "Salameche" (no accent); TCGdex's accent-sensitive name search
+    # returns nothing, so without the de-accented name index the scan finds zero candidates.
+    from app.identify.catalog_name_index import CatalogNameIndex
+
+    full = [
+        {"id": "det1-4", "localId": "4", "name": "Salamèche"},
+        {"id": "sm7.5-1", "localId": "1", "name": "Salamèche"},
+    ]
+    card = {
+        "id": "det1-4",
+        "name": "Salamèche",
+        "localId": "4",
+        "set": {"name": "Détective Pikachu", "cardCount": {"official": 18}},
+        "variants": {"normal": True},
+    }
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/cards"):
+            # Accent-sensitive: the de-accented "Salameche" query matches nothing; the unfiltered
+            # bulk list (no name param) returns the real accented briefs.
+            if "name" in request.url.params:
+                return httpx.Response(200, json=[])
+            return httpx.Response(200, json=full)
+        if path.rsplit("/", 1)[-1] == "det1-4":
+            return httpx.Response(200, json=card)
+        return httpx.Response(404)
+
+    client = TcgdexClient(client=httpx.AsyncClient(transport=httpx.MockTransport(_handler)))
+    index = TcgdexCatalogIndex(
+        client, locales=["fr"], name_index=CatalogNameIndex(client, locales=["fr"])
+    )
+    cards = await index.find(CardRead(name="Salameche", collector_number="4/18"))
+    assert [c.identity.canonical_id for c in cards] == ["det1-4"]
+    await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_catalog_outage_raises_typed_upstream_error_not_500() -> None:
     # When TCGdex is unreachable, find() must raise the typed UpstreamUnavailableError (→ 502),
     # so a scan degrades to "try again", never a raw 500.

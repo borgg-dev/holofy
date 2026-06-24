@@ -156,6 +156,21 @@ class TcgdexClient:
         # The endpoint returns a bare list; tolerate an object envelope defensively.
         return payload if isinstance(payload, list) else payload.get("data", [])
 
+    async def list_all_cards(self, *, locale: str | None = None) -> list[dict]:
+        """Every card brief in a locale's catalog — the whole ``{id, localId, name}`` list.
+
+        One large response (~20k briefs) used to build the accent-insensitive name index:
+        TCGdex's ``name=`` filter is a *contains* match but accent-*sensitive*, so an OCR read
+        that drops a diacritic ("Salameche") never matches the catalog name ("Salamèche"). We
+        pull the full list once, de-accent locally, and match against that. Fetched rarely
+        (cached behind ``CatalogNameIndex``), never on the price hot path.
+        """
+        locale = locale or self._locale
+        response = await self._client.get(f"{self._api_root}/{locale}/cards")
+        response.raise_for_status()
+        payload = response.json()
+        return payload if isinstance(payload, list) else payload.get("data", [])
+
     async def get_card(self, card_id: str, *, locale: str | None = None) -> dict:
         """The full catalog record for a card id (set, collector total, variants, …)."""
         locale = locale or self._locale

@@ -47,6 +47,7 @@ def build_catalog_index(settings: Settings) -> tuple["CatalogIndex", TcgdexClien
         case CatalogBackend.INMEMORY:
             return InMemoryCatalogIndex(), None
         case CatalogBackend.TCGDEX:
+            from app.identify.catalog_name_index import CatalogNameIndex
             from app.identify.tcgdex_catalog import TcgdexCatalogIndex
 
             client = TcgdexClient(
@@ -54,8 +55,16 @@ def build_catalog_index(settings: Settings) -> tuple["CatalogIndex", TcgdexClien
                 locale=settings.tcgdex_locale,
                 timeout_seconds=settings.tcgdex_timeout_seconds,
             )
+            # Accent-insensitive recall over the same catalog: TCGdex's name search is
+            # accent-sensitive, so an OCR read that drops a diacritic ("Salameche") needs the
+            # de-accented index to recover the card ("Salamèche"). Warmed at startup.
+            name_index = CatalogNameIndex(client, locales=settings.tcgdex_recognition_locales)
             return (
-                TcgdexCatalogIndex(client, locales=settings.tcgdex_recognition_locales),
+                TcgdexCatalogIndex(
+                    client,
+                    locales=settings.tcgdex_recognition_locales,
+                    name_index=name_index,
+                ),
                 client,
             )
         case unknown:  # pragma: no cover - guards an unwired enum value
@@ -121,6 +130,9 @@ def build_recognition_provider(
                 min_similarity=settings.recognition_visual_min_similarity,
                 max_match_distance=settings.recognition_visual_max_distance,
             )
+            # Surface the accent-insensitive name index so the app lifespan can warm it at
+            # startup (the bulk catalog fetch is too slow to first pay on a user's scan).
+            provider.catalog_name_index = getattr(catalog, "_name_index", None)
             return provider, catalog_client
         case unknown:  # pragma: no cover - guards an unwired enum value
             raise ValueError(f"unsupported recognition backend: {unknown}")

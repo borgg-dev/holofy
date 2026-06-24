@@ -8,6 +8,7 @@ into the single ``ErrorResponse`` envelope the client parses.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from contextlib import asynccontextmanager
@@ -66,6 +67,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     app.state.recognition_provider = recognition_provider
     app.state.catalog_client = catalog_client
+    # Warm the accent-insensitive catalog name index in the background: the bulk per-locale
+    # brief fetch is too slow (~seconds) to first pay on a user's scan, so prefetch it now.
+    # Best-effort — a failed warm just leaves it to lazy-load on first need.
+    if (name_index := getattr(recognition_provider, "catalog_name_index", None)) is not None:
+        app.state.catalog_warm_task = asyncio.create_task(name_index.warm())
     pricing_provider, pricing_client = build_pricing_provider(settings)
     app.state.pricing_provider = pricing_provider
     app.state.pricing_client = pricing_client
@@ -101,6 +107,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        if (warm_task := getattr(app.state, "catalog_warm_task", None)) is not None:
+            warm_task.cancel()
         if pricing_client is not None:
             await pricing_client.aclose()
         if catalog_client is not None:
